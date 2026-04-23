@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Easy Hit | Forja de Cartas</title>
+    
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,10 +22,10 @@
 
     <nav class="tabs-container">
         <div class="tabs">
-            <button class="tab-item active" onclick="showSection('creator')">
+            <button class="tab-item active" id="tab-creator" onclick="showSection('creator')">
                 <span class="icon">⚒️</span> Creador
             </button>
-            <button class="tab-item" onclick="showSection('library')">
+            <button class="tab-item" id="tab-library" onclick="showSection('library')">
                 <span class="icon">📜</span> Biblioteca
             </button>
         </div>
@@ -121,13 +125,13 @@
                     </select>
                 </div>
 
-                <button id="saveCardBtn" disabled class="btn-forge">FORJAR CARTA</button>
+                <button id="saveCardBtn" class="btn-forge">FORJAR CARTA</button>
             </section>
 
             <section class="preview-container" id="preview-section">
                 <div class="sticky-preview">
                     <div class="card-preview" id="cardVisual">
-                        <div class="card-art" id="previewArt" style="background-image: url('https://via.placeholder.com/300x200?text=Easy+Hit')"></div>
+                        <div class="card-art" id="previewArt"></div>
                         <div class="card-body">
                             <div class="card-header-inner">
                                 <h3 id="previewName">Nombre</h3>
@@ -140,7 +144,7 @@
                                 <div class="stat-box">🛡️ <b id="statDEF">2500</b></div>
                                 <div class="stat-box">❤️ <b id="statHP">2400</b></div>
                             </div>
-                            <p class="passive-desc" id="previewPassive">Pasiva: Regeneración de HP</p>
+                            <p class="passive-desc" id="previewPassive">Pasiva: Selecciona una</p>
                         </div>
                     </div>
                 </div>
@@ -151,51 +155,51 @@
                     <h2>Tu Colección</h2>
                     <p>Todas tus cartas forjadas listas para el combate.</p>
                 </div>
-                <div id="cardsDeck" class="cards-deck">
-                    <div class="empty-state">
-                        <p>Aún no has forjado ninguna carta...</p>
-                    </div>
-                </div>
+                <div id="cardsDeck" class="cards-deck"></div>
             </section>
 
         </div>
     </main>
 
-    <div id="cropperModal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
-        <h3 style="margin-bottom: 15px; color: white;">Ajustar Imagen del Héroe</h3>
+    <div id="cropperModal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; justify-content:center; align-items:center; flex-direction:column; padding: 20px;">
+        <h3 style="margin-bottom: 15px; color: white; font-family: 'Inter', sans-serif;">Encuadra tu Héroe</h3>
         
-        <div class="modal-body-cropper">
-            <img id="imageToCrop" src="">
+        <div class="modal-body-cropper" style="max-width: 100%; max-height: 70vh; overflow: hidden; background: #000; border-radius: 8px;">
+            <img id="imageToCrop" style="display: block; max-width: 100%;">
         </div>
 
-        <div style="display: flex; gap: 15px;">
-            <button id="cancelCropBtn" class="tab-item">Cancelar</button>
-            <button id="cropImageBtn" class="btn-forge">AJUSTAR Y USAR</button>
+        <div style="display: flex; gap: 15px; margin-top: 20px;">
+            <button id="cancelCropBtn" class="tab-item" style="background: #334155; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cancelar</button>
+            <button id="cropImageBtn" class="btn-forge" style="padding: 10px 20px;">AJUSTAR Y USAR</button>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script src="script.js"></script>
+    
     <script>
         function showSection(section) {
             const creator = document.getElementById('creator');
             const preview = document.getElementById('preview-section');
             const library = document.getElementById('library');
-            const tabs = document.querySelectorAll('.tab-item');
+            const tabCreator = document.getElementById('tab-creator');
+            const tabLibrary = document.getElementById('tab-library');
 
             if (section === 'creator') {
                 creator.style.display = 'block';
                 preview.style.display = 'flex';
                 library.style.display = 'none';
+                tabCreator.classList.add('active');
+                tabLibrary.classList.remove('active');
             } else {
                 creator.style.display = 'none';
                 preview.style.display = 'none';
                 library.style.display = 'block';
+                tabLibrary.classList.add('active');
+                tabCreator.classList.remove('active');
+                // Al cambiar a biblioteca, refrescamos la lista de cartas
+                if(typeof displayCards === 'function') displayCards();
             }
-
-            tabs.forEach(tab => {
-                tab.classList.toggle('active', tab.innerText.toLowerCase().includes(section));
-            });
         }
     </script>
 </body>

@@ -315,6 +315,8 @@ body {
     position: relative;
     overflow: hidden;
     transition: transform 0.5s ease;
+    image-rendering: -webkit-optimize-contrast; /* Para Chrome/Safari */
+    image-rendering: crisp-edges;               /* Para Firefox */
 }
 
 /* EFECTO PRO: Sombra interna suave para que la imagen no "choque" con los bordes */

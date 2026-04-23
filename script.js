@@ -77,37 +77,39 @@ function handleFileSelect(e) {
     };
     reader.readAsDataURL(file);
 }
+
 function applyCrop() {
     if (!currentCropper) return;
 
-    // --- MEJORA CRÍTICA ---
-    // 1. Obtenemos los datos exactos del recorte que ha hecho el usuario (X, Y, Ancho, Alto)
-    const cropData = currentCropper.getData();
+    // 1. Calculamos el tamaño basado en tus variables de :root (multiplicado x2 para calidad)
+    const exportWidth = 280 * 2; 
+    const exportHeight = 200 * 2;
 
-    // 2. Extraemos el canvas pasándole *esos datos exactos*
-    // Forzamos el tamaño de salida (500x380) para que encaje píxel por píxel
-    // sin que el navegador tenga que adivinar la posición.
+    // 2. Obtenemos el canvas con super-resolución
     const canvas = currentCropper.getCroppedCanvas({
-        left: cropData.x,
-        top: cropData.y,
-        width: cropData.width,
-        height: cropData.height,
-        // Dimensiones de salida optimizadas y retina-ready
-        maxWidth: 500,
-        maxHeight: 380,
+        width: exportWidth,
+        height: exportHeight,
         imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high',
+        imageSmoothingQuality: 'high', // Crucial para que no se pixele
     });
 
-    // --- MEJORA DE OPTIMIZACIÓN ---
-    // Convertimos el canvas a JPEG optimizado (0.8 calidad) para LocalStorage
-    // Esto asegura que la carta se vea perfecta pero no pese 2MB.
-    croppedImageBase64 = canvas.toDataURL('image/jpeg', 0.8);
+    // 3. Convertimos a Base64 con calidad máxima
+    // Usamos image/jpeg con 0.95 para un equilibrio perfecto entre peso y nitidez
+    croppedImageBase64 = canvas.toDataURL('image/jpeg', 0.95);
     
-    // Feedback visual y limpieza
-    updatePreview(); 
+    // 4. Inyectamos en la preview
+    const art = document.getElementById('previewArt');
+    if (art) {
+        art.style.backgroundImage = `url('${croppedImageBase64}')`;
+        art.style.backgroundSize = 'cover';
+        art.style.backgroundPosition = 'center';
+    }
+
     closeCropper();
-    updateRemainingPoints(); // Refrescar puntos si la carta cambia
+    
+    // Si tienes un sistema de guardado, asegúrate de habilitar el botón ahora
+    const saveBtn = document.getElementById('saveCardBtn');
+    if (saveBtn) saveBtn.disabled = false;
 }
 
 function closeCropper() {
