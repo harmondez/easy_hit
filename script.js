@@ -1,140 +1,236 @@
-let cards = [];
+// --- 1. ESTADO DE LA APLICACIÓN ---
+let cards = JSON.parse(localStorage.getItem('easyHitLibrary')) || [];
+let currentCropper = null;
+let croppedImageBase64 = null; // Almacena la imagen final optimizada
 
-// --- 1. ESCUCHADORES DE EVENTOS (REACTIVIDAD) ---
-
-// Agrupamos los IDs que deben disparar la actualización de la Preview
-const inputIds = ['cardName', 'cardImg', 'cardElement', 'cardClass', 'inputHP', 'inputDEF', 'inputATQ', 'cardPassive'];
-
-inputIds.forEach(id => {
-    document.getElementById(id).addEventListener('input', () => {
-        // Cada vez que el usuario haga ALGO, ejecutamos ambas funciones
-        updateRemainingPoints();
-        updatePreview();
-    });
+// --- 2. INICIALIZACIÓN ---
+document.addEventListener('DOMContentLoaded', () => {
+    setupEventListeners();
+    updateRemainingPoints();
+    updatePreview();
+    displayCards();
 });
 
-// --- 2. LÓGICA DE PUNTOS ---
-
-function updateRemainingPoints() {
-    const hp = parseInt(document.getElementById('inputHP').value);
-    const def = parseInt(document.getElementById('inputDEF').value);
-    const atq = parseInt(document.getElementById('inputATQ').value);
+// --- 3. ESCUCHADORES DE EVENTOS ---
+function setupEventListeners() {
+    // IDs de inputs que disparan actualización visual (quitamos cardImg tipo URL)
+    const inputIds = ['cardName', 'cardElement', 'cardClass', 'inputHP', 'inputDEF', 'inputATQ', 'cardPassive'];
     
-    // Actualizamos los números pequeños al lado de los sliders
+    inputIds.forEach(id => {
+        document.getElementById(id).addEventListener('input', () => {
+            updateRemainingPoints();
+            updatePreview();
+        });
+    });
+
+    // Evento para subir archivo desde el PC
+    document.getElementById('cardImgFile').addEventListener('change', handleFileSelect);
+
+    // Botones del Modal de Recorte
+    document.getElementById('cropImageBtn').addEventListener('click', applyCrop);
+    document.getElementById('cancelCropBtn').addEventListener('click', closeCropper);
+
+    // Botón principal de guardado
+    document.getElementById('saveCardBtn').addEventListener('click', saveCard);
+}
+
+// --- 4. MANEJO DE IMÁGENES (FILE API + CROPPER) ---
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const imgElement = document.getElementById('imageToCrop');
+        imgElement.src = event.target.result;
+        
+        document.getElementById('cropperModal').style.display = 'flex';
+
+        if (currentCropper) currentCropper.destroy();
+
+        // Configuración profesional del cortador
+        currentCropper = new Cropper(imgElement, {
+            aspectRatio: 250 / 190, // Proporción exacta del arte de la carta
+            viewMode: 1,
+            dragMode: 'move',
+            autoCropArea: 1,
+            restore: false,
+            guides: true,
+            highlight: false,
+            cropBoxMovable: true,
+            cropBoxResizable: true
+        });
+    };
+    reader.readAsDataURL(file);
+}
+
+function applyCrop() {
+    if (!currentCropper) return;
+
+    // Extraer el canvas con tamaño optimizado (500x380 para nitidez)
+    const canvas = currentCropper.getCroppedCanvas({
+        width: 500,
+        height: 380,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+    });
+
+    // Convertir a JPEG 85% para balancear calidad/peso en LocalStorage
+    croppedImageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+    
+    updatePreview();
+    closeCropper();
+}
+
+function closeCropper() {
+    document.getElementById('cropperModal').style.display = 'none';
+    if (currentCropper) {
+        currentCropper.destroy();
+        currentCropper = null;
+    }
+}
+
+// --- 5. LÓGICA DE BALANCEO (7400 PTS) ---
+function updateRemainingPoints() {
+    const hp = parseInt(document.getElementById('inputHP').value) || 0;
+    const def = parseInt(document.getElementById('inputDEF').value) || 0;
+    const atq = parseInt(document.getElementById('inputATQ').value) || 0;
+    
+    const totalPoints = 7400;
+    const usedPoints = hp + def + atq;
+    const remainingPoints = totalPoints - usedPoints;
+
     document.getElementById('valHP').innerText = hp;
     document.getElementById('valDEF').innerText = def;
     document.getElementById('valATQ').innerText = atq;
 
-    const totalPoints = 7400;
-    const remainingPoints = totalPoints - (hp + def + atq);
-    
     const remainingEl = document.getElementById('remainingPts');
     remainingEl.innerText = remainingPoints;
 
-    // Advertencia técnica: Si es negativo, ponemos el número en rojo
+    const saveBtn = document.getElementById('saveCardBtn');
+    
     if (remainingPoints < 0) {
-        remainingEl.style.color = "red";
-        remainingEl.style.fontWeight = "bold";
-        document.getElementById('saveCardBtn').disabled = true;
+        remainingEl.style.color = "#ef4444";
+        saveBtn.disabled = true;
     } else {
-        remainingEl.style.color = "black"; // O el color de tu diseño
-        remainingEl.style.fontWeight = "normal";
-        document.getElementById('saveCardBtn').disabled = false;
+        remainingEl.style.color = "var(--primary)";
+        saveBtn.disabled = false;
     }
 }
 
-// --- 3. PREVISUALIZACIÓN EN VIVO ---
-
+// --- 6. PREVISUALIZACIÓN DINÁMICA ---
 function updatePreview() {
-    const name = document.getElementById('cardName').value;
-    const imgUrl = document.getElementById('cardImg').value;
-    const element = document.getElementById('cardElement').value;
-    const cardClass = document.getElementById('cardClass').value;
-    const hp = document.getElementById('inputHP').value;
-    const def = document.getElementById('inputDEF').value;
-    const atq = document.getElementById('inputATQ').value;
-    const passive = document.getElementById('cardPassive').value;
+    const data = {
+        name: document.getElementById('cardName').value || "Nombre del Héroe",
+        element: document.getElementById('cardElement').value,
+        class: document.getElementById('cardClass').value,
+        hp: document.getElementById('inputHP').value,
+        def: document.getElementById('inputDEF').value,
+        atq: document.getElementById('inputATQ').value,
+        passive: document.getElementById('cardPassive').value
+    };
 
     const elementIcons = {
-        'Fuego': '🔥', 'Agua': '💧', 'Rayo': '⚡',
-        'Naturaleza': '🌿', 'Viento': '🌬️', 'Luz': '✨', 'Oscuridad': '🌑'
+        'Fuego': '🔥', 'Agua': '💧', 'Rayo': '⚡', 'Naturaleza': '🌿', 
+        'Viento': '🌬️', 'Luz': '✨', 'Oscuridad': '🌑'
     };
 
     const passiveNames = {
         'regen': 'Regeneración de HP',
-        'reflect': 'Reflejo de Daño',
+        'reflect': 'Reflejo de Daño (%)',
         'poison': 'Envenenamiento',
-        'control': 'Paralizar',
+        'control': 'Parálisis',
         'atk_boost': 'Aumento ATQ Masivo',
-        'risk': 'Gran Daño (Prob. Fallo)'
+        'risk': 'Daño Crítico (Prob. Fallo)'
     };
 
-    // Inyectar en el DOM
-    document.getElementById('previewName').innerText = name || "Nombre de Carta";
-    document.getElementById('previewElement').innerText = elementIcons[element] || '❓';
-    
-    const artContainer = document.getElementById('previewArt');
-    artContainer.style.backgroundImage = imgUrl.trim() !== "" ? `url('${imgUrl}')` : `url('https://via.placeholder.com/200?text=Imagen')`;
+    document.getElementById('previewName').innerText = data.name;
+    document.getElementById('previewElement').innerText = elementIcons[data.element];
+    document.getElementById('previewClass').innerText = data.class;
+    document.getElementById('statHP').innerText = data.hp;
+    document.getElementById('statDEF').innerText = data.def;
+    document.getElementById('statATQ').innerText = data.atq;
+    document.getElementById('previewPassive').innerText = `Pasiva: ${passiveNames[data.passive]}`;
 
-    document.getElementById('previewClass').innerText = `Clase: ${cardClass}`;
-    document.getElementById('statHP').innerText = hp;
-    document.getElementById('statDEF').innerText = def;
-    document.getElementById('statATQ').innerText = atq;
-    document.getElementById('previewPassive').innerText = `Pasiva: ${passiveNames[passive] || 'Selecciona una...'}`;
+    const art = document.getElementById('previewArt');
+    // Usamos la imagen cortada si existe, si no, un placeholder
+    art.style.backgroundImage = croppedImageBase64 ? `url('${croppedImageBase64}')` : `url('https://via.placeholder.com/300x200?text=Subir+Imagen')`;
 }
 
-// --- 4. GESTIÓN DE BIBLIOTECA ---
-
-document.getElementById('saveCardBtn').addEventListener('click', () => {
+// --- 7. GESTIÓN DE LA BIBLIOTECA ---
+function saveCard() {
     const card = {
-        name: document.getElementById('cardName').value,
-        img: document.getElementById('cardImg').value,
+        id: Date.now(),
+        name: document.getElementById('cardName').value || "Héroe sin nombre",
+        img: croppedImageBase64, // Aquí se guarda la imagen real en Base64
         element: document.getElementById('cardElement').value,
         cardClass: document.getElementById('cardClass').value,
-        hp: parseInt(document.getElementById('inputHP').value),
-        def: parseInt(document.getElementById('inputDEF').value),
-        atq: parseInt(document.getElementById('inputATQ').value),
-        passive: document.getElementById('cardPassive').value
+        hp: document.getElementById('inputHP').value,
+        def: document.getElementById('inputDEF').value,
+        atq: document.getElementById('inputATQ').value,
+        passive: document.getElementById('cardPassive').options[document.getElementById('cardPassive').selectedIndex].text
     };
-    
+
     cards.push(card);
+    syncStorage();
     displayCards();
     clearForm();
-});
+    
+    if(typeof showSection === 'function') showSection('library');
+}
+
+function deleteCard(id) {
+    if(confirm('¿Eliminar esta carta de la colección?')) {
+        cards = cards.filter(c => c.id !== id);
+        syncStorage();
+        displayCards();
+    }
+}
 
 function displayCards() {
-    const cardsDeck = document.getElementById('cardsDeck');
-    cardsDeck.innerHTML = ''; 
+    const deck = document.getElementById('cardsDeck');
+    if (!deck) return;
+
+    if (cards.length === 0) {
+        deck.innerHTML = '<div class="empty-state"><p>Aún no has forjado ninguna carta...</p></div>';
+        return;
+    }
+
+    deck.innerHTML = '';
     cards.forEach(card => {
         const cardDiv = document.createElement('div');
-        cardDiv.className = 'card-preview'; // Misma clase CSS para todas
+        cardDiv.className = 'card-preview';
         cardDiv.innerHTML = `
-            <div class="card-art" style="background-image: url('${card.img || 'https://via.placeholder.com/300x200?text=Easy+Hit'}');"></div>
+            <div class="card-art" style="background-image: url('${card.img || 'https://via.placeholder.com/300x200?text=Sin+Arte'}')"></div>
             <div class="card-body">
-                <div class="card-header">
+                <div class="card-header-inner">
                     <h3>${card.name}</h3>
                 </div>
-                <div class="meta-info">
-                    ${card.element} | ${card.cardClass}
-                </div>
+                <div class="meta-info">${card.element} | ${card.cardClass}</div>
                 <div class="preview-stats">
-                    <div>⚔️ <b>${card.atq}</b></div>
-                    <div>🛡️ <b>${card.def}</b></div>
-                    <div>❤️ <b>${card.hp}</b></div>
+                    <div class="stat-box">⚔️ <b>${card.atq}</b></div>
+                    <div class="stat-box">🛡️ <b>${card.def}</b></div>
+                    <div class="stat-box">❤️ <b>${card.hp}</b></div>
                 </div>
                 <p class="passive-desc">${card.passive}</p>
+                <button class="btn-delete" onclick="deleteCard(${card.id})" style="margin-top:10px; background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.7rem; font-weight:bold;">[ ELIMINAR ]</button>
             </div>
         `;
-        cardsDeck.appendChild(cardDiv);
+        deck.appendChild(cardDiv);
     });
+}
+
+function syncStorage() {
+    localStorage.setItem('easyHitLibrary', JSON.stringify(cards));
 }
 
 function clearForm() {
     document.getElementById('cardName').value = '';
-    document.getElementById('cardImg').value = '';
+    document.getElementById('cardImgFile').value = '';
+    croppedImageBase64 = null;
     document.getElementById('inputHP').value = 2400;
     document.getElementById('inputDEF').value = 2500;
     document.getElementById('inputATQ').value = 2500;
     updateRemainingPoints();
-    updatePreview(); // Limpiamos también la previsualización
+    updatePreview();
 }
