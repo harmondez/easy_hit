@@ -48,38 +48,66 @@ function handleFileSelect(e) {
 
         if (currentCropper) currentCropper.destroy();
 
-        // Configuración profesional del cortador
+        // CONFIGURACIÓN DE UX AVANZADA (MODO INSTAGRAM)
         currentCropper = new Cropper(imgElement, {
-            aspectRatio: 250 / 190, // Proporción exacta del arte de la carta
-            viewMode: 1,
-            dragMode: 'move',
-            autoCropArea: 1,
-            restore: false,
-            guides: true,
+            // PROPORCIÓN: Forzamos 1:1 (cuadrado) para que el círculo sea perfecto
+            aspectRatio: 1 / 1, 
+            
+            // UX DEFAULT: El usuario mueve y hace zoom a la foto con el ratón/dedo
+            dragMode: 'move', 
+            viewMode: 1, // La foto siempre debe cubrir la zona del círculo
+            
+            // INTERFAZ: Mostramos el círculo, ocultamos lo feo
+            modal: false, // Desactivamos el oscurecimiento nativo (lo hacemos nosotros por CSS)
+            guides: true, // Guías de tercios (muy útil)
+            center: false, // Ocultamos la cruz del centro
             highlight: false,
-            cropBoxMovable: true,
-            cropBoxResizable: true
+            responsive: true,
+            restore: false,
+            
+            // GESTIÓN DEL CUADRO: El cuadro es fijo, no se puede redimensionar
+            cropBoxMovable: false, 
+            cropBoxResizable: false, 
+            
+            // ZOOM: Activamos zoom y sensibilidad
+            zoomable: true,
+            wheelZoomRatio: 0.1, // Sensibilidad con rueda de ratón
+            toggleDragModeOnDblclick: false, // Evitar clics accidentales
         });
     };
     reader.readAsDataURL(file);
 }
-
 function applyCrop() {
     if (!currentCropper) return;
 
-    // Extraer el canvas con tamaño optimizado (500x380 para nitidez)
+    // --- MEJORA CRÍTICA ---
+    // 1. Obtenemos los datos exactos del recorte que ha hecho el usuario (X, Y, Ancho, Alto)
+    const cropData = currentCropper.getData();
+
+    // 2. Extraemos el canvas pasándole *esos datos exactos*
+    // Forzamos el tamaño de salida (500x380) para que encaje píxel por píxel
+    // sin que el navegador tenga que adivinar la posición.
     const canvas = currentCropper.getCroppedCanvas({
-        width: 500,
-        height: 380,
+        left: cropData.x,
+        top: cropData.y,
+        width: cropData.width,
+        height: cropData.height,
+        // Dimensiones de salida optimizadas y retina-ready
+        maxWidth: 500,
+        maxHeight: 380,
         imageSmoothingEnabled: true,
         imageSmoothingQuality: 'high',
     });
 
-    // Convertir a JPEG 85% para balancear calidad/peso en LocalStorage
-    croppedImageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+    // --- MEJORA DE OPTIMIZACIÓN ---
+    // Convertimos el canvas a JPEG optimizado (0.8 calidad) para LocalStorage
+    // Esto asegura que la carta se vea perfecta pero no pese 2MB.
+    croppedImageBase64 = canvas.toDataURL('image/jpeg', 0.8);
     
-    updatePreview();
+    // Feedback visual y limpieza
+    updatePreview(); 
     closeCropper();
+    updateRemainingPoints(); // Refrescar puntos si la carta cambia
 }
 
 function closeCropper() {

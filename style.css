@@ -12,7 +12,7 @@
     /* Estilo de Carta TCG */
     --card-width: 280px;
     --card-height: 400px;
-    --art-height: 200px;
+    --art-height: 320px;
     --card-radius: 18px;
     --shadow-tcg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
 }
@@ -97,6 +97,64 @@ body {
     width: 90%;
     padding-bottom: 50px;
 }
+
+/* --- ESTILOS PARA EL CROPPER "ESTILO INSTAGRAM" --- */
+
+/* 1. Oscurecer el fondo que rodea la imagen para dar enfoque */
+.modal-body-cropper {
+    background-color: #000; /* Negro puro detrás de la foto */
+    overflow: hidden; /* Evitar que la imagen grande se salga del modal */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 2. El recuadro de recorte nativo lo hacemos invisible pero mantenemos los manejadores */
+.cropper-view-box,
+.cropper-face {
+    border: none !important; /* Quitamos el borde cuadrado por defecto */
+    outline: none !important;
+}
+
+/* 3. Recreamos el círculo gris claro (como en tu ejemplo) */
+.cropper-face {
+    background-color: transparent !important; /* Limpio por dentro */
+    
+    /* El borde gris claro del círculo */
+    border: 3px solid rgba(226, 232, 240, 0.7) !important; 
+    border-radius: 50%; /* ¡ESTO HACE EL CÍRCULO! */
+    
+    /* Sombra externa muy difuminada para que parezca que está "encima" */
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4); 
+}
+
+/* 4. Creamos los costados oscuros (overlay) */
+/* Usamos el contenedor de la foto de Cropper para proyectar el oscurecimiento */
+.cropper-container {
+    position: relative;
+}
+
+/* Sombra que viene desde la izquierda y derecha de la foto */
+.cropper-container::before,
+.cropper-container::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 25%; /* Ajusta esto según cuánto quieras que se oscurezca a los lados */
+    height: 100%;
+    /* Degradado oscuro para que se sienta integrado con el fondo negro */
+    background: linear-gradient(to right, rgba(0,0,0,0.9), rgba(0,0,0,0.5) 70%, transparent);
+    pointer-events: none; /* Crucial: Para que el usuario pueda hacer zoom a la foto de abajo */
+    z-index: 10; /* Por encima de la foto, por debajo del círculo */
+}
+
+/* Espejamos la sombra para el lado derecho */
+.cropper-container::after {
+    left: auto;
+    right: 0;
+    background: linear-gradient(to left, rgba(0,0,0,0.9), rgba(0,0,0,0.5) 70%, transparent);
+}
+
 
 .creator-container {
     display: grid;
@@ -231,22 +289,48 @@ body {
 
 .card-preview {
     width: var(--card-width);
-    height: var(--card-height);
-    background: linear-gradient(145deg, #1e293b, #0f172a);
-    border: 6px solid #1a1a1a;
-    border-radius: var(--card-radius);
-    overflow: hidden;
+    min-height: 500px; /* Alargamos la carta total */
     display: flex;
     flex-direction: column;
-    box-shadow: var(--shadow-tcg);
+    background: #fff;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
 }
 
 .card-art {
     height: var(--art-height);
     background-size: cover;
     background-position: center;
-    background-color: #334155;
-    border-bottom: 4px solid #1a1a1a;
+    background-repeat: no-repeat;
+    background-color: #1e293b;
+    
+    /* 1. Borde interno sutil para dar profundidad */
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+    
+    /* 2. Separación más limpia */
+    border-bottom: 3px solid var(--primary); /* Usamos el color de tu app */
+    
+    /* 3. Preparación para efectos (opcional) */
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.5s ease;
+}
+
+/* EFECTO PRO: Sombra interna suave para que la imagen no "choque" con los bordes */
+.card-art::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 40%; /* Un degradado que viene desde abajo */
+    background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+    pointer-events: none;
+}
+
+.card-preview:hover .card-art {
+    transform: scale(1.05); /* Zoom suave al arte al pasar el ratón */
 }
 
 .card-body {
@@ -255,6 +339,8 @@ body {
     display: flex;
     flex-direction: column;
     background: #f8fafc; /* Contraste para el texto */
+    justify-content: space-between;
+    text-align: center;
     color: #0f172a;
 }
 
@@ -275,17 +361,16 @@ body {
 
 .preview-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 8px;
-    margin-bottom: 10px;
+    margin: 10px 0;
 }
 
 .stat-box {
-    background: #e2e8f0;
+    background: #f1f5f9;
     padding: 8px 4px;
     border-radius: 8px;
-    text-align: center;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
 }
 
 .passive-desc {
@@ -327,10 +412,16 @@ body {
     }
 }
 
-/* Asegura que el contenedor del cropper no se rompa */
+/* Contenedor del Modal */
+#cropperModal {
+    backdrop-filter: blur(8px); /* Efecto cristal de fondo */
+}
+
+/* El contenedor donde vive la imagen a recortar */
+
 #imageToCrop {
     display: block;
-    max-width: 100%;
+    max-width: 100%;       /* Evita que la imagen sea más grande que el modal */
 }
 
 /* Mejora el input de archivo para que no rompa el diseño */
@@ -343,4 +434,28 @@ input[type="file"]::file-selector-button {
     cursor: pointer;
     margin-right: 10px;
     font-weight: 600;
+}
+
+.custom-file-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--bg-input);
+    border: 1px dashed var(--border-color);
+    color: var(--text-main);
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.custom-file-btn:hover {
+    border-color: var(--primary);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.custom-file-btn .icon {
+    font-size: 1.1rem;
 }
