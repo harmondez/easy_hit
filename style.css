@@ -1,0 +1,228 @@
+:root {
+    /* Paleta de colores que evoca un estilo moderno */
+    --card-bg-light: #f0f8ff; /* Fondo del cuadro de texto (papiro/papel) */
+    --card-bg-dark: #2c3e50;  /* Fondo para cartas de elementos oscuros */
+    --text-color: #34495e;
+    --border-color: #2980b9; /* Borde azul vibrante */
+    --shadow-tcg: 0 4px 15px rgba(0, 0, 0, 0.25); /* Sombra vibrante */
+    
+    /* Varias propiedades de diseño de cartas */
+    --card-width: 250px;
+    --card-height: 380px; /* Proporción 2.5:3.8 aprox */
+    --art-height: 190px; /* La imagen ocupa la mitad */
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #ecf0f1; /* Fondo gris claro con un ligero resplandor */
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.header-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+}
+
+.header-subtitle {
+    font-size: 1.2rem;
+    color: #7f8c8d;
+}
+
+.tabs {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.tab-item {
+    background-color: #2980b9;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin: 0 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    border-radius: 5px;
+}
+
+.tab-item:hover {
+    background-color: #3498db;
+}
+
+.tab-item.active {
+    background-color: #1abc9c; /* Color para la pestaña activa */
+}
+
+.creator-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    max-width: 800px;
+    width: 100%;
+}
+
+/* --- SECCIÓN CONTROLES --- */
+.controls {
+    background: #fff;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-tcg);
+}
+
+.input-group, .grid-selectors {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.input-item, .select-item {
+    flex: 1;
+}
+
+.input-label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+.input-field {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: border-color 0.3s;
+}
+
+.input-field:focus {
+    border-color: #3498db; /* Cambio de color al enfocar */
+}
+
+.stats-config {
+    margin-bottom: 20px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.budget-status {
+    text-align: center;
+    padding-top: 10px;
+    font-weight: bold;
+    color: #16a085; /* Color de texto más vibrante */
+}
+
+.button {
+    width: 100%;
+    padding: 12px;
+    background: #27ae60; /* Verde vibrante */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.button:hover {
+    background: #2ecc71; /* Verde más claro cuando está en hover */
+}
+
+/* --- EL RECTÁNGULO DE LA CARTA (TCG Style) --- */
+.card-preview {
+    width: var(--card-width);
+    height: var(--card-height);
+    background-color: var(--card-bg-light);
+    border: 3px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-tcg);
+    transition: transform 0.2s ease;
+}
+
+.card-preview:hover {
+    transform: translateY(-5px); /* Efecto flotante al hover */
+}
+
+/* --- HEADER DE LA CARTA (Imagen) --- */
+.card-art {
+    width: 100%;
+    height: var(--art-height);
+    background-size: cover;
+    background-position: center;
+    background-color: #2980b9;
+}
+
+/* --- BODY DE LA CARTA (Texto) --- */
+.card-body {
+    padding: 10px 15px;
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    height: calc(var(--card-height) - var(--art-height));
+}
+
+/* Nombre (Título) */
+.card-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 800;
+    text-align: center;
+    text-transform: capitalize;
+    margin-bottom: 8px;
+}
+
+/* Clase y Elemento */
+.meta-info {
+    font-size: 0.75rem;
+    color: #666;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+/* Estadísticas (Grid compacta) */
+.preview-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    text-align: center;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+}
+
+/* Pasiva (Texto) */
+.passive-desc {
+    font-size: 0.75rem;
+    font-style: italic;
+    color: #8e44ad; /* Color morado para el texto de habilidad pasiva */
+    text-align: center;
+    margin-top: auto; /* Empuja hacia abajo */
+}
+
+/* --- BIBLIOTECA --- */
+.cards-deck {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    justify-items: center; /* Centrar cartas en el grid */
+}
+
+.library {
+    margin-top: 40px;
+    width: 100%;
+}

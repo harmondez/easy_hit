@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy Hit | Forja de Cartas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="header">
+        <h1 class="header-title">EASY HIT <span class="header-subtitle">LABS</span></h1>
+        <p class="header-subtitle">Arquitecto Harmondez Edition</p>
+    </header>
+
+    <nav class="tabs">
+        <button class="tab-item active" onclick="showSection('creator')">Creador</button>
+        <button class="tab-item" onclick="showSection('library')">Biblioteca</button>
+    </nav>
+
+    <div class="creator-container">
+        <section class="controls" id="creator" style="display: block;">
+            <h2>Configuración de Carta</h2>
+            <div class="input-group">
+                <div class="input-item">
+                    <label for="cardName" class="input-label">Nombre del Héroe</label>
+                    <input type="text" id="cardName" placeholder="Ej: Alistair, el Toro" maxlength="25" class="input-field">
+                </div>
+                <div class="input-item">
+                    <label for="cardImg" class="input-label">URL de Imagen</label>
+                    <input type="url" id="cardImg" placeholder="https://..." class="input-field">
+                </div>
+            </div>
+
+            <div class="grid-selectors">
+                <div class="select-item">
+                    <label for="cardElement" class="input-label">Elemento Primario</label>
+                    <select id="cardElement" class="input-field">
+                        <option value="Fuego">Fuego 🔥</option>
+                        <option value="Agua">Agua 💧</option>
+                        <option value="Rayo">Rayo ⚡</option>
+                        <option value="Naturaleza">Naturaleza 🌿</option>
+                        <option value="Viento">Viento 🌬️</option>
+                        <option value="Luz">Luz ✨</option>
+                        <option value="Oscuridad">Oscuridad 🌑</option>
+                    </select>
+                </div>
+                <div class="select-item">
+                    <label for="cardClass" class="input-label">Clase Social</label>
+                    <select id="cardClass" class="input-field">
+                        <option value="Robot">Robot 🤖</option>
+                        <option value="Dragón">Dragón 🐉</option>
+                        <option value="Humano">Humano 👤</option>
+                        <option value="Espectro">Espectro 👻</option>
+                        <option value="Neutral">Neutral 😐</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="stats-config">
+                <div class="stat-row">
+                    <label>Vida (HP) <span id="valHP" class="stat-value">2400</span></label>
+                    <input type="range" id="inputHP" min="1" max="7400" value="2400">
+                </div>
+                <div class="stat-row">
+                    <label>Escudo (DEF) <span id="valDEF" class="stat-value">2500</span></label>
+                    <input type="range" id="inputDEF" min="1" max="7400" value="2500">
+                </div>
+                <div class="stat-row">
+                    <label>Poder (ATQ) <span id="valATQ" class="stat-value">2500</span></label>
+                    <input type="range" id="inputATQ" min="1" max="7400" value="2500">
+                </div>
+                
+                <div class="budget-status">
+                    <span id="budgetMessage">Puntos restantes: <b id="remainingPts">0</b></span>
+                </div>
+            </div>
+
+            <div class="input-group" style="margin-top: 20px;">
+                <label for="cardPassive" class="input-label">Habilidad Pasiva</label>
+                <select id="cardPassive" class="input-field">
+                    <option value="regen">Regeneración de HP</option>
+                    <option value="reflect">Reflejo de Daño (%)</option>
+                    <option value="poison">Envenenamiento</option>
+                    <option value="control">Parálisis</option>
+                    <option value="atk_boost">Aumento ATQ Masivo</option>
+                    <option value="risk">Daño Crítico (Prob. Fallo)</option>
+                </select>
+            </div>
+
+            <button id="saveCardBtn" disabled class="button">FORJAR CARTA</button>
+        </section>
+
+        <section class="preview">
+            <div class="card-preview" id="cardVisual">
+                <div class="card-art" id="previewArt" style="background-image: url('https://via.placeholder.com/300x200?text=Easy+Hit')"></div>
+                
+                <div class="card-body">
+                    <div class="card-header">
+                        <h3 id="previewName">Nombre</h3>
+                    </div>
+                    <div class="meta-info">
+                        <span id="previewElement">🔥</span> | <span id="previewClass">Humano</span>
+                    </div>
+                    <div class="preview-stats">
+                        <div>⚔️ <b id="statATQ">2500</b></div>
+                        <div>🛡️ <b id="statDEF">2500</b></div>
+                        <div>❤️ <b id="statHP">2400</b></div>
+                    </div>
+                    <p class="passive-desc" id="previewPassive">Pasiva: Regeneración de HP</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="library" id="library" style="display: none;">
+            <h2>Tu Colección</h2>
+            <div id="cardsDeck" class="cards-deck">
+                </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        function showSection(section) {
+            document.getElementById('creator').style.display = section === 'creator' ? 'block' : 'none';
+            document.getElementById('library').style.display = section === 'library' ? 'block' : 'none';
+
+            // Update tab styles
+            const tabs = document.querySelectorAll('.tab-item');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            document.querySelector(`.tab-item[onclick*="${section}"]`).classList.add('active');
+        }
+    </script>
+</body>
+</html>
