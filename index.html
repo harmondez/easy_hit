@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy Hit | Card Forge</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="header">
+        <div class="header-content">
+            <h1 class="header-title">EASY HIT <span class="header-accent">LABS</span></h1>
+            <p class="header-tagline">Architect Harmondez Edition</p>
+        </div>
+    </header>
+
+    <nav class="tabs-container">
+        <div class="tabs">
+            <button class="tab-item active" id="tab-library" onclick="showSection('library')">
+                <span class="icon">📜</span> Library
+            </button>
+            <button class="tab-item" id="tab-creator" onclick="showSection('creator')">
+                <span class="icon">⚒️</span> Creator
+            </button>
+            <button class="tab-item" id="tab-coliseo" onclick="showSection('coliseo')">
+                <span class="icon">⚔️</span> Coliseum
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        
+        <section class="section-container full-width" id="library">
+            <div class="section-header">
+                <h2>Your Collection</h2>
+                <p>All your forged cards ready for battle.</p>
+                
+                <div class="library-actions" style="margin-top: 15px; display: flex; gap: 10px;">
+                    <button onclick="exportarBiblioteca()" class="tab-item" style="background: var(--primary); font-size: 0.8rem;">
+                        <span class="icon">📥</span> Export JSON
+                    </button>
+                    
+                    <label for="importJSON" class="tab-item" style="cursor:pointer; background: var(--border-color); font-size: 0.8rem;">
+                        <span class="icon">📤</span> Import JSON
+                    </label>
+                    <input type="file" id="importJSON" accept=".json" style="display:none" onchange="importarBiblioteca(event)">
+                </div>
+            </div>
+            
+            <div id="cardsDeck" class="cards-deck">
+                </div>
+        </section>
+
+    <div class="creator-container" id="creatorMainGroup" style="display:none">
+            
+            <section class="section-container" id="creator">
+                <div class="section-header">
+                    <h2>Card Configuration</h2>
+                    <p>Design the stats and the essence of your hero.</p>
+                </div>
+
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="cardName" class="input-label">Hero Name</label>
+                        <input type="text" id="cardName" placeholder="Ex: Alistair, the Bull" maxlength="25" class="input-field">
+                    </div>
+                    
+                    
+
+                    <div class="input-group">
+                        <label for="cardImgFile" class="input-label">Upload Image</label>
+                        <div class="file-upload-wrapper">
+                            <label for="cardImgFile" class="custom-file-btn">
+                                <span class="icon">🖼️</span> Select file
+                            </label>
+                            <input type="file" id="cardImgFile" accept="image/*" class="input-field" style="display: none;">
+                        </div>
+                        <small id="fileName" style="color: var(--text-muted); font-size: 0.7rem; margin-top: 5px;">No file selected</small>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="cardElement" class="input-label">Element</label>
+                        <select id="cardElement" class="input-field">
+                            <option value="Fuego">Fire 🔥</option>
+                            <option value="Agua">Water 💧</option>
+                            <option value="Rayo">Lightning ⚡</option>
+                            <option value="Naturaleza">Nature 🌿</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="cardClass" class="input-label">Class</label>
+                        <select id="cardClass" class="input-field">
+                            <option value="Robot">Robot</option>
+                            <option value="Dragón">Dragon</option>
+                            <option value="Humano">Human</option>
+                            <option value="Espectro">Spectre</option>
+                            <option value="Neutral">Neutral</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="stats-workshop">
+                    <div class="stat-control">
+                        <div class="stat-info">
+                            <span>Health (HP)</span>
+                            <b id="valHP" class="stat-number">2400</b>
+                        </div>
+                        <input type="range" id="inputHP" min="1" max="7400" value="2400" class="range-slider">
+                    </div>
+
+                    <div class="stat-control">
+                        <div class="stat-info">
+                            <span>Shield (DEF)</span>
+                            <b id="valDEF" class="stat-number">2500</b>
+                        </div>
+                        <input type="range" id="inputDEF" min="1" max="7400" value="2500" class="range-slider">
+                    </div>
+
+                    <div class="stat-control">
+                        <div class="stat-info">
+                            <span>Power (ATQ)</span>
+                            <b id="valATQ" class="stat-number">2500</b>
+                        </div>
+                        <input type="range" id="inputATQ" min="1" max="7400" value="2500" class="range-slider">
+                    </div>
+                    
+                    <div class="budget-card">
+                        <span id="budgetMessage">Available points</span>
+                        <div class="remaining-points"><span id="remainingPts">0</span></div>
+                    </div>
+                </div>
+
+                <div class="input-group full-width">
+                    <label for="cardPassive" class="input-label">Passive Ability</label>
+                    <select id="cardPassive" class="input-field" style="background-color: var(--bg-input);">
+                        <optgroup label="I. Genesis Family (Turn 1)">
+                            <option value="gen_block_heal">Sacred Veil: Blocks 1st attack and adds to HP</option>
+                            <option value="gen_reflect_full">Broken Mirror: 1st strike reflects 100% damage</option>
+                            <option value="gen_steal_stats">Soul Thief: Steals 40% of enemy stats as ATK</option>
+                        </optgroup>
+                        <optgroup label="II. Nemesis Family (Conditional)">
+                            <option value="nem_xenophobia">Xenophobia: Double stats if rival is NOT Human</option>
+                            <option value="nem_dragon_slayer">Dragon Slayer: Ignores 50% DEF vs Dragons</option>
+                            <option value="nem_element_ward">Lightning Rod: Reduces 50% ATK if rival is Lightning</option>
+                        </optgroup>
+                        <optgroup label="III. Progression Family (Scaling)">
+                            <option value="prog_scale_stats">Growth: +10% ATK & DEF per round</option>
+                            <option value="prog_venom">Venomous: Drains 5% of rival HP per round</option>
+                            <option value="prog_drain_def">Metal Fatigue: Reduces 10% of rival DEF per round</option>
+                        </optgroup>
+                        <optgroup label="IV. Absorption & Reflection (Reactive)">
+                            <option value="abs_def_convert">Iron Skin: Converts 50% of damage into DEF</option>
+                            <option value="abs_hp_convert">Leech: Absorbs 30% of damage as HP</option>
+                            <option value="abs_reflect">Thorn Armor: Reflects 20% of damage received</option>
+                        </optgroup>
+                        <optgroup label="V. Phoenix Family (Life Threshold)">
+                            <option value="fen_revive">Graceful Strike: Absorbs lethal hit as HP and strikes back</option>
+                            <option value="fen_berserker">Berserker: ATK x3 when dropping below 30% HP</option>
+                            <option value="fen_antimatter">Overkill: Detonates core upon death (Negative Victory)</option>
+                            <option value="fen_last_stand">Last Stand: DEF x4 when dropping below 20% HP</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <button id="saveCardBtn" class="btn-forge">FORGE CARD</button>
+            </section>
+
+            <section class="preview-container" id="preview-section">
+                <div class="sticky-preview">
+                    <div class="card-preview" id="cardVisual">
+                        <div class="card-art" id="previewArt"></div>
+                        <div class="card-body">
+                            <div class="card-header-inner">
+                                <h3 id="previewName">Name</h3>
+                            </div>
+                            <div class="meta-info">
+                                <span id="previewElement">🔥</span> | <span id="previewClass">Human</span>
+                            </div>
+                            <div class="preview-stats">
+                                <div class="stat-box">⚔️ <b id="statATQ">2500</b></div>
+                                <div class="stat-box">🛡️ <b id="statDEF">2500</b></div>
+                                <div class="stat-box">❤️ <b id="statHP">2400</b></div>
+                            </div>
+                            <p class="passive-desc" id="previewPassive">Passive: Select one</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <section class="section-container full-width" id="coliseo" style="display: none;">
+            <div class="section-header">
+                <h2>Battle Coliseum</h2>
+                <p>Select two heroes, enter the arena, and let the steel do the talking.</p>
+            </div>
+            
+            <div class="arena-setup">
+                <div class="fighter-select">
+                    <label class="input-label">Fighter 1</label>
+                    <input type="text" id="searchFighter1" placeholder="Search by name..." class="input-field" style="margin-bottom: 8px; width: 100%; box-sizing: border-box;">
+                    <select id="fighter1Select" class="input-field"></select>
+                </div>
+                <div class="vs-badge">VS</div>
+                <div class="fighter-select">
+                    <label class="input-label">Fighter 2</label>
+                    <input type="text" id="searchFighter2" placeholder="Search by name..." class="input-field" style="margin-bottom: 8px; width: 100%; box-sizing: border-box;">
+                    <select id="fighter2Select" class="input-field"></select>
+                </div>
+            </div>
+
+            <div class="arena-actions">
+                <button id="btnLuchar" class="btn-forge" onclick="iniciarCombate()">FIGHT</button>
+                <button id="btnSiguiente" class="btn-forge" onclick="ejecutarRonda()" style="display: none; background: linear-gradient(to bottom, #d97706, #b45309);">NEXT ROUND</button>
+            </div>
+
+            <div class="combat-console" id="combatLog">
+                <div class="log-entry system">The arena awaits the contenders...</div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="cropperModal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; justify-content:center; align-items:center; flex-direction:column; padding: 20px;">
+        <h3 style="margin-bottom: 15px; color: white; font-family: 'Inter', sans-serif;">Frame Your Hero</h3>
+        
+        <div class="modal-body-cropper" style="max-width: 100%; max-height: 70vh; overflow: hidden; background: #000; border-radius: 8px;">
+            <img id="imageToCrop" style="display: block; max-width: 100%;">
+        </div>
+
+        <div style="display: flex; gap: 15px; margin-top: 20px;">
+            <button id="cancelCropBtn" class="tab-item" style="background: #334155; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
+            <button id="cropImageBtn" class="btn-forge" style="padding: 10px 20px;">ADJUST AND USE</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script src="script.js"></script>
+    
+    <script>
+        function showSection(section) {
+            const creatorGroup = document.getElementById('creatorMainGroup');
+            const library = document.getElementById('library');
+            const coliseo = document.getElementById('coliseo');
+            
+            const tabCreator = document.getElementById('tab-creator');
+            const tabLibrary = document.getElementById('tab-library');
+            const tabColiseo = document.getElementById('tab-coliseo');
+
+            // Turn off everything
+            creatorGroup.style.display = 'none';
+            library.style.display = 'none';
+            coliseo.style.display = 'none';
+            
+            tabCreator.classList.remove('active');
+            tabLibrary.classList.remove('active');
+            if(tabColiseo) tabColiseo.classList.remove('active');
+
+            if (section === 'creator') {
+                creatorGroup.style.display = 'flex';
+                tabCreator.classList.add('active');
+            } else if (section === 'coliseo') {
+                coliseo.style.display = 'block';
+                if(tabColiseo) tabColiseo.classList.add('active');
+                if(typeof prepararColiseo === 'function') prepararColiseo(); // Load cards into selector
+            } else {
+                library.style.display = 'block';
+                tabLibrary.classList.add('active');
+                if(typeof displayCards === 'function') displayCards();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+# --- Carpeta de Notas Privadas (Blindaje de ideas) ---
+# Ignora cualquier carpeta llamada 'notes' y el archivo específico
+notes/
+
+
+# --- Dependencias (No subir esto, es muy pesado) ---
+node_modules/
+jspm_packages/
+
+# --- Compilación y Salida (Archivos temporales) ---
+dist/
+build/
+.cache/
+
+# --- Variables de Entorno (Secretos y llaves) ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# --- Archivos del Sistema (Basura técnica) ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Logs ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
