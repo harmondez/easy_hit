@@ -1,10 +1,10 @@
-import { cards } from './storage.js';
+import { cards } from './engine.js';
 
 export const elementConfigs = {
-    'Fire':      { icon: '🔥', color: '#ef4444' },
-    'Water':     { icon: '💧', color: '#3b82f6' },
-    'Lightning': { icon: '⚡', color: '#f59e0b' },
-    'Nature':    { icon: '🌿', color: '#10b981' }
+    'Fuego':      { icon: '🔥', color: '#ef4444' },
+    'Agua':       { icon: '💧', color: '#3b82f6' },
+    'Rayo':       { icon: '⚡', color: '#f59e0b' },
+    'Naturaleza': { icon: '🌿', color: '#10b981' }
 };
 
 export const classIcons = {
@@ -76,7 +76,7 @@ export function renderSelector() {
     
     if (!select1 || !select2) return;
 
-    let optionsHTML = '<option value="">Seleccionar luchador...</option>';
+    let optionsHTML = '<option value="">Select your hero...</option>';
     cards.forEach(card => {
         const icon = classIcons[card.cardClass] || '👤';
         optionsHTML += `<option value="${card.id}">${icon} ${card.name}</option>`;
@@ -87,12 +87,10 @@ export function renderSelector() {
 }
 
 export function logConsole(msg, type = 'system') {
-    // CORRECCIÓN: Inyectamos en logContent, no en combatLog
     const consoleEl = document.getElementById('logContent');
     if (!consoleEl) return;
     
     const div = document.createElement('div');
-    // Para que los estilos CSS funcionen correctamente
     div.className = `log-entry ${type}`; 
     div.innerText = msg;
     
@@ -102,25 +100,85 @@ export function logConsole(msg, type = 'system') {
 
 // --- 📜 SECCIÓN DE LA BIBLIOTECA (UI) ---
 
-export function displayCards(onDeleteCallback) {
-    const deck = document.getElementById('cardsDeck');
-    if (!deck) return;
-    
+
+export function displayCards() {
+    const listContainer = document.getElementById('librarySidebarList');
+    if (!listContainer) return;
+
     if (cards.length === 0) {
-        deck.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1; text-align: center;">No tienes cartas en tu colección. ¡Ve a la Forja!</p>';
+        listContainer.innerHTML = '<p class="empty-state-msg">Roster is empty. Forge some heroes!</p>';
         return;
     }
 
-    deck.innerHTML = cards.map(card => `
-        <div class="card-item" style="border-color: ${elementConfigs[card.element]?.color || '#fff'}">
-            <div class="card-item-art" style="background-image: url('${card.image || ''}')"></div>
-            <div class="card-item-info">
-                <strong>${card.name}</strong>
-                <p>${elementConfigs[card.element]?.icon || ''} ${card.cardClass}</p>
-                <button onclick="window.borrarCarta('${card.id}')" style="margin-top: 10px; cursor:pointer; background: #ef4444; color:white; border:none; padding:5px 10px; border-radius:4px;">Eliminar</button>
+    // 1. Agrupamos las cartas por Clase y forzamos mayúsculas (HUMANS, DRAGONS...)
+    const groups = cards.reduce((acc, card) => {
+        const className = (card.cardClass || 'Neutral').toUpperCase(); 
+        if (!acc[className]) acc[className] = [];
+        acc[className].push(card);
+        return acc;
+    }, {});
+
+    // 2. Renderizamos con la nueva estructura de "Roster Group"
+    listContainer.innerHTML = Object.keys(groups).sort().map(className => `
+        <div class="roster-group">
+            <div class="roster-category-header">
+                <span class="category-icon">
+                    ${classIcons[className.charAt(0) + className.slice(1).toLowerCase()] || '🛡️'}
+                </span>
+                ${className}S
+            </div>
+            <div class="roster-category-list">
+                ${groups[className].map(card => `
+                    <div class="card-list-item" data-id="${card.id}">
+                        <span class="item-element-dot" style="background-color: ${elementConfigs[card.element]?.color || '#fff'}"></span>
+                        
+                        <span class="item-name">${card.name}</span>
+                        
+                        <span class="item-stats-brief">${card.atq}/${card.def}/${card.hp}</span>
+                    </div>
+                `).join('')}
             </div>
         </div>
     `).join('');
+}
+
+/**
+ * Renderiza el detalle de una carta en el panel derecho de la biblioteca.
+ * Diseñado para el "Modo Escaparate" (Showcase Mode).
+ */
+
+export function renderCardDetail(card) {
+    const detailView = document.getElementById('libraryDetail');
+    if (!detailView || !card) return;
+
+    const config = elementConfigs[card.element];
+    const passiveDesc = passiveNames[card.passiveId] || "No passive description";
+
+    detailView.innerHTML = `
+        <div class="card-preview showcase-animation" style="border-color: ${config?.color || '#fff'}; transform: scale(1.1);">
+            <div class="card-art" style="background-image: url('${card.image || ''}'); background-size: cover;"></div>
+            <div class="card-body">
+                <div class="card-header-inner">
+                    <h3>${card.name}</h3>
+                </div>
+                <div class="meta-info">
+                    <span>${config?.icon || '⚪'} ${card.element}</span> | 
+                    <span>${classIcons[card.cardClass] || '👤'} ${card.cardClass}</span>
+                </div>
+                <div class="preview-stats">
+                    <div class="stat-box">⚔️ <b>${card.atq}</b></div>
+                    <div class="stat-box">🛡️ <b>${card.def}</b></div>
+                    <div class="stat-box">❤️ <b>${card.hp}</b></div>
+                </div>
+                <p class="passive-desc">
+                    <strong>Passive:</strong> ${passiveDesc}
+                </p>
+            </div>
+        </div>
+        <button type="button" class="btn-delete-card btn-delete-showcase" data-delete-id="${card.id}">
+            DELETE FROM ROSTER
+        </button>
+    `;
 }
 
 // --- 🔨 SECCIÓN DE LA FORJA (Creador) ---
@@ -129,19 +187,23 @@ export let currentCropper = null;
 export let croppedImageBase64 = null;
 
 export function updatePreview(croppedImg) {
-    const nameVal = document.getElementById('cardName').value;
-    const elementVal = document.getElementById('cardElement').value;
-    const classVal = document.getElementById('cardClass').value;
-    const passiveVal = document.getElementById('cardPassive').value;
+    // 🛡️ ESCUDO VANGUARD: Captura segura de elementos
+    const elName = document.getElementById('cardName');
+    const elElement = document.getElementById('cardElement');
+    const elClass = document.getElementById('cardClass');
+    const elPassive = document.getElementById('cardPassive');
+    const elHP = document.getElementById('inputHP');
+    const elDEF = document.getElementById('inputDEF');
+    const elATQ = document.getElementById('inputATQ');
 
     const data = {
-        name: nameVal ? nameVal : "Nombre del Héroe",
-        element: elementVal,
-        cardClass: classVal,
-        hp: document.getElementById('inputHP').value || 0,
-        def: document.getElementById('inputDEF').value || 0,
-        atq: document.getElementById('inputATQ').value || 0,
-        passive: passiveVal
+        name: elName && elName.value ? elName.value : "Héroe Desconocido",
+        element: elElement ? elElement.value : "Neutral",
+        cardClass: elClass ? elClass.value : "Human",
+        passive: elPassive ? elPassive.value : "",
+        hp: elHP ? parseInt(elHP.value) || 0 : 0,
+        def: elDEF ? parseInt(elDEF.value) || 0 : 0,
+        atq: elATQ ? parseInt(elATQ.value) || 0 : 0
     };
 
     const config = elementConfigs[data.element];
@@ -154,7 +216,9 @@ export function updatePreview(croppedImg) {
     if(document.getElementById('statATQ')) document.getElementById('statATQ').innerText = data.atq;
     
     const passiveDesc = passiveNames[data.passive];
-    if(document.getElementById('previewPassive')) document.getElementById('previewPassive').innerHTML = passiveDesc ? `<strong>Pasiva:</strong> ${passiveDesc}` : "<strong>Pasiva:</strong> Ninguna";
+    if(document.getElementById('previewPassive')) {
+        document.getElementById('previewPassive').innerHTML = passiveDesc ? `<strong>Pasiva:</strong> ${passiveDesc}` : "<strong>Pasiva:</strong> Ninguna";
+    }
 
     const cardVisual = document.getElementById('cardVisual');
     if (cardVisual && config) cardVisual.style.borderColor = config.color;
@@ -164,16 +228,22 @@ export function updatePreview(croppedImg) {
 }
 
 export function updateRemainingPoints() {
-    const hp = parseInt(document.getElementById('inputHP').value) || 0;
-    const def = parseInt(document.getElementById('inputDEF').value) || 0;
-    const atq = parseInt(document.getElementById('inputATQ').value) || 0;
+    // 🛡️ ESCUDO VANGUARD
+    const elHP = document.getElementById('inputHP');
+    const elDEF = document.getElementById('inputDEF');
+    const elATQ = document.getElementById('inputATQ');
+
+    const hp = elHP ? parseInt(elHP.value) || 0 : 0;
+    const def = elDEF ? parseInt(elDEF.value) || 0 : 0;
+    const atq = elATQ ? parseInt(elATQ.value) || 0 : 0;
+    
     const total = hp + def + atq;
     const remaining = 7400 - total;
     
     const display = document.getElementById('remainingPts');
     if (display) {
         display.innerText = remaining;
-        display.style.color = remaining < 0 ? "#ef4444" : "#10b981"; // Rojo si se pasa, verde si está bien
+        display.style.color = remaining < 0 ? "#ef4444" : "#10b981";
     }
     
     if(document.getElementById('valHP')) document.getElementById('valHP').innerText = hp;
@@ -191,13 +261,18 @@ export function resetCropperData() {
     const fileInput = document.getElementById('cardImgFile');
     if (fileInput) fileInput.value = '';
     
-    if (document.getElementById('inputHP')) document.getElementById('inputHP').value = 0;
-    if (document.getElementById('inputDEF')) document.getElementById('inputDEF').value = 0;
-    if (document.getElementById('inputATQ')) document.getElementById('inputATQ').value = 0;
+    // CORRECCIÓN: El mínimo permitido es 1, no 0.
+    if (document.getElementById('inputHP')) document.getElementById('inputHP').value = 1;
+    if (document.getElementById('inputDEF')) document.getElementById('inputDEF').value = 1;
+    if (document.getElementById('inputATQ')) document.getElementById('inputATQ').value = 1;
     
     updateRemainingPoints();
     updatePreview(null);
 }
+
+// ⚠️ NOTA ARQUITECTÓNICA: Las funciones de abajo (handleFileSelect y applyCrop)
+// deberían ser movidas a forge.js en la próxima refactorización para respetar
+// completamente los 5 pilares, pero se mantienen aquí para preservar la funcionalidad actual.
 
 export function handleFileSelect(e) {
     const file = e.target.files[0];

@@ -509,6 +509,240 @@ body {
 }
 
 
+
+/* --- CARTAS EN LA BIBLIOTECA (.card-item) --- */
+.card-item {
+    background: var(--bg-card);
+    border: 2px solid; /* El color se inyecta por JS según el elemento */
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    transition: transform 0.2s;
+}
+
+.card-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 12px rgba(0,0,0,0.5);
+}
+
+.card-item-art {
+    width: 100%;
+    height: 180px; /* Crucial para que la imagen tenga espacio */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #000; /* Fondo por si no hay imagen */
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+}
+
+.card-item-info {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    text-align: center;
+}
+
+.card-item-info strong {
+    font-size: 1.1rem;
+    color: white;
+}
+
+.card-item-info p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.btn-delete-card {
+    margin-top: 10px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.btn-delete-card:hover {
+    background: #dc2626;
+}
+
+
+
+/* --- LIBRARY SHOWCASE MODE (Escaparate Bonito) --- */
+
+/* 1. Contenedor Principal: Limpia Flexbox y centra */
+.library-detail-view.showcase-mode {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    perspective: 1000px; /* Efecto 3D sutil */
+    padding: 0;
+    overflow: hidden; /* Evita scrolls raros */
+}
+
+/* 2. La Carta en el Escaparate: Forzamos proporciones TCG */
+.library-detail-view.showcase-mode .card-visual {
+    width: 320px; /* Un poco más grande para el mostrador */
+    height: 480px; /* Proporción TCG estricta */
+    margin: 0;
+    transform: rotateY(-5deg) scale(1); /* Efecto mostrador */
+    box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.7),
+        0 0 30px 5px rgba(99, 102, 241, 0.2); /* Brillo sutil */
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    background: #000; /* Fondo negro puro detrás del arte */
+}
+
+/* Efecto hover en el mostrador */
+.library-detail-view.showcase-mode .card-visual:hover {
+    transform: rotateY(0deg) scale(1.02);
+    box-shadow: 
+        0 35px 60px -15px rgba(0, 0, 0, 0.8),
+        0 0 40px 10px rgba(99, 102, 241, 0.3);
+}
+
+/* 3. Estructura Interna (Modo Mostrador) */
+
+/* Nombre arriba, dentro de la carta */
+.library-detail-view.showcase-mode .card-visual .card-name-text {
+    font-size: 1.2rem;
+    color: var(--gold);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* Contenedor del Arte: Ocupa la mayor parte */
+.library-detail-view.showcase-mode .card-visual .card-art-container {
+    height: 380px; /* Espacio para stats abajo */
+    border-radius: 0; /* Imagen cuadrada TCG */
+}
+
+/* Stats Grid: Superpuesta abajo con Glassmorphism */
+.library-detail-view.showcase-mode .card-visual .card-stats-grid {
+    position: absolute;
+    bottom: 60px; /* Espacio para la pasiva */
+    left: 0;
+    width: 100%;
+    background: rgba(15, 23, 42, 0.8); /* var(--bg-main) con opacidad */
+    backdrop-filter: blur(5px);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin: 0;
+    padding: 8px 15px;
+}
+
+/* Pasiva: Abajo del todo, texto pequeño elegante */
+.library-detail-view.showcase-mode .card-visual .card-passive-area {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background: rgba(0,0,0,0.5);
+    padding: 8px 15px;
+    font-size: 0.8rem;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Botón Eliminar: Fuera de la carta, abajo del mostrador */
+.btn-delete-showcase {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.2s;
+}
+
+.btn-delete-showcase:hover {
+    background: #dc2626;
+}
+
+
+/* --- ESTILO ROSTER AGRUPADO --- */
+.roster-group {
+    margin-bottom: 20px;
+}
+
+.roster-category-header {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 8px 12px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--gold);
+    letter-spacing: 2px;
+    border-left: 3px solid var(--gold);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+}
+
+.roster-category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.card-list-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.card-list-item:hover {
+    background: rgba(99, 102, 241, 0.1);
+    padding-left: 20px; /* Efecto de desplazamiento */
+}
+
+.card-list-item.active {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: var(--primary);
+    color: white;
+}
+
+/* Punto de color del elemento */
+.item-element-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 12px;
+    box-shadow: 0 0 5px currentColor;
+}
+
+.item-name {
+    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.item-stats-brief {
+    font-size: 0.7rem;
+    font-family: monospace;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+
+
+
+
+
+
 /* --- COLISEO --- */
 .arena-setup {
     display: flex;

@@ -20,13 +20,13 @@
 
     <nav class="tabs-container">
         <div class="tabs">
-            <button class="tab-item active" id="tab-library">
+            <button type="button" class="tab-item active" id="tab-library">
                 <span class="icon">📜</span> Library
             </button>
-            <button class="tab-item" id="tab-creator">
+            <button type="button" class="tab-item" id="tab-creator">
                 <span class="icon">⚒️</span> Creator
             </button>
-            <button class="tab-item" id="tab-coliseo">
+            <button type="button" class="tab-item" id="tab-coliseo">
                 <span class="icon">⚔️</span> Coliseum
             </button>
         </div>
@@ -34,25 +34,36 @@
 
     <main class="main-content">
         
-        <section class="section-container full-width" id="library">
+        <section class="section-container full-width" id="library" style="display: none;">
             <div class="section-header">
                 <h2>Your Collection</h2>
                 <p>All your forged cards ready for battle.</p>
                 
                 <div class="library-actions" style="margin-top: 15px; display: flex; gap: 10px;">
-                    <button id="btnExport" class="tab-item" style="background: var(--primary); font-size: 0.8rem;">
+                    <button type="button" id="btnExport" class="tab-item" style="background: var(--primary); font-size: 0.8rem; border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
                         <span class="icon">📥</span> Export JSON
                     </button>
                     
-                    <label for="importJSON" class="tab-item" style="cursor:pointer; background: var(--border-color); font-size: 0.8rem;">
+                    <label for="importJSON" class="tab-item" style="cursor:pointer; background: var(--border-color); font-size: 0.8rem; color: white; padding: 8px 16px; border-radius: 6px;">
                         <span class="icon">📤</span> Import JSON
                     </label>
                     <input type="file" id="importJSON" accept=".json" style="display:none">
                 </div>
             </div>
             
-            <div id="cardsDeck" class="cards-deck">
-                </div>
+            <div class="library-layout">
+                <aside class="library-sidebar">
+                    <div class="library-header">
+                        <h3 style="margin: 0; font-size: 1rem; color: var(--text-main);">Hero Roster</h3>
+                    </div>
+                    <div id="librarySidebarList" class="library-list-container">
+                        </div>
+                </aside>
+
+                <main id="libraryDetail" class="library-detail-view showcase-mode">
+                    <div class="empty-state-msg">Select a hero</div>
+                </main>
+            </div>
         </section>
 
         <div class="creator-container" id="creatorMainGroup" style="display:none">
@@ -75,7 +86,7 @@
                             <label for="cardImgFile" class="custom-file-btn">
                                 <span class="icon">🖼️</span> Select file
                             </label>
-                            <input type="file" id="cardImgFile" accept="image/*" class="input-field" style="display: none;">
+                            <input type="file" id="cardImgFile" accept="image/png, image/jpeg, image/webp" class="input-field" style="display: none;">
                         </div>
                         <small id="fileName" style="color: var(--text-muted); font-size: 0.7rem; margin-top: 5px;">No file selected</small>
                     </div>
@@ -113,7 +124,7 @@
                             <span>Health (HP)</span>
                             <b id="valHP" class="stat-number">2400</b>
                         </div>
-                        <input type="range" id="inputHP" min="1" max="7400" value="2400" class="range-slider">
+                        <input type="range" id="inputHP" min="1" max="7398" value="2400" class="range-slider">
                     </div>
 
                     <div class="stat-control">
@@ -121,7 +132,7 @@
                             <span>Shield (DEF)</span>
                             <b id="valDEF" class="stat-number">2500</b>
                         </div>
-                        <input type="range" id="inputDEF" min="1" max="7400" value="2500" class="range-slider">
+                        <input type="range" id="inputDEF" min="1" max="7398" value="2500" class="range-slider">
                     </div>
 
                     <div class="stat-control">
@@ -129,7 +140,7 @@
                             <span>Power (ATQ)</span>
                             <b id="valATQ" class="stat-number">2500</b>
                         </div>
-                        <input type="range" id="inputATQ" min="1" max="7400" value="2500" class="range-slider">
+                        <input type="range" id="inputATQ" min="1" max="7398" value="2500" class="range-slider">
                     </div>
                     
                     <div class="budget-card">
