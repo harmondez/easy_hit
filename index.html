@@ -6,9 +6,7 @@
     <title>Easy Hit | Card Forge</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,13 +20,13 @@
 
     <nav class="tabs-container">
         <div class="tabs">
-            <button class="tab-item active" id="tab-library" onclick="showSection('library')">
+            <button class="tab-item active" id="tab-library">
                 <span class="icon">📜</span> Library
             </button>
-            <button class="tab-item" id="tab-creator" onclick="showSection('creator')">
+            <button class="tab-item" id="tab-creator">
                 <span class="icon">⚒️</span> Creator
             </button>
-            <button class="tab-item" id="tab-coliseo" onclick="showSection('coliseo')">
+            <button class="tab-item" id="tab-coliseo">
                 <span class="icon">⚔️</span> Coliseum
             </button>
         </div>
@@ -42,14 +40,14 @@
                 <p>All your forged cards ready for battle.</p>
                 
                 <div class="library-actions" style="margin-top: 15px; display: flex; gap: 10px;">
-                    <button onclick="exportarBiblioteca()" class="tab-item" style="background: var(--primary); font-size: 0.8rem;">
+                    <button id="btnExport" class="tab-item" style="background: var(--primary); font-size: 0.8rem;">
                         <span class="icon">📥</span> Export JSON
                     </button>
                     
                     <label for="importJSON" class="tab-item" style="cursor:pointer; background: var(--border-color); font-size: 0.8rem;">
                         <span class="icon">📤</span> Import JSON
                     </label>
-                    <input type="file" id="importJSON" accept=".json" style="display:none" onchange="importarBiblioteca(event)">
+                    <input type="file" id="importJSON" accept=".json" style="display:none">
                 </div>
             </div>
             
@@ -57,7 +55,7 @@
                 </div>
         </section>
 
-    <div class="creator-container" id="creatorMainGroup" style="display:none">
+        <div class="creator-container" id="creatorMainGroup" style="display:none">
             
             <section class="section-container" id="creator">
                 <div class="section-header">
@@ -70,8 +68,6 @@
                         <label for="cardName" class="input-label">Hero Name</label>
                         <input type="text" id="cardName" placeholder="Ex: Alistair, the Bull" maxlength="25" class="input-field">
                     </div>
-                    
-                    
 
                     <div class="input-group">
                         <label for="cardImgFile" class="input-label">Upload Image</label>
@@ -97,10 +93,15 @@
                     <div class="input-group">
                         <label for="cardClass" class="input-label">Class</label>
                         <select id="cardClass" class="input-field">
+                            <option value="Human">Human</option>
                             <option value="Robot">Robot</option>
-                            <option value="Dragón">Dragon</option>
-                            <option value="Humano">Human</option>
-                            <option value="Espectro">Spectre</option>
+                            <option value="Dragon">Dragon</option>
+                            <option value="Spectre">Spectre</option>
+                            <option value="Monster">Monster</option>
+                            <option value="Viking">Viking</option>
+                            <option value="Pirate">Pirate</option>
+                            <option value="Beast">Beast</option>
+                            <option value="Alien">Alien</option>
                             <option value="Neutral">Neutral</option>
                         </select>
                     </div>
@@ -172,7 +173,8 @@
                 <button id="saveCardBtn" class="btn-forge">FORGE CARD</button>
             </section>
 
-            <section class="preview-container" id="preview-section">
+
+<section class="preview-container" id="preview-section">
                 <div class="sticky-preview">
                     <div class="card-preview" id="cardVisual">
                         <div class="card-art" id="previewArt"></div>
@@ -193,9 +195,7 @@
                     </div>
                 </div>
             </section>
-        </div>
-
-        <section class="section-container full-width" id="coliseo" style="display: none;">
+        </div> <section class="section-container full-width" id="coliseo" style="display: none;">
             <div class="section-header">
                 <h2>Battle Coliseum</h2>
                 <p>Select two heroes, enter the arena, and let the steel do the talking.</p>
@@ -204,24 +204,27 @@
             <div class="arena-setup">
                 <div class="fighter-select">
                     <label class="input-label">Fighter 1</label>
-                    <input type="text" id="searchFighter1" placeholder="Search by name..." class="input-field" style="margin-bottom: 8px; width: 100%; box-sizing: border-box;">
-                    <select id="fighter1Select" class="input-field"></select>
+                    <input type="text" id="searchF1" placeholder="Search by name..." class="input-field" style="margin-bottom: 8px; width: 100%; box-sizing: border-box;">
+                    <select id="selectF1" class="input-field"></select>
                 </div>
                 <div class="vs-badge">VS</div>
                 <div class="fighter-select">
                     <label class="input-label">Fighter 2</label>
-                    <input type="text" id="searchFighter2" placeholder="Search by name..." class="input-field" style="margin-bottom: 8px; width: 100%; box-sizing: border-box;">
-                    <select id="fighter2Select" class="input-field"></select>
+                    <input type="text" id="searchF2" placeholder="Search by name..." class="input-field" style="margin-bottom: 8px; width: 100%; box-sizing: border-box;">
+                    <select id="selectF2" class="input-field"></select>
                 </div>
             </div>
 
             <div class="arena-actions">
-                <button id="btnLuchar" class="btn-forge" onclick="iniciarCombate()">FIGHT</button>
-                <button id="btnSiguiente" class="btn-forge" onclick="ejecutarRonda()" style="display: none; background: linear-gradient(to bottom, #d97706, #b45309);">NEXT ROUND</button>
+                <button id="btnInitCombat" class="btn-forge">FIGHT</button>
+                <button id="btnNextRound" class="btn-forge" style="display: none; background: linear-gradient(to bottom, #d97706, #b45309);">NEXT ROUND</button>
             </div>
 
             <div class="combat-console" id="combatLog">
-                <div class="log-entry system">The arena awaits the contenders...</div>
+                <div class="console-header">BATTLE LOG</div>
+                <div id="logContent" class="log-messages">
+                    The arena awaits the contenders...
+                </div>
             </div>
         </section>
 
@@ -241,40 +244,9 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
-    <script src="script.js"></script>
+    <script type="module" src="main.js"></script>
     
-    <script>
-        function showSection(section) {
-            const creatorGroup = document.getElementById('creatorMainGroup');
-            const library = document.getElementById('library');
-            const coliseo = document.getElementById('coliseo');
-            
-            const tabCreator = document.getElementById('tab-creator');
-            const tabLibrary = document.getElementById('tab-library');
-            const tabColiseo = document.getElementById('tab-coliseo');
-
-            // Turn off everything
-            creatorGroup.style.display = 'none';
-            library.style.display = 'none';
-            coliseo.style.display = 'none';
-            
-            tabCreator.classList.remove('active');
-            tabLibrary.classList.remove('active');
-            if(tabColiseo) tabColiseo.classList.remove('active');
-
-            if (section === 'creator') {
-                creatorGroup.style.display = 'flex';
-                tabCreator.classList.add('active');
-            } else if (section === 'coliseo') {
-                coliseo.style.display = 'block';
-                if(tabColiseo) tabColiseo.classList.add('active');
-                if(typeof prepararColiseo === 'function') prepararColiseo(); // Load cards into selector
-            } else {
-                library.style.display = 'block';
-                tabLibrary.classList.add('active');
-                if(typeof displayCards === 'function') displayCards();
-            }
-        }
-    </script>
 </body>
 </html>
+
+            
