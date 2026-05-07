@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Easy Hit | Card Forge</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -20,7 +20,7 @@
 
     <nav class="tabs-container">
         <div class="tabs">
-            <button type="button" class="tab-item active" id="tab-library">
+            <button type="button" class="tab-item" id="tab-library">
                 <span class="icon">📜</span> Library
             </button>
             <button type="button" class="tab-item" id="tab-creator">
@@ -97,7 +97,7 @@
                             <option value="Fuego">Fire 🔥</option>
                             <option value="Agua">Water 💧</option>
                             <option value="Rayo">Lightning ⚡</option>
-                            <option value="Naturaleza">Nature 🌿</option>
+                            <option value="Naturale">Nature 🌿</option>
                         </select>
                     </div>
 
@@ -206,33 +206,48 @@
                     </div>
                 </div>
             </section>
-        </div> <section class="section-container full-width" id="coliseo" style="display: none;">
+        </div> 
+        
+        <section class="section-container full-width" id="coliseo" style="display: none;">
             <div class="section-header">
                 <h2>Battle Coliseum</h2>
                 <p>Select two heroes, enter the arena, and let the steel do the talking.</p>
             </div>
             
             <div class="arena-setup">
-                <div class="fighter-select">
-                    <label class="input-label">Fighter 1</label>
-                    <input type="text" id="searchF1" placeholder="Search by name..." class="input-field" style="margin-bottom: 8px; width: 100%; box-sizing: border-box;">
-                    <select id="selectF1" class="input-field"></select>
+                <div class="fighter-select" id="boxF1">
+                    <label class="input-label">CHALLENGER 1</label>
+                    <div class="fighter-inputs">
+                        <input type="text" id="searchF1" placeholder="Search hero..." class="input-field search-mini">
+                        <select id="selectF1" class="input-field"></select>
+                    </div>
+                    <div id="miniPreviewF1" class="mini-card-slot"></div>
                 </div>
-                <div class="vs-badge">VS</div>
-                <div class="fighter-select">
-                    <label class="input-label">Fighter 2</label>
-                    <input type="text" id="searchF2" placeholder="Search by name..." class="input-field" style="margin-bottom: 8px; width: 100%; box-sizing: border-box;">
-                    <select id="selectF2" class="input-field"></select>
+
+                <div class="vs-badge-container">
+                    <div class="vs-badge">VS</div>
+                </div>
+
+                <div class="fighter-select" id="boxF2">
+                    <label class="input-label">CHALLENGER 2</label>
+                    <div class="fighter-inputs">
+                        <input type="text" id="searchF2" placeholder="Search hero..." class="input-field search-mini">
+                        <select id="selectF2" class="input-field"></select>
+                    </div>
+                    <div id="miniPreviewF2" class="mini-card-slot"></div>
                 </div>
             </div>
 
             <div class="arena-actions">
-                <button id="btnInitCombat" class="btn-forge">FIGHT</button>
-                <button id="btnNextRound" class="btn-forge" style="display: none; background: linear-gradient(to bottom, #d97706, #b45309);">NEXT ROUND</button>
+                <button id="btnInitCombat" class="btn-forge">START FIGHT</button>
+                <button id="btnNextRound" class="btn-forge" style="display: none;">NEXT ROUND</button>
             </div>
 
             <div class="combat-console" id="combatLog">
-                <div class="console-header">BATTLE LOG</div>
+                <div class="console-header">
+                    <span>BATTLE LOG</span>
+                    <span class="console-status">READY</span>
+                </div>
                 <div id="logContent" class="log-messages">
                     The arena awaits the contenders...
                 </div>

@@ -8,9 +8,8 @@ export const elementConfigs = {
 };
 
 export const classIcons = {
-    'Human': '👤', 'Robot': '🤖', 'Dragon': '🐉', 'Spectre': '👻', 
-    'Monster': '👹', 'Viking': '🪓', 'Pirate': '🏴‍☠️', 'Beast': '🐾', 
-    'Alien': '👽', 'Neutral': '😐'
+    'Human': '👤', 'Robot': '🤖', 'Dragon': '🐉', 'Spectre': '🌪️', 
+    'Monster': '👽', 'Viking': '🪓', 'Pirate': '🏴‍☠️', 'Beast': '🐾', 'Neutral': '⚪'
 };
 
 export const passiveNames = {
@@ -67,35 +66,86 @@ export function showSection(section) {
     }
 }
 
-// --- ⚔️ SECCIÓN DEL COLISEO (UI) ---
+// --- ⚔️ SECCIÓN DEL COLISEO (UI FINAL V1.2) ---
 
 export function renderSelector() {
-    // Inyecta las cartas en los selectores del Coliseo
     const select1 = document.getElementById('selectF1');
     const select2 = document.getElementById('selectF2');
-    
     if (!select1 || !select2) return;
 
+    const groups = cards.reduce((acc, card) => {
+        const className = card.cardClass || 'Neutral';
+        if (!acc[className]) acc[className] = [];
+        acc[className].push(card);
+        return acc;
+    }, {});
+
     let optionsHTML = '<option value="">Select your hero...</option>';
-    cards.forEach(card => {
-        const icon = classIcons[card.cardClass] || '👤';
-        optionsHTML += `<option value="${card.id}">${icon} ${card.name}</option>`;
+    
+    Object.keys(groups).sort().forEach(className => {
+        const icon = classIcons[className] || '👤';
+        optionsHTML += `<optgroup label="${icon} ${className.toUpperCase()}S">`;
+        groups[className].forEach(card => {
+            optionsHTML += `<option value="${card.id}">${card.name} (ATK: ${card.atq})</option>`;
+        });
+        optionsHTML += `</optgroup>`;
     });
 
     select1.innerHTML = optionsHTML;
     select2.innerHTML = optionsHTML;
 }
 
-export function logConsole(msg, type = 'system') {
+export function logConsole(msg, type = 'system', round = null) {
     const consoleEl = document.getElementById('logContent');
     if (!consoleEl) return;
     
     const div = document.createElement('div');
     div.className = `log-entry ${type}`; 
-    div.innerText = msg;
+
+    let roundTag = round ? `<span class="log-round-tag">R${round}</span> ` : '';
+    div.innerHTML = `${roundTag}${msg}`;
     
-    // Añadir al principio de la consola
-    consoleEl.prepend(div);
+    // ABAJO: Lectura cronológica natural
+    consoleEl.appendChild(div);
+    
+    // AUTO-SCROLL: Siempre al último mensaje
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+export function setColiseumButtonMode(mode) {
+    const btn = document.getElementById('btnNextRound');
+    if (!btn) return;
+
+    if (mode === 'finish') {
+        btn.innerText = 'FINALIZAR COMBATE';
+        btn.style.background = '#ef4444'; // Rojo Puro
+        btn.style.boxShadow = '0 0 15px rgba(239, 68, 68, 0.4)';
+        btn.dataset.mode = 'finish';
+    } else {
+        btn.innerText = 'NEXT ROUND';
+        btn.style.background = 'var(--primary)'; // Tu color de marca
+        btn.style.boxShadow = 'none';
+        btn.dataset.mode = 'next';
+    }
+}
+
+export function resetColiseum() {
+    const consoleEl = document.getElementById('logContent');
+    if (consoleEl) {
+        // Limpieza absoluta
+        consoleEl.innerHTML = '';
+    }
+    
+    // Restaurar el botón para el siguiente duelo
+    setColiseumButtonMode('next');
+    
+    // Si tienes botones separados de Inicio y Siguiente, asegúrate de resetear su visibilidad
+    const btnInit = document.getElementById('btnInitCombat');
+    const btnNext = document.getElementById('btnNextRound');
+    if (btnInit && btnNext) {
+        btnInit.style.display = 'block';
+        btnNext.style.display = 'none';
+    }
 }
 
 // --- 📜 SECCIÓN DE LA BIBLIOTECA (UI) ---
@@ -134,7 +184,7 @@ export function displayCards() {
                         
                         <span class="item-name">${card.name}</span>
                         
-                        <span class="item-stats-brief">${card.atq}/${card.def}/${card.hp}</span>
+                        <span class="item-stats-brief">ATQ:${card.atq}/DEF:${card.def}/HP:${card.hp}</span>
                     </div>
                 `).join('')}
             </div>

@@ -165,11 +165,10 @@ body {
 
 /* Secciones de Contenido */
 .section-container {
-    background: var(--bg-card);
-    padding: 30px;
-    border-radius: 20px;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    width: 95%;
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 15px;
 }
 
 .full-width { grid-column: 1 / -1; }
@@ -365,24 +364,41 @@ body {
 }
 
 .card-preview {
-    width: var(--card-width);
+    /* CAMBIO CLAVE: Cambiamos width por max-width y usamos 100% */
+    width: 100%; 
+    max-width: var(--card-width); 
     min-height: var(--card-height);
+    
+    /* Mantenemos tu estética intacta */
     display: flex;
     flex-direction: column;
-    background: #0f172a; /* Fondo oscuro interno */
-    border-radius: 12px; /* Esquinas de TCG clásico */
+    background: #0f172a;
+    border-radius: 12px;
     overflow: hidden;
     position: relative;
     
-    /* Marco de la carta estilo "Forja" */
+    /* El marco que tanto te gusta */
     border: 6px solid #2d2d2d; 
-    outline: 2px solid var(--gold); /* Relieve dorado externo */
+    outline: 2px solid var(--gold);
     outline-offset: -4px;
     
     box-shadow: 
         0 20px 50px rgba(0,0,0,0.8),
         0 0 20px rgba(139, 92, 246, 0.2);
+    
+    /* Animación fluida */
     transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    
+    /* Evita que la carta se colapse si no hay contenido */
+    aspect-ratio: 280 / 400; 
+}
+
+/* Ajuste sutil para móviles muy pequeños */
+@media (max-width: 480px) {
+    .card-preview {
+        outline-width: 1px; /* Un poco más fino para que no sature */
+        border-width: 4px;
+    }
 }
 
 .card-preview:hover {
@@ -744,24 +760,8 @@ body {
 
 
 /* --- COLISEO --- */
-.arena-setup {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    background: rgba(0,0,0,0.4);
-    padding: 25px;
-    border-radius: 12px;
-    margin-bottom: 25px;
-    border: 1px solid rgba(255,255,255,0.05);
-}
 
-.fighter-select {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
+
 
 .vs-badge {
     font-size: 2.5rem;
@@ -776,27 +776,285 @@ body {
 }
 
 /* Consola de Combate */
+/* --- CONSOLA DE COMBATE PROFESIONAL --- */
 .combat-console {
-    background: #000;
-    border: 2px solid #334155;
+    background: #020617 !important;
+    border: 2px solid #1e293b;
     border-radius: 8px;
-    height: 350px;
+    
+    /* 1. Altura estática: Suficiente para unas 2-3 rondas (aprox 400px) */
+    height: 400px; 
+    max-height: 400px;
+    
+    /* 2. Habilitar el slider (scroll) */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Evita que el borde se rompa */
+    position: relative;
+}
+
+#logContent {
+    flex: 1;
+    overflow-y: auto; /* Aquí aparece el slider si el contenido supera los 400px */
+    padding: 15px;
+    display: flex;
+    flex-direction: column; /* Cambiamos a column para control total */
+    gap: 4px;
+    
+    /* Personalización del slider (Scrollbar) para que se vea Pro */
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) #0f172a;
+}
+
+/* Estilo del scrollbar para Chrome/Safari/Edge */
+#logContent::-webkit-scrollbar {
+    width: 6px;
+}
+#logContent::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+#logContent::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+
+.log-entry {
+    
+    margin-bottom: 4px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    border-left: 4px solid transparent;
+    animation: fadeInLog 0.3s ease-out;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding: 8px 0;
+    word-wrap: break-word; /* Blindaje para que el texto no se salga en móviles */
+}
+
+@keyframes fadeInLog {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* Tipos de Log con colores distinguidos */
+.log-entry.system { 
+    color: #94a3b8; 
+    border-left-color: #475569; 
+    background: rgba(71, 85, 105, 0.1);
+}
+
+.log-entry.round-header { 
+    color: var(--gold); 
+    font-weight: 800; 
+    text-transform: uppercase;
+    text-align: center;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    margin: 15px 0 10px 0;
+    background: rgba(251, 191, 36, 0.05);
+    letter-spacing: 2px;
+}
+
+.log-entry.attack { 
+    color: #f8fafc; 
+    border-left-color: #ef4444; /* Rojo ataque */
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.log-entry.damage { 
+    color: #fca5a5; 
+    font-style: italic;
+}
+
+.log-entry.victory { 
+    color: #4ade80; 
+    border-left-color: #22c55e; 
+    font-weight: bold;
+    background: rgba(34, 197, 94, 0.1);
+    font-size: 1rem;
+}
+
+.log-entry.passive { 
+    color: #a78bfa; 
+    border-left-color: #8b5cf6; 
+    background: rgba(139, 92, 246, 0.05);
+}
+
+.log-round-tag {
+    background: var(--primary);
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 5px;
+    border-radius: 4px;
+    margin-right: 8px;
+    font-weight: bold;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Badge de Ronda dentro del log */
+.log-round-tag {
+    font-size: 0.7rem;
+    background: #334155;
+    color: #f8fafc;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+
+/* --- COLOSSEUM ARENA V1.2 --- */
+.arena-setup {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 15px;
+    background: rgba(15, 23, 42, 0.4);
+    padding: 25px;
+    border-radius: 15px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 25px;
+}
+
+.fighter-select {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.search-mini {
+    margin-bottom: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.8rem;
+    padding: 8px;
+}
+
+.vs-badge-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 40px;
+}
+
+.vs-badge {
+    font-size: 2.5rem;
+    font-weight: 900;
+    font-style: italic;
+    color: var(--gold);
+    text-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+}
+
+.mini-card-slot {
+    height: 60px;
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    margin-top: 10px;
+    background: rgba(0,0,0,0.2);
+}
+
+/* Consola con Scroll Interno */
+.combat-console {
+    background: #020617;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+.console-header {
+    background: #1e293b;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    font-weight: bold;
+    letter-spacing: 1.5px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.log-messages {
+    flex: 1;
     overflow-y: auto;
-    padding: 20px;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 0.95rem;
-    color: #cbd5e1;
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.9);
+    padding: 15px;
+    font-family: 'JetBrains Mono', monospace;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) transparent;
 }
 
-.log-entry { 
-    margin-bottom: 10px; 
-    border-bottom: 1px dashed #334155; 
-    padding-bottom: 8px; 
-    line-height: 1.5;
-}
 
-.log-entry.system { color: #94a3b8; font-style: italic; }
-.log-entry.round { color: var(--gold); font-weight: bold; font-size: 1.1rem; margin-top: 15px; border-bottom: none;}
-.log-entry.attack { color: #f8fafc; }
-.log-entry.victory { color: #10b981; font-weight: 900; font-size: 1.2rem; text-transform: uppercase; text-shadow: 0 0 10px rgba(16, 185, 129, 0.4);}
+
+
+
+
+
+/* --- MEDIA QUERIES (Ajustes para móviles) --- */
+@media (max-width: 768px) {
+    .arena-setup {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .vs-badge-container {
+        padding: 10px 0;
+        transform: rotate(90deg); /* El VS gira para flujo vertical */
+    }
+
+    .fighter-select {
+        width: 100%;
+    }
+
+    .arena-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .btn-forge {
+        width: 100%;
+    }
+    .header-title { font-size: 1.5rem; }
+    
+    /* Tabs más fáciles de tocar con el pulgar */
+    .tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 5px;
+    }
+    
+    .tab-item {
+        padding: 12px 5px;
+        font-size: 0.8rem;
+        flex-direction: column;
+    }
+
+    /* Biblioteca: De Lista/Detalle a Vertical */
+    .library-layout {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .library-sidebar {
+        width: 100%;
+        height: 300px;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .library-detail-view.showcase-mode .card-visual {
+        transform: scale(0.85); /* Reducimos la carta para que quepa */
+        margin: -40px 0;
+    }
+
+    /* Coliseo: Ajuste de la Arena */
+
+
+    .vs-badge {
+        margin: 10px 0;
+        font-size: 1.8rem;
+    }
+}

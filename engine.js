@@ -1,37 +1,32 @@
-import { logConsole } from './ui.js';
+import { logConsole, setColiseumButtonMode } from './ui.js';
 
 /**
  * Procesa un ataque individual entre dos combatientes.
- * Incluye lógica de daño mínimo para evitar bloqueos infinitos.
  */
 export function procesarAtaque(atk, def) {
+    if (atk.hp <= 0 || def.hp <= 0) return { defDamage: 0, hpDamage: 0 }; // Blindaje de seguridad
+
     let rawDmg = atk.atq;
-    
-    // --- LÓGICA DE DAÑO MÍNIMO ---
-    // Si el ataque es muy bajo frente a la defensa, garantizamos al menos 
-    // un pequeño impacto basado en el 5% del ATQ (mínimo 10 si el ATQ existe)
     let minDmg = Math.max(10, Math.floor(rawDmg * 0.05));
     
     let currentDmg = rawDmg;
     let defDamage = 0;
     let hpDamage = 0;
 
-    // Log de inicio de ataque
-    logConsole(`⚔️ ${atk.name} ataca a ${def.name}...`, 'system');
+    logConsole(`⚔️ ${atk.name} ataca a ${def.name}...`, 'attack');
 
-    // 1. El daño impacta primero en la DEF
     if (def.def > 0) {
         defDamage = Math.min(def.def, currentDmg);
         def.def -= defDamage;
         currentDmg -= defDamage;
+        // Si la defensa queda en negativo por algún error, la reseteamos a 0
+        if (def.def < 0) def.def = 0;
         logConsole(`🛡️ DEF de ${def.name} absorbe ${defDamage}.`, 'damage');
     }
     
-    // 2. El daño sobrante (o el mínimo) impacta en HP
     if (currentDmg > 0) {
         hpDamage = currentDmg;
     } else {
-        // Si la defensa absorbió todo, aplicamos el daño mínimo "de desgaste"
         hpDamage = minDmg;
         logConsole(`🦾 Daño de desgaste: ${hpDamage} HP.`, 'damage');
     }
@@ -43,15 +38,12 @@ export function procesarAtaque(atk, def) {
 }
 
 /**
- * Verifica si alguien ha caído y declara al ganador.
- * Soporta Victoria Negativa (quien queda menos negativo gana).
+ * Verifica si alguien ha caído y activa el modo FINALIZAR.
  */
 export function verifyVictory(c1, c2) {
-    // Solo comprobamos victoria si alguien ha llegado a 0 o menos
     if (c1.hp <= 0 || c2.hp <= 0) {
-        
+        // 1. Lógica de Empate / Victoria Negativa
         if (c1.hp <= 0 && c2.hp <= 0) {
-            // Empate técnico: Ambos cayeron en la misma ronda
             if (c1.hp > c2.hp) {
                 logConsole(`🏆 ${c1.name} GANA por Victoria Negativa!`, 'victory');
             } else if (c2.hp > c1.hp) {
@@ -59,68 +51,69 @@ export function verifyVictory(c1, c2) {
             } else {
                 logConsole("⚖️ ¡EMPATE ABSOLUTO!", "victory");
             }
-            return true;
+        } else {
+            // 2. Victoria normal
+            const winner = c1.hp > 0 ? c1 : c2;
+            logConsole(`🏆 ${winner.name} VICTORIOSO!`, "victory");
         }
 
-        if (c1.hp <= 0) {
-            logConsole(`🏆 ${c2.name} VICTORIOSO!`, "victory");
-            return true;
-        }
-
-        if (c2.hp <= 0) {
-            logConsole(`🏆 ${c1.name} VICTORIOSO!`, "victory");
-            return true;
-        }
+        // --- VANGUARD FIX: CAMBIO DE MODO DE BOTÓN ---
+        // Esto es lo que desbloquea tu interfaz
+        setColiseumButtonMode('finish');
+        return true;
     }
     return false;
 }
 
 /**
- * Gestiona los efectos que ocurren al inicio de cada ronda.
+ * Gestiona los efectos de inicio de ronda.
  */
 export function applyRoundStartPassives(f, r) {
-    if (!f.passiveId) return;
+    if (!f || !r || !f.passiveId || f.hp <= 0) return;
 
     if (f.passiveId === 'prog_scale_stats') {
         f.atq = Math.floor(f.atq * 1.1);
         f.def = Math.floor(f.def * 1.1);
-        logConsole(`📈 ${f.name} [Growth]: Stats +10%.`, 'system');
+        logConsole(`📈 ${f.name} [Growth]: Stats +10%.`, 'passive');
     }
     
     if (f.passiveId === 'prog_venom') {
-        // Drenaje basado en la vida máxima (asumiendo que guardamos maxHp al crear la carta)
         let p = Math.floor((f.maxHp || f.hp) * 0.05);
         r.hp -= p;
-        logConsole(`☠️ ${f.name} [Venom]: ${r.name} pierde ${p} HP por toxinas.`, 'system');
+        logConsole(`☠️ ${f.name} [Venom]: ${r.name} pierde ${p} HP por toxinas.`, 'passive');
     }
     
     if (f.passiveId === 'prog_drain_def') {
         let d = Math.floor(r.def * 0.1);
-        r.def -= d;
-        if(r.def < 0) r.def = 0;
-        logConsole(`⚙️ ${f.name} [Metal Fatigue]: Armadura de ${r.name} se corroe (-${d} DEF).`, 'system');
+        r.def = Math.max(0, r.def - d);
+        logConsole(`⚙️ ${f.name} [Metal Fatigue]: Armadura de ${r.name} se corroe (-${d} DEF).`, 'passive');
     }
 }
 
-
-// Variable de estado de la biblioteca
-// Variable de estado de la biblioteca protegida
+// --- GESTIÓN DE BIBLIOTECA (ESTADO PROTEGIDO) ---
 export let cards = [];
-try {
-    const savedData = localStorage.getItem('easyHitLibrary');
-    cards = savedData ? JSON.parse(savedData) : [];
-} catch (error) {
-    console.warn("Vanguard: Memoria corrupta detectada. Reseteando biblioteca salvavidas...");
-    cards = [];
+function loadLibrary() {
+    try {
+        const savedData = localStorage.getItem('easyHitLibrary');
+        cards = savedData ? JSON.parse(savedData) : [];
+    } catch (error) {
+        console.error("Vanguard Error: Fallo en carga de datos.", error);
+        cards = [];
+    }
 }
+loadLibrary();
 
 export function saveCard(card) {
     cards.push(card);
-    localStorage.setItem('easyHitLibrary', JSON.stringify(cards));
+    syncStorage();
 }
 
 export function deleteCard(id) {
     cards = cards.filter(c => c.id !== id);
+    syncStorage();
+}
+
+function syncStorage() {
     localStorage.setItem('easyHitLibrary', JSON.stringify(cards));
 }
 
@@ -143,11 +136,11 @@ export function importarBiblioteca(event, callback) {
             const imported = JSON.parse(e.target.result);
             if (Array.isArray(imported)) {
                 cards = imported;
-                localStorage.setItem('easyHitLibrary', JSON.stringify(cards));
+                syncStorage();
                 if (callback) callback();
             }
         } catch (err) {
-            alert("Error al importar el archivo JSON.");
+            alert("Error: El archivo JSON no es válido.");
         }
     };
     reader.readAsText(file);

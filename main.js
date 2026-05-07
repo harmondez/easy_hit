@@ -8,8 +8,13 @@ let fighter1 = null, fighter2 = null;
 // ya se ejecutan automáticamente cuando el HTML está listo.
 console.log("🔥 Vanguard System: Conectando cables en tiempo real...");
 
-// Ejecutamos la carga inicial directamente
+// 1. Inicializamos eventos
 initEvents();
+
+// 2. FORZAMOS EL INICIO EN EL CREADOR (Añade esta línea aquí)
+UI.showSection('creator');
+
+// 3. Cargamos el resto de datos
 UI.displayCards();
 UI.updateRemainingPoints();
 
@@ -43,7 +48,7 @@ function initEvents() {
         });
     });
 
-    // --- CREADOR DE CARTAS (Botones) ---
+    // --- CREADOR DE CARTAS (Imagen & Guardado) ---
     safeListener('cardImgFile', 'change', (e) => UI.handleFileSelect(e));
     
     safeListener('cropImageBtn', 'click', () => {
@@ -53,8 +58,6 @@ function initEvents() {
     safeListener('cancelCropBtn', 'click', () => {
         const modal = document.getElementById('cropperModal');
         if(modal) modal.style.display = 'none';
-        
-        // VANGUARD FIX: Limpiamos el input para permitir re-subir la foto
         const fileInput = document.getElementById('cardImgFile');
         if (fileInput) fileInput.value = '';
     });
@@ -62,9 +65,8 @@ function initEvents() {
     safeListener('saveCardBtn', 'click', () => {
         const nameInput = document.getElementById('cardName');
         if (!nameInput || !nameInput.value) return alert("¡Ponle un nombre a tu héroe!");
-        if (!UI.updateRemainingPoints()) return alert("¡Te has pasado de los 7400 puntos!");
+        if (!UI.updateRemainingPoints()) return alert("¡Puntos excedidos!");
 
-        // 🛡️ VANGUARD FIX: Extracción defensiva usando Optional Chaining y defaults
         const card = {
             id: Date.now().toString(),
             name: nameInput.value,
@@ -80,11 +82,9 @@ function initEvents() {
 
         Engine.saveCard(card);
         UI.displayCards();
-        if (typeof UI.renderSelector === 'function') UI.renderSelector();
+        UI.renderSelector(); // Actualiza los selectores del Coliseo inmediatamente
         
-        if (typeof UI.resetCropperData === 'function') {
-            UI.resetCropperData(); 
-        }
+        if (UI.resetCropperData) UI.resetCropperData(); 
         alert("¡Héroe Forjado!");
     });
 
@@ -94,98 +94,90 @@ function initEvents() {
     safeListener('importJSON', 'change', (e) => {
         Engine.importarBiblioteca(e, () => {
             UI.displayCards();
-            if (typeof UI.renderSelector === 'function') UI.renderSelector();
+            UI.renderSelector();
         });
     });
 
-    // 1. CLICK EN LA LISTA LATERAL: Para seleccionar y ver la carta
+    // Click en lista (Roster)
     safeListener('librarySidebarList', 'click', (e) => {
         const item = e.target.closest('.card-list-item');
         if (!item) return;
-
-        // Visual: marcar como activo
         document.querySelectorAll('.card-list-item').forEach(el => el.classList.remove('active'));
         item.classList.add('active');
-
-        // Lógica: obtener datos y renderizar detalle
-        const id = item.getAttribute('data-id');
-        const card = Engine.cards.find(c => c.id === id);
-        if (card) {
-            UI.renderCardDetail(card);
-        }
+        const card = Engine.cards.find(c => c.id === item.getAttribute('data-id'));
+        if (card) UI.renderCardDetail(card);
     });
 
-    // 2. CLICK EN EL DETALLE: Para el botón de eliminar (que ahora vive en 'libraryDetail')
+    // Click en detalle (Borrar)
     safeListener('libraryDetail', 'click', (e) => {
-        if (e.target.classList.contains('btn-delete-card')) {
-            const id = e.target.getAttribute('data-delete-id');
-            if (id && confirm("Delete this hero permanently?")) {
+        const deleteBtn = e.target.closest('.btn-delete-card');
+        if (deleteBtn) {
+            const id = deleteBtn.getAttribute('data-delete-id');
+            if (id && confirm("Delete hero?")) {
                 Engine.deleteCard(id);
                 UI.displayCards();
-                // Limpiar la vista de detalle tras borrar
-                document.getElementById('libraryDetail').innerHTML = '<div class="empty-state-msg">Select a hero from the roster</div>';
-                if (typeof UI.renderSelector === 'function') UI.renderSelector();
+                document.getElementById('libraryDetail').innerHTML = '<p class="empty-state-msg">Select a hero</p>';
+                UI.renderSelector();
             }
         }
     });
 
-    // --- COLISEO ---
-    safeListener('selectF1', 'change', (e) => {
-        const card = Engine.cards.find(c => c.id === e.target.value);
-        fighter1 = card ? JSON.parse(JSON.stringify(card)) : null; 
-        UI.logConsole(fighter1 ? `${fighter1.name} entra en la arena.` : "Luchador 1 retirado.", 'system');
-    });
-
-    safeListener('selectF2', 'change', (e) => {
-        const card = Engine.cards.find(c => c.id === e.target.value);
-        fighter2 = card ? JSON.parse(JSON.stringify(card)) : null;
-        UI.logConsole(fighter2 ? `${fighter2.name} entra en la arena.` : "Luchador 2 retirado.", 'system');
-    });
-
-    safeListener('btnInitCombat', 'click', () => {
-        if (!fighter1 || !fighter2) return alert("Necesitas dos luchadores en la arena.");
-        
-        document.getElementById('btnInitCombat').style.display = 'none';
-        document.getElementById('btnNextRound').style.display = 'block';
-        UI.logConsole(`¡Que comience el combate!`, 'system');
-    });
-
-    // --- BUSCADOR DE LUCHADORES DEL COLISEO ---
+    // --- COLISEO (Selección) ---
     ['1', '2'].forEach(num => {
+        safeListener(`selectF${num}`, 'change', (e) => {
+            const card = Engine.cards.find(c => c.id === e.target.value);
+            // Creamos una copia profunda para que el combate no afecte a la biblioteca
+            if (num === '1') fighter1 = card ? JSON.parse(JSON.stringify(card)) : null;
+            if (num === '2') fighter2 = card ? JSON.parse(JSON.stringify(card)) : null;
+            
+            const name = card ? card.name : `Luchador ${num}`;
+            UI.logConsole(`${name} se prepara.`, 'system');
+        });
+
+        // BUSCADOR MEJORADO (Filtra sin romper la UI)
         safeListener(`searchF${num}`, 'input', (e) => {
             const term = e.target.value.toLowerCase();
-            const select = document.getElementById(`selectF${num}`);
-            if (!select) return;
-            
-            let optionsHTML = '<option value="">Seleccionar luchador...</option>';
-            Engine.cards
-                .filter(c => c.name.toLowerCase().includes(term))
-                .forEach(card => {
-                    const icon = UI.classIcons[card.cardClass] || '👤';
-                    optionsHTML += `<option value="${card.id}">${icon} ${card.name}</option>`;
-                });
-            select.innerHTML = optionsHTML;
+            UI.renderSelector(term); // Pasamos el término a una versión mejorada de renderSelector
         });
     });
 
-    safeListener('btnNextRound', 'click', () => {
-        if (!fighter1 || !fighter2) return UI.logConsole("Error de combatientes.", 'system');
+    // --- BOTÓN DE ACCIÓN DEL COLISEO (Unificado) ---
+    safeListener('btnInitCombat', 'click', () => {
+        if (!fighter1 || !fighter2) return alert("Selecciona dos combatientes.");
+        
+        document.getElementById('btnInitCombat').style.display = 'none';
+        const nextBtn = document.getElementById('btnNextRound');
+        nextBtn.style.display = 'block';
+        UI.setColiseumButtonMode('next'); // Asegura que empiece en naranja
+        
+        UI.logConsole(`¡QUE COMIENCE EL COMBATE!`, 'system');
+    });
 
-        if (fighter1.hp <= 0 || fighter2.hp <= 0) {
-            return UI.logConsole("El combate ha terminado. Reinicia la arena.", 'system');
-        }
+    safeListener('btnNextRound', 'click', (e) => {
+    // 1. MODO FINALIZAR: Limpiar todo
+    if (e.target.dataset.mode === 'finish') {
+        UI.resetColiseum();
+        fighter1 = null; 
+        fighter2 = null;
+        return;
+    }
 
-        Engine.applyRoundStartPassives(fighter1, fighter2);
-        Engine.applyRoundStartPassives(fighter2, fighter1);
-        
-        Engine.procesarAtaque(fighter1, fighter2);
-        Engine.procesarAtaque(fighter2, fighter1);
-        
-        const matchEnded = Engine.verifyVictory(fighter1, fighter2);
-        
-        if (matchEnded) {
-            document.getElementById('btnInitCombat').style.display = 'block';
-            document.getElementById('btnNextRound').style.display = 'none';
-        }
+    // 2. MODO COMBATE: Ejecutar la ronda
+    if (!fighter1 || !fighter2) return;
+
+    // --- Lógica de Combate ---
+    // Aplicar pasivas de inicio de ronda
+    Engine.applyRoundStartPassives(fighter1, fighter2);
+    Engine.applyRoundStartPassives(fighter2, fighter1);
+    
+    // Ejecutar ataques mutuos
+    Engine.procesarAtaque(fighter1, fighter2);
+    Engine.procesarAtaque(fighter2, fighter1);
+    
+    // Verificar si alguien ha caído
+    const matchEnded = Engine.verifyVictory(fighter1, fighter2);
+    
+    // Si terminó, el botón ya habrá cambiado a 'finish' dentro de verifyVictory
+    // mediante la llamada a UI.setColiseumButtonMode('finish')
     });
 }
