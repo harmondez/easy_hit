@@ -11,31 +11,76 @@ import { logConsole, setColiseumButtonMode } from './ui.js';
  * Procesa una ronda de combate SIMULTÁNEA.
  * Implementa la mecánica de "Overkill" de Easy Hit (+200% en negativo).
  */
+
+
+function calcularDetalleDaño(atk, def) {
+    let rawDmg = atk.atq;
+    let hpDamage = 0;
+    let defDamage = 0;
+    let piercing = 0;
+
+    // Pasiva: Anti-Armor
+    if (atk.passiveId === 'anti_armor' && def.def > 0) {
+        rawDmg = Math.floor(rawDmg * 1.5);
+        logConsole(`🎯 ${atk.name} [Anti-Armor]: ¡Detecta armadura y el daño sube a ${rawDmg}!`, 'passive');
+    }
+
+    // Pasiva: Armor Piercing
+    if (atk.passiveId === 'armor_piercing' && def.def > 0) {
+        piercing = Math.floor(rawDmg * 0.3);
+        rawDmg -= piercing; // El resto del daño se procesa normal
+        hpDamage += piercing;
+    }
+
+    // Reparto de daño (Equitativo si hay armadura)
+    if (def.def > 0) {
+        let splitDmg = Math.floor(rawDmg / 2);
+        
+        let actualDefDmg = Math.min(def.def, splitDmg);
+        defDamage += actualDefDmg;
+
+        let excessDefDmg = splitDmg - actualDefDmg;
+        hpDamage += (splitDmg + excessDefDmg);
+    } else {
+        // Sin armadura, todo al HP
+        hpDamage += rawDmg;
+    }
+
+    // Desgaste mínimo garantizado
+    if (hpDamage < 10 && piercing === 0) {
+        hpDamage = 10;
+    }
+
+    return { hpDamage, defDamage, piercing };
+}
+
+
+
 export function procesarRondaSimultanea(f1, f2) {
     if (f1.hp <= 0 || f2.hp <= 0) return;
 
-    // 1. Calculamos el daño que HARÁ cada uno (sin aplicarlo todavía)
-    let dmgToF2 = calcularDaño(f1, f2);
-    let dmgToF1 = calcularDaño(f2, f1);
+    logConsole(`⚔️ ¡${f1.name} y ${f2.name} se abalanzan a la vez en un choque brutal!`, 'attack');
 
-    // 2. Aplicamos el daño a ambos a la vez
-    f2.hp -= dmgToF2;
-    f1.hp -= dmgToF1;
+    // 1. Calculamos todo el daño exacto (HP y DEF) antes de aplicarlo
+    let dmgToF2 = calcularDetalleDaño(f1, f2);
+    let dmgToF1 = calcularDetalleDaño(f2, f1);
 
-    // 3. Mecánica de Victoria Negativa: Potenciación del Overkill (+200%)
-    // Si el daño llevó la vida por debajo de 0, multiplicamos ese exceso.
-    if (f2.hp < 0) {
-        let exceso = Math.abs(f2.hp);
-        f2.hp -= (exceso * 2); // El exceso aumenta un +200% (total 300% de overkill)
-        logConsole(`💥 ¡OVERKILL! El impacto negativo en ${f2.name} se potencia +200%.`, 'damage');
-    }
-    if (f1.hp < 0) {
-        let exceso = Math.abs(f1.hp);
-        f1.hp -= (exceso * 2);
-        logConsole(`💥 ¡OVERKILL! El impacto negativo en ${f1.name} se potencia +200%.`, 'damage');
-    }
+    // 2. Logs de Acción: F1 impacta a F2
+    if (dmgToF2.piercing > 0) logConsole(`💉 ${f1.name} [Armor Piercing]: ${dmgToF2.piercing} directo al HP!`, 'passive');
+    logConsole(`💥 ${f1.name} inflige -${dmgToF2.hpDamage} HP y destroza -${dmgToF2.defDamage} DEF.`, 'damage');
 
-    logConsole(`📊 Estado: ${f1.name} (${Math.floor(f1.hp)}) vs ${f2.name} (${Math.floor(f2.hp)})`, 'system');
+    // 3. Logs de Acción: F2 impacta a F1
+    if (dmgToF1.piercing > 0) logConsole(`💉 ${f2.name} [Armor Piercing]: ${dmgToF1.piercing} directo al HP!`, 'passive');
+    logConsole(`💥 ${f2.name} inflige -${dmgToF1.hpDamage} HP y destroza -${dmgToF1.defDamage} DEF.`, 'damage');
+
+    // 4. Aplicar el daño simultáneamente (Ahora la DEF sí se gasta correctamente)
+    f2.def = Math.max(0, f2.def - dmgToF2.defDamage);
+    f2.hp -= dmgToF2.hpDamage; // Se permite bajar a negativo para el cálculo de victoria
+
+    f1.def = Math.max(0, f1.def - dmgToF1.defDamage);
+    f1.hp -= dmgToF1.hpDamage; // Se permite bajar a negativo
+
+    logConsole(`📊 RESULTADO: ${f1.name} (${Math.floor(f1.hp)} HP) vs ${f2.name} (${Math.floor(f2.hp)} HP)`, 'system');
 }
 
 /**
@@ -121,13 +166,12 @@ export function procesarAtaque(atk, def) {
  */
 export function verifyVictory(c1, c2) {
     if (c1.hp <= 0 || c2.hp <= 0) {
-        // Victoria Negativa: El que tiene el número de HP MÁS ALTO (más cerca de 0) gana.
-        // Ejemplo: F1 tiene -500 y F2 tiene -1500. F1 gana.
         if (c1.hp === c2.hp) {
-            logConsole("⚖️ ¡EMPATE ABSOLUTO! Ambos cayeron con la misma fuerza.", "victory");
+            logConsole("⚖️ ¡EMPATE ABSOLUTO! Impacto idéntico en el vacío.", "victory");
         } else {
+            // Ejemplo: c1 tiene -10 y c2 tiene -200. c1 > c2, por tanto c1 gana.
             const winner = c1.hp > c2.hp ? c1 : c2;
-            logConsole(`🏆 ${winner.name} GANA por Victoria Negativa (${Math.floor(winner.hp)} HP)!`, "victory");
+            logConsole(`🏆 ${winner.name} VICTORIOSO (Victoria Negativa: ${Math.floor(winner.hp)} HP)!`, "victory");
         }
 
         setColiseumButtonMode('finish');

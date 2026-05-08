@@ -254,10 +254,10 @@ export function displayCards() {
             </div>
             <div class="roster-category-list">
                 ${groups[className].map(card => {
-                    const totalPoints = (card.atq || 0) + (card.def || 0) + (card.hp || 0);
-                    const rarityClass = totalPoints > 7000 ? 'rarity-legendary' : totalPoints > 5000 ? 'rarity-epic' : 'rarity-common';
+                    const totalPoints = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
+                    const isMythic = totalPoints >= 7400;
+                    const rarityClass = isMythic ? 'rarity-legendary' : totalPoints > 5000 ? 'rarity-epic' : 'rarity-common';
                     
-                    // ERROR CORREGIDO: Añadido onclick="selectLibraryCard('${card.id}')"
                     return `
                     <div class="card-list-item ${rarityClass}" data-id="${card.id}" onclick="selectLibraryCard('${card.id}')">
                         <div class="item-main-info">
@@ -265,7 +265,8 @@ export function displayCards() {
                             <span class="item-name">${card.name}</span>
                         </div>
                         <div class="item-stats-brief">
-                            <span>⚔️${card.atq}</span> <span>🛡️${card.def}</span> <span>❤️${card.hp}</span>
+                            <span style="color:#ef4444">❤️${card.hp}</span> 
+                            <span style="color:#f59e0b">⚔️${card.atq}</span>
                         </div>
                     </div>
                 `}).join('')}
@@ -283,36 +284,117 @@ export function renderCardDetail(card) {
     const detailContainer = document.getElementById('libraryDetail');
     if (!detailContainer) return;
 
-    // Usamos Flexbox para asegurar que la imagen y el texto se vean lado a lado
-    detailContainer.style.display = 'flex';
-    detailContainer.style.alignItems = 'center';
+    const skillName = passiveNames[card.passiveId] || card.passiveId || 'None';
+    
+    // Determinamos el color del borde según el elemento
+    const elementColor = elementConfigs[card.element]?.color || '#94a3b8';
+    const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
+    const isMythic = totalStats > 7000;
 
     detailContainer.innerHTML = `
-        <div class="detail-art-container" style="width: 280px; height: 380px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 2px solid var(--primary); flex-shrink: 0;">
-            <img src="${card.image || ''}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://via.placeholder.com/280x380?text=No+Image'">
-        </div>
-        
-        <div class="detail-info" style="flex: 1; padding-left: 30px;">
-            <h2 style="color: var(--primary); font-size: 2.5rem; margin: 0; line-height: 1;">${card.name}</h2>
-            <p style="color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; font-weight: bold;">
-                ${card.cardClass} // ${card.element}
-            </p>
-            
-            <div class="stats-display" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <div style="font-size: 1.1rem;">❤️ HP: <strong style="color: #ef4444;">${card.hp}</strong></div>
-                <div style="font-size: 1.1rem;">🛡️ DEF: <strong style="color: #3b82f6;">${card.def}</strong></div>
-                <div style="font-size: 1.1rem;">⚔️ ATQ: <strong style="color: #f59e0b;">${card.atq}</strong></div>
-                <div style="font-size: 1.1rem;">✨ SKILL: <strong style="color: #a78bfa;">${card.passiveId || 'None'}</strong></div>
+        <div class="tcg-card ${isMythic ? 'mythic-glow' : ''}" style="
+            width: 320px; 
+            height: 450px; 
+            background: #1a1a1a; 
+            border-radius: 18px; 
+            position: relative; 
+            padding: 12px; 
+            box-sizing: border-box;
+            border: 8px solid #222;
+            outline: 2px solid ${isMythic ? '#ffd700' : '#444'};
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            flex-shrink: 0;
+        ">
+            <div style="
+                display: flex; 
+                justify-content: space-between; 
+                align-items: center; 
+                background: linear-gradient(90deg, rgba(255,255,255,0.1), transparent);
+                padding: 5px 10px;
+                border-radius: 5px;
+                border: 1px solid rgba(255,255,255,0.2);
+                margin-bottom: 8px;
+            ">
+                <span style="font-weight: 800; font-size: 1rem; color: #eee; text-transform: uppercase; letter-spacing: 1px;">${card.name}</span>
+                <span>${elementConfigs[card.element]?.icon || '🔘'}</span>
             </div>
 
-            <button onclick="handleDeleteCard('${card.id}')" style="margin-top: 25px; background: linear-gradient(to right, #450a0a, #991b1b); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
-                🗑️ Delete Hero from Roster
+            <div style="
+                width: 100%; 
+                height: 200px; 
+                background: #000; 
+                border-radius: 5px; 
+                overflow: hidden; 
+                border: 3px solid #333;
+                box-shadow: inset 0 0 10px #000;
+            ">
+                <img src="${card.image || ''}" style="width: 100%; height: 100%; object-fit: cover; filter: contrast(1.1) brightness(1.1);" onerror="this.src='https://via.placeholder.com/300x200?text=Forjando...'">
+            </div>
+
+            <div style="
+                margin: 8px 0;
+                background: #2a2a2a;
+                padding: 2px 10px;
+                font-size: 0.75rem;
+                font-weight: bold;
+                color: ${elementColor};
+                border: 1px solid ${elementColor}44;
+                border-radius: 3px;
+                font-style: italic;
+            ">
+                ${card.cardClass} // ${card.element}
+            </div>
+
+            <div style="
+                flex-grow: 1;
+                background: #e2e2e2;
+                border-radius: 4px;
+                padding: 10px;
+                color: #111;
+                font-size: 0.85rem;
+                line-height: 1.3;
+                border: 2px solid #999;
+                box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2);
+                overflow-y: auto;
+            ">
+                <b style="color: #333;">Ability:</b><br>
+                <span style="color: #444;">${skillName}</span>
+            </div>
+
+            <div style="
+                display: flex; 
+                justify-content: space-around; 
+                margin-top: 10px;
+                font-weight: 900;
+                font-size: 0.9rem;
+            ">
+                <span style="color: #ef4444; text-shadow: 1px 1px 0 #000;">❤️ ${card.hp}</span>
+                <span style="color: #3b82f6; text-shadow: 1px 1px 0 #000;">🛡️ ${card.def}</span>
+                <span style="color: #f59e0b; text-shadow: 1px 1px 0 #000;">⚔️ ${card.atq}</span>
+            </div>
+        </div>
+        
+        <div class="detail-actions" style="flex: 1; padding-left: 40px; text-align: left;">
+            <h3 style="color: var(--text-dim); margin-bottom: 5px;">HERO DATA FILE</h3>
+            <div style="width: 50px; height: 4px; background: ${elementColor}; margin-bottom: 20px;"></div>
+            
+            <p style="color: var(--text-dim); line-height: 1.6; font-size: 0.9rem; margin-bottom: 30px;">
+                This unit belongs to the <strong>${card.cardClass}</strong> faction. 
+                Infused with the <strong>${card.element}</strong> core, it possesses a total combat power of 
+                <span style="color: var(--primary); font-weight: bold;">${totalStats}</span> points.
+            </p>
+
+            <button onclick="handleDeleteCard('${card.id}')" class="btn-delete-pro">
+                DISMANTLE HERO
             </button>
         </div>
     `;
 
     if (window.gsap) {
-        gsap.from(detailContainer.children, { opacity: 0, y: 20, duration: 0.4, stagger: 0.1 });
+        gsap.from(".tcg-card", { rotateY: 90, opacity: 0, duration: 0.6, ease: "power2.out" });
+        gsap.from(".detail-actions", { x: 50, opacity: 0, duration: 0.5, delay: 0.2 });
     }
 }
 
@@ -322,52 +404,78 @@ export let currentCropper = null;
 export let croppedImageBase64 = null;
 
 export function updatePreview(croppedImg) {
-    // 🛡️ ESCUDO VANGUARD: Captura segura de elementos
-    const elName = document.getElementById('cardName');
-    const elElement = document.getElementById('cardElement');
-    const elClass = document.getElementById('cardClass');
-    const elPassive = document.getElementById('cardPassive');
-    const elHP = document.getElementById('inputHP');
-    const elDEF = document.getElementById('inputDEF');
-    const elATQ = document.getElementById('inputATQ');
+    const previewContainer = document.getElementById('cardVisual');
+    if (!previewContainer) return;
 
-    const data = {
-        name: elName && elName.value ? elName.value : "Héroe Desconocido",
-        element: elElement ? elElement.value : "Neutral",
-        cardClass: elClass ? elClass.value : "Human",
-        passive: elPassive ? elPassive.value : "",
-        hp: elHP ? parseInt(elHP.value) || 0 : 0,
-        def: elDEF ? parseInt(elDEF.value) || 0 : 0,
-        atq: elATQ ? parseInt(elATQ.value) || 0 : 0
-    };
+    // 1. Captura de datos
+    const name = document.getElementById('cardName')?.value || "Unnamed Hero";
+    const element = document.getElementById('cardElement')?.value || "Neutral";
+    const cardClass = document.getElementById('cardClass')?.value || "Human";
+    const passiveId = document.getElementById('cardPassive')?.value || "";
+    const hp = parseInt(document.getElementById('inputHP')?.value) || 1;
+    const def = parseInt(document.getElementById('inputDEF')?.value) || 1;
+    const atq = parseInt(document.getElementById('inputATQ')?.value) || 1;
 
-    const config = elementConfigs[data.element];
-    
-    if(document.getElementById('previewName')) document.getElementById('previewName').innerText = data.name;
-    if(document.getElementById('previewElement')) document.getElementById('previewElement').innerText = config?.icon || '⚪';
-    if(document.getElementById('previewClass')) document.getElementById('previewClass').innerText = `${classIcons[data.cardClass] || '❓'} ${data.cardClass}`;
-    if(document.getElementById('statHP')) document.getElementById('statHP').innerText = data.hp;
-    if(document.getElementById('statDEF')) document.getElementById('statDEF').innerText = data.def;
-    if(document.getElementById('statATQ')) document.getElementById('statATQ').innerText = data.atq;
-    
-    const passiveDesc = passiveNames[data.passive];
-    if(document.getElementById('previewPassive')) {
-        document.getElementById('previewPassive').innerHTML = passiveDesc ? `<strong>Pasiva:</strong> ${passiveDesc}` : "<strong>Pasiva:</strong> Ninguna";
-    }
+    // 2. Lógica TCG
+    const skillName = passiveNames[passiveId] || "Passive: Select one";
+    const config = elementConfigs[element];
+    const totalStats = hp + def + atq;
+    const isMythic = totalStats >= 7400;
 
-    const cardVisual = document.getElementById('cardVisual');
-    if (cardVisual && config) cardVisual.style.borderColor = config.color;
+    // 3. Inyección del diseño TCG Style
+    previewContainer.innerHTML = `
+        <div class="tcg-card ${isMythic ? 'mythic-glow' : ''}" style="
+            width: 310px; 
+            height: 440px; 
+            background: #1a1a1a; 
+            border-radius: 18px; 
+            padding: 12px; 
+            box-sizing: border-box;
+            border: 6px solid #222;
+            outline: 2px solid ${isMythic ? '#ffd700' : '#444'};
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin: auto;
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px;">
+                <span style="font-weight: 800; font-size: 0.9rem; color: #eee; text-transform: uppercase;">${name}</span>
+                <span>${config?.icon || '🔘'}</span>
+            </div>
 
-    const art = document.getElementById('previewArt');
-    if (art) art.style.backgroundImage = croppedImg ? `url('${croppedImg}')` : "";
+            <div id="previewArt" style="width: 100%; height: 190px; background: #000; border-radius: 4px; overflow: hidden; border: 2px solid #333; background-image: url('${croppedImg || ''}'); background-size: cover; background-position: center;">
+                ${!croppedImg ? '<div style="color:#444; display:flex; align-items:center; justify-content:center; height:100%; font-size:0.8rem;">AWAITING ART...</div>' : ''}
+            </div>
+
+            <div style="margin: 8px 0; background: #2a2a2a; padding: 2px 10px; font-size: 0.7rem; font-weight: bold; color: ${config?.color || '#fff'}; border: 1px solid ${config?.color}44; border-radius: 3px; font-style: italic;">
+                ${classIcons[cardClass] || '❓'} ${cardClass} // ${element}
+            </div>
+
+            <div style="flex-grow: 1; background: #d1d1d1; border-radius: 4px; padding: 8px; color: #111; font-size: 0.75rem; line-height: 1.2; border: 2px solid #888; overflow-y: auto;">
+                <b style="color: #000;">Ability:</b><br>
+                <span>${skillName}</span>
+            </div>
+
+            <div style="display: flex; justify-content: space-around; margin-top: 10px; font-weight: 900; font-size: 0.85rem;">
+                <span style="color: #ef4444; text-shadow: 1px 1px 0 #000;">❤️ ${hp}</span>
+                <span style="color: #3b82f6; text-shadow: 1px 1px 0 #000;">🛡️ ${def}</span>
+                <span style="color: #f59e0b; text-shadow: 1px 1px 0 #000;">⚔️ ${atq}</span>
+            </div>
+        </div>
+    `;
+
+    // Guardamos la imagen en la variable global para el guardado posterior
+    croppedImageBase64 = croppedImg;
 }
 
+
 export function updateRemainingPoints() {
-    // 🛡️ ESCUDO VANGUARD
+    // 1. Captura de inputs (Blindaje Vanguard)
     const elHP = document.getElementById('inputHP');
     const elDEF = document.getElementById('inputDEF');
     const elATQ = document.getElementById('inputATQ');
 
+    // 2. Cálculos
     const hp = elHP ? parseInt(elHP.value) || 0 : 0;
     const def = elDEF ? parseInt(elDEF.value) || 0 : 0;
     const atq = elATQ ? parseInt(elATQ.value) || 0 : 0;
@@ -375,15 +483,29 @@ export function updateRemainingPoints() {
     const total = hp + def + atq;
     const remaining = 7400 - total;
     
+    // 3. Actualizar el contador de puntos restantes (UI General)
     const display = document.getElementById('remainingPts');
     if (display) {
         display.innerText = remaining;
         display.style.color = remaining < 0 ? "#ef4444" : "#10b981";
+        
+        // Efecto visual si nos pasamos del límite
+        if (remaining < 0 && window.gsap) {
+            gsap.to(display, { x: 5, yoyo: true, repeat: 5, duration: 0.05 });
+        }
     }
     
-    if(document.getElementById('valHP')) document.getElementById('valHP').innerText = hp;
-    if(document.getElementById('valDEF')) document.getElementById('valDEF').innerText = def;
-    if(document.getElementById('valATQ')) document.getElementById('valATQ').innerText = atq;
+    // 4. Sincronización con las etiquetas de valor (si aún las usas fuera de la carta)
+    const labels = { 'valHP': hp, 'valDEF': def, 'valATQ': atq };
+    for (const [id, val] of Object.entries(labels)) {
+        const el = document.getElementById(id);
+        if (el) el.innerText = val;
+    }
+    
+    // 🚀 CRUCIAL: Llamamos a updatePreview para que la carta se redibuje
+    // Esto asegura que al mover un slider, la CARTA TCG se actualice al instante.
+    // Pasamos 'croppedImageBase64' que es tu variable global con la foto actual.
+    updatePreview(croppedImageBase64);
     
     return remaining >= 0;
 }

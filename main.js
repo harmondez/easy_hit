@@ -35,13 +35,25 @@ function safeListener(id, eventType, callback) {
 
 function initEvents() {
     // --- 🚀 NAVEGACIÓN CON EFECTO DE TRANSICIÓN ---
-    
     ['library', 'creator', 'coliseo'].forEach(section => {
         safeListener(`tab-${section}`, 'click', () => {
-            gsap.to('.tab-content', { opacity: 0, y: 10, duration: 0.2, onComplete: () => {
-                UI.showSection(section);
-                gsap.to(`#${section}`, { opacity: 1, y: 0, duration: 0.4, ease: "back.out(1.7)" });
-            }});
+            gsap.to('.tab-content', { 
+                opacity: 0, 
+                y: 10, 
+                duration: 0.2, 
+                onComplete: () => {
+                    UI.showSection(section);
+                    // Si entramos a la biblioteca, refrescamos la lista
+                    if (section === 'library') UI.displayCards();
+                    
+                    gsap.to(`#${section}`, { 
+                        opacity: 1, 
+                        y: 0, 
+                        duration: 0.4, 
+                        ease: "back.out(1.7)" 
+                    });
+                }
+            });
         });
     });
 
@@ -49,10 +61,11 @@ function initEvents() {
     const creatorInputs = ['cardName', 'cardElement', 'cardClass', 'inputHP', 'inputDEF', 'inputATQ', 'cardPassive'];
     creatorInputs.forEach(id => {
         safeListener(id, 'input', () => {
+            // updateRemainingPoints ya llama internamente a updatePreview(TCG Style)
             UI.updateRemainingPoints();
-            UI.updatePreview(UI.croppedImageBase64);
-            // Pequeño pulso visual en la carta al editar
-            gsap.fromTo('#cardVisual', { scale: 1.02 }, { scale: 1, duration: 0.2 });
+            
+            // Pequeño pulso visual en la carta al editar para dar sensación de "forja"
+            gsap.fromTo('#cardVisual', { scale: 1.01 }, { scale: 1, duration: 0.2 });
         });
     });
 
@@ -62,14 +75,15 @@ function initEvents() {
     safeListener('cropImageBtn', 'click', () => {
         UI.applyCrop((img) => {
             UI.updatePreview(img);
-            gsap.from('#previewArt', { filter: "brightness(3)", duration: 0.5 });
+            // Efecto de destello al aplicar el recorte
+            gsap.fromTo('#previewArt', { filter: "brightness(3)" }, { filter: "brightness(1)", duration: 0.5 });
         });
     });
 
     safeListener('saveCardBtn', 'click', () => {
         const nameInput = document.getElementById('cardName');
         if (!nameInput?.value) return alert("¡Tu héroe necesita un nombre!");
-        if (!UI.updateRemainingPoints()) return alert("¡Demasiado poder! Ajusta los puntos.");
+        if (!UI.updateRemainingPoints()) return alert("¡Demasiado poder! El límite es 7400 puntos.");
 
         const card = {
             id: Date.now().toString(),
@@ -86,41 +100,42 @@ function initEvents() {
 
         Engine.saveCard(card);
         UI.displayCards();
-        UI.renderSelector();
+        UI.renderSelector(); // Actualiza los dropdowns del coliseo
+        
         if (UI.resetCropperData) UI.resetCropperData(); 
         
-        // Efecto de "Carta forjada"
         UI.logConsole(`✨ ${card.name} ha sido forjado con éxito.`, 'system');
         alert("¡Héroe guardado en la biblioteca!");
     });
 
     // --- 🏛️ COLISEO: PREPARACIÓN DE BATALLA ---
-    // Dentro de initEvents, en la parte de COLISEO
     ['1', '2'].forEach(num => {
         safeListener(`selectF${num}`, 'change', (e) => {
             const card = Engine.cards.find(c => c.id === e.target.value);
             
-            // Guardamos el luchador (clonado para no romper la biblioteca)
+            // Clonación profunda para no alterar la carta original de la biblioteca
             if (num === '1') fighter1 = card ? JSON.parse(JSON.stringify(card)) : null;
             if (num === '2') fighter2 = card ? JSON.parse(JSON.stringify(card)) : null;
 
-            // ¡ACTUALIZAMOS LA IMAGEN ABAJO!
             UI.updateFighterPreview(card, num);
 
             const name = card ? card.name : `Luchador ${num}`;
-            UI.logConsole(`${name} se prepara.`, 'system');
+            UI.logConsole(`${name} se prepara para la arena.`, 'system');
         });
     });
 
-    // --- ⚔️ EL BOTÓN DE ACCIÓN (EL CORAZÓN DEL COMBATE) ---
+    // --- ⚔️ BOTONES DE ACCIÓN (INICIO Y RONDA) ---
     safeListener('btnInitCombat', 'click', () => {
         if (!fighter1 || !fighter2) return alert("La arena requiere dos contendientes.");
         
-        gsap.to('#btnInitCombat', { scale: 0, duration: 0.2, onComplete: () => {
-            document.getElementById('btnInitCombat').style.display = 'none';
-            const nextBtn = document.getElementById('btnNextRound');
-            nextBtn.style.display = 'block';
-            gsap.fromTo(nextBtn, { scale: 0 }, { scale: 1, duration: 0.3, ease: "back.out(2)" });
+        const btnInit = document.getElementById('btnInitCombat');
+        const btnNext = document.getElementById('btnNextRound');
+
+        gsap.to(btnInit, { scale: 0, duration: 0.2, onComplete: () => {
+            btnInit.style.display = 'none';
+            btnNext.style.display = 'block';
+            btnNext.dataset.mode = 'next';
+            gsap.fromTo(btnNext, { scale: 0 }, { scale: 1, duration: 0.3, ease: "back.out(2)" });
             UI.setColiseumButtonMode('next');
         }});
         
@@ -128,40 +143,53 @@ function initEvents() {
     });
 
     safeListener('btnNextRound', 'click', (e) => {
-        if (e.target.dataset.mode === 'finish') {
-            UI.resetColiseum();
-            // Limpiamos los combatientes locales
+        const btnNext = e.currentTarget;
+        const btnInit = document.getElementById('btnInitCombat');
+
+        // MODO FINALIZAR: Resetea el coliseo y devuelve el botón de inicio
+        if (btnNext.dataset.mode === 'finish') {
+            UI.resetColiseum(); 
             fighter1 = null; 
             fighter2 = null;
+
+            gsap.to(btnNext, { scale: 0, duration: 0.2, onComplete: () => {
+                btnNext.style.display = 'none';
+                btnInit.style.display = 'block';
+                gsap.fromTo(btnInit, { scale: 0 }, { scale: 1, duration: 0.3, ease: "back.out(2)" });
+            }});
             return;
         }
 
+        // MODO RONDA: Ataque simultáneo
         if (!fighter1 || !fighter2) return;
 
-        // 1. PASIVAS DE INICIO (Simultáneas)
+        // 1. Fase de Pasivas (Inicio de ronda)
         Engine.applyRoundStartPassives(fighter1, fighter2);
         Engine.applyRoundStartPassives(fighter2, fighter1);
         
-        // Actualizamos UI tras pasivas (Veneno, Escudos, etc.)
         UI.refreshFighterStats(fighter1, 1);
         UI.refreshFighterStats(fighter2, 2);
 
-        // 2. INTERCAMBIO DE GOLPES (Simultáneo Visualmente)
-        // Lanzamos las dos animaciones de choque casi a la vez
-        UI.animateCombatHit(true); // F1 embiste
-        setTimeout(() => UI.animateCombatHit(false), 150); // F2 responde casi al instante
+        // 2. Fase de Choque (Animación simultánea)
+        UI.animateCombatHit(true); // Fighter 1
+        setTimeout(() => UI.animateCombatHit(false), 120); // Fighter 2 (casi instantáneo)
 
-        // El motor procesa el daño simultáneo con Victoria Negativa (+200% overkill)
+        // 3. Procesamiento simultáneo (Lógica Easy Hit)
+        // No hay overkill potenciado, solo daño puro que puede ser negativo
         Engine.procesarRondaSimultanea(fighter1, fighter2);
 
-        // 3. ACTUALIZACIÓN DE ESTADÍSTICAS
-        // Aquí es donde verás los números bajar a cifras negativas brutales
+        // 4. Actualización Visual
         UI.refreshFighterStats(fighter1, 1);
         UI.refreshFighterStats(fighter2, 2);
 
-        // 4. VERIFICACIÓN DE VICTORIA NEGATIVA
-        // Solo verificamos al final de la ronda para que ambos hayan podido golpear
+        // 5. Verificación de Victoria Negativa
+        // El ganador es el que tiene el HP más alto (aunque sea negativo)
         Engine.verifyVictory(fighter1, fighter2);
+    });
+
+    // --- 🔍 BIBLIOTECA: BUSCADOR ---
+    safeListener('librarySearch', 'input', (e) => {
+        UI.displayCards(e.target.value.toLowerCase());
     });
 }
 
