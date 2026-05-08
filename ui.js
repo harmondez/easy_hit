@@ -265,7 +265,8 @@ export function displayCards() {
                             <span class="item-name">${card.name}</span>
                         </div>
                         <div class="item-stats-brief">
-                            <span style="color:#ef4444">❤️${card.hp}</span> 
+                            <span style="color:#ef4444">❤️${card.hp}</span>
+                            <span style="color:#49BBEB">🛡️${card.def}</span>  
                             <span style="color:#f59e0b">⚔️${card.atq}</span>
                         </div>
                     </div>
