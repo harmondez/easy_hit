@@ -34,38 +34,42 @@ function safeListener(id, eventType, callback) {
 }
 
 function initEvents() {
-    // --- NAVEGACIÓN PRINCIPAL ---
-    safeListener('tab-library', 'click', () => UI.showSection('library'));
-    safeListener('tab-creator', 'click', () => UI.showSection('creator'));
-    safeListener('tab-coliseo', 'click', () => UI.showSection('coliseo'));
+    // --- 🚀 NAVEGACIÓN CON EFECTO DE TRANSICIÓN ---
+    
+    ['library', 'creator', 'coliseo'].forEach(section => {
+        safeListener(`tab-${section}`, 'click', () => {
+            gsap.to('.tab-content', { opacity: 0, y: 10, duration: 0.2, onComplete: () => {
+                UI.showSection(section);
+                gsap.to(`#${section}`, { opacity: 1, y: 0, duration: 0.4, ease: "back.out(1.7)" });
+            }});
+        });
+    });
 
-    // --- CREADOR DE CARTAS (Inputs) ---
+    // --- ✍️ CREADOR: FEEDBACK EN TIEMPO REAL ---
     const creatorInputs = ['cardName', 'cardElement', 'cardClass', 'inputHP', 'inputDEF', 'inputATQ', 'cardPassive'];
     creatorInputs.forEach(id => {
         safeListener(id, 'input', () => {
             UI.updateRemainingPoints();
             UI.updatePreview(UI.croppedImageBase64);
+            // Pequeño pulso visual en la carta al editar
+            gsap.fromTo('#cardVisual', { scale: 1.02 }, { scale: 1, duration: 0.2 });
         });
     });
 
-    // --- CREADOR DE CARTAS (Imagen & Guardado) ---
+    // --- 🖼️ MANEJO DE IMÁGENES ---
     safeListener('cardImgFile', 'change', (e) => UI.handleFileSelect(e));
     
     safeListener('cropImageBtn', 'click', () => {
-        UI.applyCrop((img) => UI.updatePreview(img));
-    });
-
-    safeListener('cancelCropBtn', 'click', () => {
-        const modal = document.getElementById('cropperModal');
-        if(modal) modal.style.display = 'none';
-        const fileInput = document.getElementById('cardImgFile');
-        if (fileInput) fileInput.value = '';
+        UI.applyCrop((img) => {
+            UI.updatePreview(img);
+            gsap.from('#previewArt', { filter: "brightness(3)", duration: 0.5 });
+        });
     });
 
     safeListener('saveCardBtn', 'click', () => {
         const nameInput = document.getElementById('cardName');
-        if (!nameInput || !nameInput.value) return alert("¡Ponle un nombre a tu héroe!");
-        if (!UI.updateRemainingPoints()) return alert("¡Puntos excedidos!");
+        if (!nameInput?.value) return alert("¡Tu héroe necesita un nombre!");
+        if (!UI.updateRemainingPoints()) return alert("¡Demasiado poder! Ajusta los puntos.");
 
         const card = {
             id: Date.now().toString(),
@@ -82,102 +86,82 @@ function initEvents() {
 
         Engine.saveCard(card);
         UI.displayCards();
-        UI.renderSelector(); // Actualiza los selectores del Coliseo inmediatamente
-        
+        UI.renderSelector();
         if (UI.resetCropperData) UI.resetCropperData(); 
-        alert("¡Héroe Forjado!");
+        
+        // Efecto de "Carta forjada"
+        UI.logConsole(`✨ ${card.name} ha sido forjado con éxito.`, 'system');
+        alert("¡Héroe guardado en la biblioteca!");
     });
 
-    // --- BIBLIOTECA ---
-    safeListener('btnExport', 'click', () => Engine.exportarBiblioteca());
-    
-    safeListener('importJSON', 'change', (e) => {
-        Engine.importarBiblioteca(e, () => {
-            UI.displayCards();
-            UI.renderSelector();
-        });
-    });
-
-    // Click en lista (Roster)
-    safeListener('librarySidebarList', 'click', (e) => {
-        const item = e.target.closest('.card-list-item');
-        if (!item) return;
-        document.querySelectorAll('.card-list-item').forEach(el => el.classList.remove('active'));
-        item.classList.add('active');
-        const card = Engine.cards.find(c => c.id === item.getAttribute('data-id'));
-        if (card) UI.renderCardDetail(card);
-    });
-
-    // Click en detalle (Borrar)
-    safeListener('libraryDetail', 'click', (e) => {
-        const deleteBtn = e.target.closest('.btn-delete-card');
-        if (deleteBtn) {
-            const id = deleteBtn.getAttribute('data-delete-id');
-            if (id && confirm("Delete hero?")) {
-                Engine.deleteCard(id);
-                UI.displayCards();
-                document.getElementById('libraryDetail').innerHTML = '<p class="empty-state-msg">Select a hero</p>';
-                UI.renderSelector();
-            }
-        }
-    });
-
-    // --- COLISEO (Selección) ---
+    // --- 🏛️ COLISEO: PREPARACIÓN DE BATALLA ---
+    // Dentro de initEvents, en la parte de COLISEO
     ['1', '2'].forEach(num => {
         safeListener(`selectF${num}`, 'change', (e) => {
             const card = Engine.cards.find(c => c.id === e.target.value);
-            // Creamos una copia profunda para que el combate no afecte a la biblioteca
+            
+            // Guardamos el luchador (clonado para no romper la biblioteca)
             if (num === '1') fighter1 = card ? JSON.parse(JSON.stringify(card)) : null;
             if (num === '2') fighter2 = card ? JSON.parse(JSON.stringify(card)) : null;
-            
+
+            // ¡ACTUALIZAMOS LA IMAGEN ABAJO!
+            UI.updateFighterPreview(card, num);
+
             const name = card ? card.name : `Luchador ${num}`;
             UI.logConsole(`${name} se prepara.`, 'system');
         });
-
-        // BUSCADOR MEJORADO (Filtra sin romper la UI)
-        safeListener(`searchF${num}`, 'input', (e) => {
-            const term = e.target.value.toLowerCase();
-            UI.renderSelector(term); // Pasamos el término a una versión mejorada de renderSelector
-        });
     });
 
-    // --- BOTÓN DE ACCIÓN DEL COLISEO (Unificado) ---
+    // --- ⚔️ EL BOTÓN DE ACCIÓN (EL CORAZÓN DEL COMBATE) ---
     safeListener('btnInitCombat', 'click', () => {
-        if (!fighter1 || !fighter2) return alert("Selecciona dos combatientes.");
+        if (!fighter1 || !fighter2) return alert("La arena requiere dos contendientes.");
         
-        document.getElementById('btnInitCombat').style.display = 'none';
-        const nextBtn = document.getElementById('btnNextRound');
-        nextBtn.style.display = 'block';
-        UI.setColiseumButtonMode('next'); // Asegura que empiece en naranja
+        gsap.to('#btnInitCombat', { scale: 0, duration: 0.2, onComplete: () => {
+            document.getElementById('btnInitCombat').style.display = 'none';
+            const nextBtn = document.getElementById('btnNextRound');
+            nextBtn.style.display = 'block';
+            gsap.fromTo(nextBtn, { scale: 0 }, { scale: 1, duration: 0.3, ease: "back.out(2)" });
+            UI.setColiseumButtonMode('next');
+        }});
         
-        UI.logConsole(`¡QUE COMIENCE EL COMBATE!`, 'system');
+        UI.logConsole(`🔥 ¡QUE COMIENCE EL COMBATE! 🔥`, 'system');
     });
 
     safeListener('btnNextRound', 'click', (e) => {
-    // 1. MODO FINALIZAR: Limpiar todo
-    if (e.target.dataset.mode === 'finish') {
-        UI.resetColiseum();
-        fighter1 = null; 
-        fighter2 = null;
-        return;
-    }
+        if (e.target.dataset.mode === 'finish') {
+            UI.resetColiseum();
+            // Limpiamos los combatientes locales
+            fighter1 = null; 
+            fighter2 = null;
+            return;
+        }
 
-    // 2. MODO COMBATE: Ejecutar la ronda
-    if (!fighter1 || !fighter2) return;
+        if (!fighter1 || !fighter2) return;
 
-    // --- Lógica de Combate ---
-    // Aplicar pasivas de inicio de ronda
-    Engine.applyRoundStartPassives(fighter1, fighter2);
-    Engine.applyRoundStartPassives(fighter2, fighter1);
-    
-    // Ejecutar ataques mutuos
-    Engine.procesarAtaque(fighter1, fighter2);
-    Engine.procesarAtaque(fighter2, fighter1);
-    
-    // Verificar si alguien ha caído
-    const matchEnded = Engine.verifyVictory(fighter1, fighter2);
-    
-    // Si terminó, el botón ya habrá cambiado a 'finish' dentro de verifyVictory
-    // mediante la llamada a UI.setColiseumButtonMode('finish')
+        // 1. PASIVAS DE INICIO (Simultáneas)
+        Engine.applyRoundStartPassives(fighter1, fighter2);
+        Engine.applyRoundStartPassives(fighter2, fighter1);
+        
+        // Actualizamos UI tras pasivas (Veneno, Escudos, etc.)
+        UI.refreshFighterStats(fighter1, 1);
+        UI.refreshFighterStats(fighter2, 2);
+
+        // 2. INTERCAMBIO DE GOLPES (Simultáneo Visualmente)
+        // Lanzamos las dos animaciones de choque casi a la vez
+        UI.animateCombatHit(true); // F1 embiste
+        setTimeout(() => UI.animateCombatHit(false), 150); // F2 responde casi al instante
+
+        // El motor procesa el daño simultáneo con Victoria Negativa (+200% overkill)
+        Engine.procesarRondaSimultanea(fighter1, fighter2);
+
+        // 3. ACTUALIZACIÓN DE ESTADÍSTICAS
+        // Aquí es donde verás los números bajar a cifras negativas brutales
+        UI.refreshFighterStats(fighter1, 1);
+        UI.refreshFighterStats(fighter2, 2);
+
+        // 4. VERIFICACIÓN DE VICTORIA NEGATIVA
+        // Solo verificamos al final de la ronda para que ambos hayan podido golpear
+        Engine.verifyVictory(fighter1, fighter2);
     });
 }
+

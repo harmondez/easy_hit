@@ -39,29 +39,32 @@
                 <h2>Your Collection</h2>
                 <p>All your forged cards ready for battle.</p>
                 
-                <div class="library-actions" style="margin-top: 15px; display: flex; gap: 10px;">
-                    <button type="button" id="btnExport" class="tab-item" style="background: var(--primary); font-size: 0.8rem; border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
+                <div class="library-actions" style="margin-top: 15px; display: flex; gap: 10px; align-items: center;">
+                    <button type="button" id="btnExport" class="btn-forge-mini">
                         <span class="icon">📥</span> Export JSON
                     </button>
-                    
-                    <label for="importJSON" class="tab-item" style="cursor:pointer; background: var(--border-color); font-size: 0.8rem; color: white; padding: 8px 16px; border-radius: 6px;">
+                    <label for="importJSON" class="btn-forge-mini gray">
                         <span class="icon">📤</span> Import JSON
                     </label>
                     <input type="file" id="importJSON" accept=".json" style="display:none">
+                    
+                    <input type="text" id="librarySearch" placeholder="Filter collection..." class="input-field search-mini" style="margin-left: auto; max-width: 200px;">
                 </div>
             </div>
             
             <div class="library-layout">
                 <aside class="library-sidebar">
                     <div class="library-header">
-                        <h3 style="margin: 0; font-size: 1rem; color: var(--text-main);">Hero Roster</h3>
+                        <h3 style="margin: 0; font-size: 0.9rem; color: var(--text-dim); text-transform: uppercase;">Hero Roster</h3>
                     </div>
-                    <div id="librarySidebarList" class="library-list-container">
-                        </div>
+                    <div id="librarySidebarList" class="library-list-container"></div>
                 </aside>
 
                 <main id="libraryDetail" class="library-detail-view showcase-mode">
-                    <div class="empty-state-msg">Select a hero</div>
+                    <div class="empty-state-msg">
+                        <span style="font-size: 3rem; display: block; margin-bottom: 10px;">🛡️</span>
+                        Select a hero to view their file
+                    </div>
                 </main>
             </div>
         </section>
@@ -97,7 +100,7 @@
                             <option value="Fuego">Fire 🔥</option>
                             <option value="Agua">Water 💧</option>
                             <option value="Rayo">Lightning ⚡</option>
-                            <option value="Naturale">Nature 🌿</option>
+                            <option value="Naturaleza">Nature 🌿</option>
                         </select>
                     </div>
 
@@ -221,7 +224,11 @@
                         <input type="text" id="searchF1" placeholder="Search hero..." class="input-field search-mini">
                         <select id="selectF1" class="input-field"></select>
                     </div>
-                    <div id="miniPreviewF1" class="mini-card-slot"></div>
+                    <div id="miniPreviewF1" class="mini-card-slot">
+                        <div class="hp-bar-container"><div id="hp-bar-1" class="hp-bar-fill"></div></div>
+                        <img id="img-f1" class="arena-fighter-img" src="" alt="">
+                        <div class="slot-placeholder">AWAITING HERO...</div>
+                    </div>
                 </div>
 
                 <div class="vs-badge-container">
@@ -234,7 +241,11 @@
                         <input type="text" id="searchF2" placeholder="Search hero..." class="input-field search-mini">
                         <select id="selectF2" class="input-field"></select>
                     </div>
-                    <div id="miniPreviewF2" class="mini-card-slot"></div>
+                    <div id="miniPreviewF2" class="mini-card-slot">
+                        <div class="hp-bar-container"><div id="hp-bar-2" class="hp-bar-fill"></div></div>
+                        <img id="img-f2" class="arena-fighter-img" src="" alt="">
+                        <div class="slot-placeholder">AWAITING HERO...</div>
+                    </div>
                 </div>
             </div>
 
@@ -246,7 +257,7 @@
             <div class="combat-console" id="combatLog">
                 <div class="console-header">
                     <span>BATTLE LOG</span>
-                    <span class="console-status">READY</span>
+                    <span id="consoleStatus" class="console-status">READY</span>
                 </div>
                 <div id="logContent" class="log-messages">
                     The arena awaits the contenders...
@@ -271,6 +282,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script type="module" src="main.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     
 </body>
 </html>

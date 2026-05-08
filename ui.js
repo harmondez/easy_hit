@@ -1,4 +1,5 @@
 import { cards } from './engine.js';
+import * as Engine from './engine.js';
 
 export const elementConfigs = {
     'Fuego':      { icon: '🔥', color: '#ef4444' },
@@ -130,66 +131,147 @@ export function setColiseumButtonMode(mode) {
 }
 
 export function resetColiseum() {
+    // 1. Limpieza del Log de combate
     const consoleEl = document.getElementById('logContent');
     if (consoleEl) {
-        // Limpieza absoluta
-        consoleEl.innerHTML = '';
+        consoleEl.innerHTML = '<div class="empty-state-msg">The arena awaits the contenders...</div>';
     }
     
-    // Restaurar el botón para el siguiente duelo
+    // 2. Restaurar el modo del botón (color y texto)
     setColiseumButtonMode('next');
     
-    // Si tienes botones separados de Inicio y Siguiente, asegúrate de resetear su visibilidad
+    // 3. Gestión de visibilidad de botones
     const btnInit = document.getElementById('btnInitCombat');
     const btnNext = document.getElementById('btnNextRound');
     if (btnInit && btnNext) {
         btnInit.style.display = 'block';
         btnNext.style.display = 'none';
+        // Efecto visual para que el botón de inicio aparezca con fuerza
+        gsap.from(btnInit, { scale: 0.5, opacity: 0, duration: 0.3, ease: "back.out(2)" });
+    }
+
+    // 4. LIMPIEZA DE LUCHADORES (Fotos, Barras de vida y Selectores)
+    ['1', '2'].forEach(num => {
+        const img = document.getElementById(`img-f${num}`);
+        const placeholder = document.querySelector(`#miniPreviewF${num} .slot-placeholder`);
+        const hpBar = document.getElementById(`hp-bar-${num}`);
+        const select = document.getElementById(`selectF${num}`);
+        const search = document.getElementById(`searchF${num}`);
+
+        // Limpiar imagen y mostrar texto de espera
+        if (img) {
+            img.src = "";
+            img.style.display = 'none';
+        }
+        if (placeholder) placeholder.style.display = 'block';
+
+        // Resetear barra de vida al 100%
+        if (hpBar) {
+            gsap.to(hpBar, { width: '100%', duration: 0.3 });
+        }
+
+        // Limpiar inputs de selección
+        if (select) select.value = "";
+        if (search) search.value = "";
+    });
+
+    // 5. Reset de estado en consola
+    const statusEl = document.getElementById('consoleStatus');
+    if (statusEl) {
+        statusEl.innerText = 'READY';
+        statusEl.style.color = 'var(--text-dim)';
     }
 }
 
 // --- 📜 SECCIÓN DE LA BIBLIOTECA (UI) ---
 
 
+
+
+
+
+export function previewLibraryCard(id) {
+    const card = Engine.cards.find(c => c.id === id);
+    const previewImg = document.getElementById('library-preview-img');
+    const previewName = document.getElementById('library-preview-name');
+
+    if (card && previewImg) {
+        previewImg.src = card.image;
+        previewImg.style.display = 'block';
+        if (previewName) previewName.innerText = card.name;
+
+        // Animación Vanguard de aparición
+        gsap.fromTo(previewImg, 
+            { opacity: 0, x: 20 }, 
+            { opacity: 1, x: 0, duration: 0.4 }
+        );
+    }
+}
+
+window.handleDeleteCard = function(id) {
+    if (confirm("¿Seguro que quieres borrar este héroe de la historia?")) {
+        Engine.deleteCard(id);
+        displayCards(); // Refresca la lista automáticamente
+        
+        // Volvemos al estado vacío en el detalle
+        const detailContainer = document.getElementById('libraryDetail');
+        if (detailContainer) {
+            detailContainer.innerHTML = `
+                <div class="empty-state-msg">
+                    <span style="font-size: 3rem; display: block; margin-bottom: 10px;">🛡️</span>
+                    Select a hero to view their file
+                </div>`;
+        }
+    }
+};
+
 export function displayCards() {
     const listContainer = document.getElementById('librarySidebarList');
     if (!listContainer) return;
 
-    if (cards.length === 0) {
-        listContainer.innerHTML = '<p class="empty-state-msg">Roster is empty. Forge some heroes!</p>';
+    const library = Engine.cards || [];
+
+    if (library.length === 0) {
+        listContainer.innerHTML = `<div class="empty-state-msg">Roster is empty...</div>`;
         return;
     }
 
-    // 1. Agrupamos las cartas por Clase y forzamos mayúsculas (HUMANS, DRAGONS...)
-    const groups = cards.reduce((acc, card) => {
-        const className = (card.cardClass || 'Neutral').toUpperCase(); 
+    const groups = library.reduce((acc, card) => {
+        const className = (card.cardClass || 'Neutral').toUpperCase();
         if (!acc[className]) acc[className] = [];
         acc[className].push(card);
         return acc;
     }, {});
 
-    // 2. Renderizamos con la nueva estructura de "Roster Group"
-    listContainer.innerHTML = Object.keys(groups).sort().map(className => `
+    listContainer.innerHTML = Object.keys(groups).sort().map(className => {
+        const formattedClass = className.charAt(0) + className.slice(1).toLowerCase();
+        
+        return `
         <div class="roster-group">
             <div class="roster-category-header">
-                <span class="category-icon">
-                    ${classIcons[className.charAt(0) + className.slice(1).toLowerCase()] || '🛡️'}
-                </span>
+                <span class="category-icon">${classIcons[formattedClass] || '🛡️'}</span>
                 ${className}S
             </div>
             <div class="roster-category-list">
-                ${groups[className].map(card => `
-                    <div class="card-list-item" data-id="${card.id}">
-                        <span class="item-element-dot" style="background-color: ${elementConfigs[card.element]?.color || '#fff'}"></span>
-                        
-                        <span class="item-name">${card.name}</span>
-                        
-                        <span class="item-stats-brief">ATQ:${card.atq}/DEF:${card.def}/HP:${card.hp}</span>
+                ${groups[className].map(card => {
+                    const totalPoints = (card.atq || 0) + (card.def || 0) + (card.hp || 0);
+                    const rarityClass = totalPoints > 7000 ? 'rarity-legendary' : totalPoints > 5000 ? 'rarity-epic' : 'rarity-common';
+                    
+                    // ERROR CORREGIDO: Añadido onclick="selectLibraryCard('${card.id}')"
+                    return `
+                    <div class="card-list-item ${rarityClass}" data-id="${card.id}" onclick="selectLibraryCard('${card.id}')">
+                        <div class="item-main-info">
+                            <span class="item-element-dot" style="background-color: ${elementConfigs[card.element]?.color || '#fff'}"></span>
+                            <span class="item-name">${card.name}</span>
+                        </div>
+                        <div class="item-stats-brief">
+                            <span>⚔️${card.atq}</span> <span>🛡️${card.def}</span> <span>❤️${card.hp}</span>
+                        </div>
                     </div>
-                `).join('')}
+                `}).join('')}
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 }
 
 /**
@@ -198,37 +280,40 @@ export function displayCards() {
  */
 
 export function renderCardDetail(card) {
-    const detailView = document.getElementById('libraryDetail');
-    if (!detailView || !card) return;
+    const detailContainer = document.getElementById('libraryDetail');
+    if (!detailContainer) return;
 
-    const config = elementConfigs[card.element];
-    const passiveDesc = passiveNames[card.passiveId] || "No passive description";
+    // Usamos Flexbox para asegurar que la imagen y el texto se vean lado a lado
+    detailContainer.style.display = 'flex';
+    detailContainer.style.alignItems = 'center';
 
-    detailView.innerHTML = `
-        <div class="card-preview showcase-animation" style="border-color: ${config?.color || '#fff'}; transform: scale(1.1);">
-            <div class="card-art" style="background-image: url('${card.image || ''}'); background-size: cover;"></div>
-            <div class="card-body">
-                <div class="card-header-inner">
-                    <h3>${card.name}</h3>
-                </div>
-                <div class="meta-info">
-                    <span>${config?.icon || '⚪'} ${card.element}</span> | 
-                    <span>${classIcons[card.cardClass] || '👤'} ${card.cardClass}</span>
-                </div>
-                <div class="preview-stats">
-                    <div class="stat-box">⚔️ <b>${card.atq}</b></div>
-                    <div class="stat-box">🛡️ <b>${card.def}</b></div>
-                    <div class="stat-box">❤️ <b>${card.hp}</b></div>
-                </div>
-                <p class="passive-desc">
-                    <strong>Passive:</strong> ${passiveDesc}
-                </p>
-            </div>
+    detailContainer.innerHTML = `
+        <div class="detail-art-container" style="width: 280px; height: 380px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 2px solid var(--primary); flex-shrink: 0;">
+            <img src="${card.image || ''}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://via.placeholder.com/280x380?text=No+Image'">
         </div>
-        <button type="button" class="btn-delete-card btn-delete-showcase" data-delete-id="${card.id}">
-            DELETE FROM ROSTER
-        </button>
+        
+        <div class="detail-info" style="flex: 1; padding-left: 30px;">
+            <h2 style="color: var(--primary); font-size: 2.5rem; margin: 0; line-height: 1;">${card.name}</h2>
+            <p style="color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; font-weight: bold;">
+                ${card.cardClass} // ${card.element}
+            </p>
+            
+            <div class="stats-display" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="font-size: 1.1rem;">❤️ HP: <strong style="color: #ef4444;">${card.hp}</strong></div>
+                <div style="font-size: 1.1rem;">🛡️ DEF: <strong style="color: #3b82f6;">${card.def}</strong></div>
+                <div style="font-size: 1.1rem;">⚔️ ATQ: <strong style="color: #f59e0b;">${card.atq}</strong></div>
+                <div style="font-size: 1.1rem;">✨ SKILL: <strong style="color: #a78bfa;">${card.passiveId || 'None'}</strong></div>
+            </div>
+
+            <button onclick="handleDeleteCard('${card.id}')" style="margin-top: 25px; background: linear-gradient(to right, #450a0a, #991b1b); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
+                🗑️ Delete Hero from Roster
+            </button>
+        </div>
     `;
+
+    if (window.gsap) {
+        gsap.from(detailContainer.children, { opacity: 0, y: 20, duration: 0.4, stagger: 0.1 });
+    }
 }
 
 // --- 🔨 SECCIÓN DE LA FORJA (Creador) ---
@@ -320,9 +405,95 @@ export function resetCropperData() {
     updatePreview(null);
 }
 
-// ⚠️ NOTA ARQUITECTÓNICA: Las funciones de abajo (handleFileSelect y applyCrop)
-// deberían ser movidas a forge.js en la próxima refactorización para respetar
-// completamente los 5 pilares, pero se mantienen aquí para preservar la funcionalidad actual.
+
+
+// ui.js
+
+/**
+ * Anima el choque de dos cartas en el Coliseo
+ */
+export function animateCombatHit(isFighter1Attacking) {
+    const f1 = document.getElementById('boxF1');
+    const f2 = document.getElementById('boxF2');
+    if (!f1 || !f2) return;
+
+    const tl = gsap.timeline();
+
+    if (isFighter1Attacking) {
+        // Fighter 1 embiste a Fighter 2
+        tl.to(f1, { x: 50, duration: 0.1, ease: "power2.in" })
+          .to(f1, { x: 0, duration: 0.4, ease: "elastic.out(1, 0.3)" });
+        
+        // Fighter 2 reacciona al golpe (temblor y flash rojo)
+        tl.to(f2, { x: 10, rotation: 5, duration: 0.05, yoyo: true, repeat: 3, outline: "4px solid #ef4444" }, "-=0.4")
+          .to(f2, { x: 0, rotation: 0, duration: 0.2, outline: "0px solid transparent" });
+    } else {
+        // Fighter 2 embiste a Fighter 1
+        tl.to(f2, { x: -50, duration: 0.1, ease: "power2.in" })
+          .to(f2, { x: 0, duration: 0.4, ease: "elastic.out(1, 0.3)" });
+        
+        // Fighter 1 reacciona
+        tl.to(f1, { x: -10, rotation: -5, duration: 0.05, yoyo: true, repeat: 3, outline: "4px solid #ef4444" }, "-=0.4")
+          .to(f1, { x: 0, rotation: 0, duration: 0.2, outline: "0px solid transparent" });
+    }
+}
+
+
+/**
+ * Actualiza visualmente la barra de vida y las estadísticas de un luchador
+ * @param {Object} fighter - El objeto del luchador con el HP actual
+ * @param {number} num - El número del luchador (1 o 2)
+ */
+export function refreshFighterStats(fighter, num) {
+    const hpBar = document.getElementById(`hp-bar-${num}`);
+    const hpText = document.getElementById(`statHP-${num}`); // Asegúrate de tener este ID en tu mini-preview o texto de stats
+
+    if (!fighter || !hpBar) return;
+
+    // Calcular porcentaje (evitando división por cero)
+    const maxHp = fighter.maxHp || 1000; // O el valor inicial que definas
+    const percentage = Math.max(0, (fighter.hp / maxHp) * 100);
+
+    // Animación de la barra de vida con GSAP
+    gsap.to(hpBar, {
+        width: `${percentage}%`,
+        duration: 0.4,
+        ease: "power2.out",
+        backgroundColor: percentage < 30 ? "#ff0000" : "#ef4444" // Se pone roja intensa si queda poca vida
+    });
+
+    // Si tienes un elemento de texto para el HP, actualízalo también
+    if (hpText) {
+        hpText.innerText = Math.ceil(fighter.hp);
+    }
+}
+
+
+
+
+/**
+ * Efecto visual para cuando salta una pasiva
+ */
+export function animatePassiveTrigger(fighterNum) {
+    const el = document.getElementById(`boxF${fighterNum}`);
+    if (!el) return;
+
+    gsap.fromTo(el, 
+        { scale: 1, filter: "brightness(1)" }, 
+        { 
+            scale: 1.1, 
+            filter: "brightness(2) drop-shadow(0 0 15px #a78bfa)", 
+            duration: 0.3, 
+            yoyo: true, 
+            repeat: 1, 
+            ease: "back.out(1.7)" 
+        }
+    );
+}
+
+
+
+
 
 export function handleFileSelect(e) {
     const file = e.target.files[0];
@@ -380,3 +551,48 @@ export function applyCrop(callback) {
     
     if (callback) callback(croppedImageBase64);
 }
+
+
+/**
+ * Actualiza la imagen y el estado visual del luchador en el Coliseo
+ */
+export function updateFighterPreview(fighter, num) {
+    const slot = document.getElementById(`miniPreviewF${num}`);
+    const img = document.getElementById(`img-f${num}`);
+    const placeholder = slot.querySelector('.slot-placeholder');
+    const hpBar = document.getElementById(`hp-bar-${num}`);
+
+    if (fighter && fighter.image) {
+        img.src = fighter.image;
+        img.style.display = 'block';
+        if (placeholder) placeholder.style.display = 'none';
+        
+        // Reset de barra de vida visual
+        if (hpBar) hpBar.style.width = '100%';
+
+        // Animación GSAP de "Invocación"
+        gsap.fromTo(img, 
+            { scale: 1.5, filter: "brightness(5) contrast(2)", opacity: 0 },
+            { scale: 1, filter: "brightness(1) contrast(1)", opacity: 1, duration: 0.6, ease: "power2.out" }
+        );
+        
+        // Brillo en el contenedor según el elemento
+        const elementColors = { Fire: '#ef4444', Water: '#3b82f6', Earth: '#10b981', Air: '#60a5fa' };
+        gsap.to(slot, { borderColor: elementColors[fighter.element] || '#475569', duration: 0.5 });
+
+    } else {
+        img.style.display = 'none';
+        if (placeholder) placeholder.style.display = 'block';
+        gsap.to(slot, { borderColor: '#1e293b', duration: 0.3 });
+    }
+}
+
+window.selectLibraryCard = function(id) {
+    const card = Engine.cards.find(c => c.id === id);
+    if (card) {
+        renderCardDetail(card);
+        // Feedback visual: marcar como activa
+        document.querySelectorAll('.card-list-item').forEach(el => el.classList.remove('active'));
+        document.querySelector(`[data-id="${id}"]`)?.classList.add('active');
+    }
+};
