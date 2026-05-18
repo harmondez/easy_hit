@@ -59,7 +59,7 @@ export function showComingSoon(feature) {
 
     const toast = document.createElement('div');
     toast.className = 'coming-soon-toast';
-    toast.innerHTML = `🔒 <strong>${label}</strong> — Coming in Phase 4`;
+    toast.innerHTML = `🔒 <strong>${label}</strong> — Coming in Phase 5`;
 
     document.body.appendChild(toast);
 
@@ -168,18 +168,26 @@ export function renderSelector() {
     select2.innerHTML = optionsHTML;
 }
 
-export function logConsole(msg, type = 'system', round = null) {
-    const consoleEl = document.getElementById('logContent');
+export function logConsole(msg, type = 'system', round = null, containerId = 'logContent') {
+    const consoleEl = document.getElementById(containerId);
     if (!consoleEl) return;
 
     const div = document.createElement('div');
     div.className = `log-entry ${type}`;
 
-    let roundTag = round ? `<span class="log-round-tag">R${round}</span> ` : '';
+    let roundTag = '';
+    if (round !== null) {
+        const prefix = containerId === 'pveLogContent' ? 'T' : 'R';
+        roundTag = `<span class="log-round-tag">${prefix}${round}</span> `;
+    }
     div.innerHTML = `${roundTag}${msg}`;
 
     consoleEl.appendChild(div);
     consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+export function pveLogConsole(msg, type = 'system', turn = null) {
+    logConsole(msg, type, turn, 'pveLogContent');
 }
 
 export function setColiseumButtonMode(mode) {
@@ -845,23 +853,34 @@ export function importarBiblioteca(event, callback) {
 // =============================================
 // 🗺️ RENDER MAP NODES (Adventure World Map)
 // =============================================
-export function renderMapNodes() {
+export function renderMapNodes(adventureState) {
     const canvas = document.getElementById('worldMapCanvas');
     if (!canvas) return;
 
-    const nodes = [
-        { id: 'node1', x: 10, y: 50, icon: '🏰', label: 'Stage 1', status: 'completed' },
-        { id: 'node2', x: 30, y: 20, icon: '🌲', label: 'Stage 2', status: 'completed' },
-        { id: 'node3', x: 55, y: 35, icon: '🏜️', label: 'Stage 3', status: 'active' },
-        { id: 'node4', x: 45, y: 65, icon: '🗿', label: 'Stage 4', status: 'locked' },
-        { id: 'node5', x: 70, y: 55, icon: '🌋', label: 'Stage 5', status: 'locked' },
-        { id: 'node6', x: 85, y: 25, icon: '👑', label: 'BOSS', status: 'locked', boss: true }
+    const progress = (adventureState && adventureState.stageProgress) || {};
+    const stages = [
+        { id: '1-1', x: 35, y: 80, icon: '🏰', label: 'Stage 1-1' },
+        { id: '1-2', x: 25, y: 55, icon: '🌲', label: 'Stage 1-2' },
+        { id: '1-3', x: 50, y: 35, icon: '🏜️', label: 'Stage 1-3' },
+        { id: '1-4', x: 75, y: 55, icon: '🗿', label: 'Stage 1-4' },
+        { id: '1-5', x: 85, y: 80, icon: '👑', label: 'BOSS: Orc Warlord' }
     ];
 
-    canvas.innerHTML = nodes.map(n => {
-        const cls = `map-node${n.status === 'active' ? ' active' : ''}${n.status === 'locked' ? ' locked' : ''}${n.status === 'completed' ? ' completed' : ''}${n.boss ? ' boss' : ''}`;
-        return `<div class="${cls}" style="left:${n.x}%;top:${n.y}%;" data-node="${n.id}" title="${n.label}">${n.icon}</div>`;
+    const connectors = stages.slice(0, -1).map((s, i) => {
+        const next = stages[i + 1];
+        return `<line x1="${s.x}%" y1="${s.y}%" x2="${next.x}%" y2="${next.y}%"
+                      stroke="#334155" stroke-width="3" stroke-dasharray="6,4"/>`;
     }).join('');
+
+    const svg = `<svg class="map-connectors" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">${connectors}</svg>`;
+
+    const nodesHtml = stages.map(s => {
+        const status = progress[s.id] || 'locked';
+        const cls = `map-node${status === 'available' ? ' active' : ''}${status === 'locked' ? ' locked' : ''}${status === 'completed' ? ' completed' : ''}${s.id === '1-5' ? ' boss' : ''}`;
+        return `<div class="${cls}" style="left:${s.x}%;top:${s.y}%;" data-stage="${s.id}" title="${s.label}">${s.icon}</div>`;
+    }).join('');
+
+    canvas.innerHTML = svg + nodesHtml;
 }
 
 // =============================================
@@ -965,4 +984,332 @@ function generateRewardCards(count) {
         results.push({ ...pick });
     }
     return results;
+}
+
+// =============================================
+// 🎯 ADVENTURE - TEAM SELECTION (UI state)
+// =============================================
+let _teamSlots = [null, null, null, null, null];
+let _currentStageId = null;
+
+export function initTeamSlots() {
+    _teamSlots = [null, null, null, null, null];
+    _currentStageId = null;
+}
+
+export function getCurrentStageId() {
+    return _currentStageId;
+}
+
+export function getSelectedTeam() {
+    if (_teamSlots.every(s => s !== null)) {
+        return _teamSlots.map(c => JSON.parse(JSON.stringify(c)));
+    }
+    return null;
+}
+
+export function renderTeamSelection(stageId) {
+    _teamSlots = [null, null, null, null, null];
+    _currentStageId = stageId;
+
+    const existing = document.getElementById('teamSelectionOverlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'team-selection-overlay';
+    overlay.id = 'teamSelectionOverlay';
+    overlay.innerHTML = `
+        <div class="team-selection-panel">
+            <div class="team-selection-header">
+                <h3>⚔️ Deploy Team for ${stageId}</h3>
+                <p>Choose 5 heroes to face the enemy</p>
+            </div>
+            <div class="party-slots-container" id="partySlotsContainer">
+                ${[1,2,3,4,5].map(i => `
+                    <div class="party-slot" data-slot-index="${i-1}">
+                        <span class="slot-number">#${i}</span>
+                        <span class="slot-placeholder-icon">👤</span>
+                        <span class="slot-label">Empty</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="team-selection-actions">
+                <button id="btnConfirmTeam" class="btn-forge" disabled>CONFIRM TEAM</button>
+                <button id="btnCancelTeam" class="tab-item" style="background:#334155;">CANCEL</button>
+            </div>
+        </div>
+    `;
+
+    const section = document.getElementById('section-adventure');
+    if (section) section.appendChild(overlay);
+
+    if (typeof gsap !== 'undefined') {
+        try { gsap.from('.team-selection-panel', { y: 50, opacity: 0, duration: 0.3, ease: "back.out(1.7)" }); } catch (e) {}
+    }
+}
+
+export function closeTeamSelection() {
+    const overlay = document.getElementById('teamSelectionOverlay');
+    if (overlay) overlay.remove();
+    const picker = document.getElementById('cardPickerModal');
+    if (picker) picker.remove();
+    _teamSlots = [null, null, null, null, null];
+}
+
+export function openCardPicker(slotIndex) {
+    const existing = document.getElementById('cardPickerModal');
+    if (existing) existing.remove();
+
+    const library = Engine.cards || [];
+    const available = library.filter(c => !_teamSlots.some(s => s && s.id === c.id));
+
+    const modal = document.createElement('div');
+    modal.className = 'card-picker-modal';
+    modal.id = 'cardPickerModal';
+    modal.dataset.targetSlot = slotIndex;
+
+    let gridHtml;
+    if (available.length === 0) {
+        gridHtml = `<div class="card-picker-empty">No available heroes in your Library</div>`;
+    } else {
+        gridHtml = available.map(c => {
+            const totalStats = (c.hp || 0) + (c.atq || 0) + (c.def || 0);
+            const isMythic = totalStats >= 7400;
+            return `
+                <div class="card-picker-item" data-card-id="${c.id}">
+                    <img class="picker-card-img" src="${c.image || ''}" alt="${c.name}" onerror="this.src='https://via.placeholder.com/140x60?text=No+Image'">
+                    <div class="picker-card-name">${c.name}</div>
+                    <div class="picker-card-stats">❤️${c.hp} ⚔️${c.atq} 🛡️${c.def}${isMythic ? ' 👑' : ''}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    modal.innerHTML = `
+        <div class="card-picker-panel">
+            <div class="card-picker-header">
+                <h4>🎴 Select a Hero</h4>
+                <button class="card-picker-close">&times;</button>
+            </div>
+            <div class="card-picker-grid">${gridHtml}</div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    if (typeof gsap !== 'undefined') {
+        try { gsap.from('.card-picker-panel', { scale: 0.95, opacity: 0, duration: 0.2, ease: "power2.out" }); } catch (e) {}
+    }
+}
+
+export function fillTeamSlot(slotIndex, card) {
+    if (!card) return;
+    _teamSlots[slotIndex] = card;
+
+    const slot = document.querySelector(`.party-slot[data-slot-index="${slotIndex}"]`);
+    if (slot) {
+        slot.classList.add('filled');
+        slot.innerHTML = `
+            <span class="slot-number">#${slotIndex + 1}</span>
+            <img class="slot-mini-img" src="${card.image || ''}" alt="${card.name}" onerror="this.src='https://via.placeholder.com/80x60?text=No+Image'">
+            <span class="slot-mini-name">${card.name}</span>
+            <span class="slot-mini-stats">❤️${card.hp} ⚔️${card.atq} 🛡️${card.def}</span>
+        `;
+    }
+
+    const btn = document.getElementById('btnConfirmTeam');
+    if (btn && _teamSlots.every(s => s !== null)) {
+        btn.disabled = false;
+        if (typeof gsap !== 'undefined') {
+            try { gsap.fromTo(btn, { scale: 1.05 }, { scale: 1, duration: 0.2, ease: "power2.out" }); } catch (e) {}
+        }
+    }
+}
+
+// =============================================
+// ⚔️ PvE ARENA (Adventure Combat)
+// =============================================
+export function renderPvEArena(party, squad, turnCount) {
+    const mapLayout = document.querySelector('.adventure-layout');
+    if (mapLayout) mapLayout.style.display = 'none';
+
+    const existing = document.getElementById('pveArena');
+    if (existing) existing.remove();
+
+    const isBoss = squad.length === 1;
+
+    const squadHtml = squad.map((m, i) => `
+        <div class="squad-member-card${m.hp <= 0 ? ' dead' : ''}${isBoss ? ' boss-card' : ''}" data-enemy-index="${i}">
+            <div class="squad-member-header">${isBoss ? '👑' : `[Enemy ${i+1}]`} ${m.name}</div>
+            ${isBoss ? `<img class="enemy-img" src="${m.image || ''}" alt="${m.name}" onerror="this.src='https://via.placeholder.com/240x160?text=Boss'">` : ''}
+            <div class="squad-hp-bar-container">
+                <div class="squad-hp-bar-fill" id="squadHpFill${i}" style="width:100%"></div>
+                <span class="squad-hp-text" id="squadHpText${i}">${Math.floor(m.hp)}/${m.maxHp}</span>
+            </div>
+            <div class="squad-stats-row">
+                <span>❤️${Math.floor(m.hp)}</span>
+                <span>🛡️${Math.floor(m.def)}</span>
+                <span>⚔️${Math.floor(m.atq)}</span>
+            </div>
+        </div>
+    `).join('');
+
+    const partyHtml = party.map((member, i) => `
+        <div class="party-member-card" data-index="${i}">
+            <img class="member-img" src="${member.image || ''}" alt="${member.name}" onerror="this.src='https://via.placeholder.com/40x40?text=?'">
+            <div class="member-info">
+                <div class="member-name">[Ally ${i+1}] ${member.name}</div>
+                <div class="member-element">${member.element || 'Neutral'}</div>
+                <div class="party-member-hp-bar">
+                    <div class="party-member-hp-fill" id="partyHpFill${i}" style="width:100%"></div>
+                </div>
+                <div class="member-hp-text" id="partyHpText${i}">${Math.floor(member.hp)}/${member.maxHp}</div>
+            </div>
+        </div>
+    `).join('');
+
+    const arena = document.createElement('div');
+    arena.className = 'pve-arena active';
+    arena.id = 'pveArena';
+    arena.innerHTML = `
+        <div class="pve-battlefield">
+            <div class="pve-squad-side" id="pveSquadSide">${squadHtml}</div>
+            <div class="pve-vs-column">
+                <div class="pve-turn-counter" id="pveTurnCounter">⚔️ TURN ${turnCount}</div>
+                <div class="vs-badge" style="font-size:2rem;">⚔️</div>
+            </div>
+            <div class="pve-party-side" id="pvePartySide">${partyHtml}</div>
+        </div>
+        <div class="pve-log-container">
+            <div class="console-header" style="margin-bottom:8px;">
+                <span>ADVENTURE LOG</span>
+            </div>
+            <div class="pve-log-messages" id="pveLogContent">
+                <div class="log-entry system">⚔️ ${isBoss ? 'BOSS ENCOUNTER' : '5v5 Squad Battle'} — Fight!</div>
+            </div>
+        </div>
+        <div class="pve-arena-actions">
+            <button id="btnPvENextTurn" class="btn-forge">NEXT TURN</button>
+            <button id="btnPvERetreat" class="tab-item" style="background:#334155;">RETREAT</button>
+        </div>
+    `;
+
+    const section = document.getElementById('section-adventure');
+    if (section) section.appendChild(arena);
+
+    if (typeof gsap !== 'undefined') {
+        try {
+            gsap.from('#pveArena', { opacity: 0, y: 20, duration: 0.4, ease: "power2.out" });
+            gsap.from('.squad-member-card', { x: -50, opacity: 0, duration: 0.4, stagger: 0.06, ease: "power2.out" });
+            gsap.from('.party-member-card', { x: 50, opacity: 0, duration: 0.4, stagger: 0.06, ease: "power2.out" });
+        } catch (e) {}
+    }
+}
+
+export function updatePvEArena(party, squad, turnCount) {
+    if (squad) {
+        squad.forEach((m, i) => {
+            const fill = document.getElementById(`squadHpFill${i}`);
+            const text = document.getElementById(`squadHpText${i}`);
+            const card = document.querySelector(`.squad-member-card[data-enemy-index="${i}"]`);
+            if (!card) return;
+            if (m.hp <= 0) {
+                card.classList.add('dead');
+                if (fill) fill.style.width = '0%';
+                if (text) text.innerText = '💀';
+            } else {
+                card.classList.remove('dead');
+                if (fill) {
+                    const pct = Math.max(0, (m.hp / m.maxHp) * 100);
+                    fill.style.width = pct + '%';
+                }
+                if (text) text.innerText = `${Math.floor(m.hp)}/${m.maxHp}`;
+            }
+            const statsRow = card.querySelector('.squad-stats-row');
+            if (statsRow) {
+                statsRow.innerHTML = `<span>❤️${Math.floor(m.hp)}</span><span>🛡️${Math.floor(m.def)}</span><span>⚔️${Math.floor(m.atq)}</span>`;
+            }
+        });
+    }
+
+    if (party) {
+        party.forEach((member, i) => {
+            const card = document.querySelector(`.party-member-card[data-index="${i}"]`);
+            if (!card) return;
+            const hpFill = document.getElementById(`partyHpFill${i}`);
+            const hpText = document.getElementById(`partyHpText${i}`);
+
+            if (member.hp <= 0) {
+                card.classList.add('dead');
+                if (hpFill) hpFill.style.width = '0%';
+                if (hpText) hpText.innerText = '💀';
+            } else {
+                card.classList.remove('dead');
+                if (hpFill) {
+                    const pct = Math.max(0, (member.hp / member.maxHp) * 100);
+                    hpFill.style.width = pct + '%';
+                    hpFill.className = 'party-member-hp-fill' + (pct < 30 ? ' low' : '');
+                }
+                if (hpText) hpText.innerText = `${Math.floor(member.hp)}/${member.maxHp}`;
+            }
+        });
+    }
+
+    const turnEl = document.getElementById('pveTurnCounter');
+    if (turnEl) turnEl.innerText = `⚔️ TURN ${turnCount}`;
+}
+
+export function showPvEResult(type) {
+    const existing = document.getElementById('pveResultOverlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'pve-result-overlay';
+    overlay.id = 'pveResultOverlay';
+
+    if (type === 'victory') {
+        overlay.innerHTML = `
+            <div class="pve-result-panel victory">
+                <div class="pve-result-icon">🏆</div>
+                <div class="pve-result-title victory">VICTORY!</div>
+                <div class="pve-result-desc">The enemy has been defeated!</div>
+                <div class="pve-result-actions">
+                    <button id="btnPvEResultContinue" class="btn-forge">CONTINUE</button>
+                </div>
+            </div>
+        `;
+    } else {
+        overlay.innerHTML = `
+            <div class="pve-result-panel defeat">
+                <div class="pve-result-icon">💀</div>
+                <div class="pve-result-title defeat">PARTY WIPED</div>
+                <div class="pve-result-desc">All heroes have fallen...</div>
+                <div class="pve-result-actions">
+                    <button id="btnPvEResultRetry" class="btn-forge" style="background:#ef4444;">RETRY</button>
+                    <button id="btnPvEBackToMap" class="tab-item" style="background:#334155;">BACK TO MAP</button>
+                </div>
+            </div>
+        `;
+    }
+
+    document.body.appendChild(overlay);
+
+    if (typeof gsap !== 'undefined') {
+        try { gsap.from('.pve-result-panel', { scale: 0, duration: 0.4, ease: "back.out(2)" }); } catch (e) {}
+    }
+}
+
+export function cleanAdventureOverlays() {
+    const overlay = document.getElementById('teamSelectionOverlay');
+    if (overlay) overlay.remove();
+    const picker = document.getElementById('cardPickerModal');
+    if (picker) picker.remove();
+    const arena = document.getElementById('pveArena');
+    if (arena) arena.remove();
+    const result = document.getElementById('pveResultOverlay');
+    if (result) result.remove();
+    const mapLayout = document.querySelector('.adventure-layout');
+    if (mapLayout) mapLayout.style.display = 'grid';
+    _teamSlots = [null, null, null, null, null];
+    _currentStageId = null;
 }

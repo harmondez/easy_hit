@@ -1713,3 +1713,186 @@ body {
         font-size: 1.8rem;
     }
 }
+
+/* =============================================
+   🎯 ADVENTURE - TEAM SELECTION OVERLAY
+   ============================================= */
+.team-selection-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.team-selection-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--gold);
+    border-radius: 16px;
+    padding: 30px;
+    max-width: 800px;
+    width: 90%;
+}
+.team-selection-header { text-align: center; margin-bottom: 20px; }
+.team-selection-header h3 { color: var(--gold); margin: 0; }
+.team-selection-header p { color: var(--text-dim); font-size: 0.85rem; margin: 5px 0 0; }
+.party-slots-container {
+    display: flex; gap: 12px; justify-content: center;
+    margin: 20px 0; flex-wrap: wrap;
+}
+.party-slot {
+    width: 120px; height: 160px;
+    border: 2px dashed var(--border-color);
+    border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s;
+    background: rgba(15, 23, 42, 0.5); position: relative;
+}
+.party-slot:hover { border-color: var(--gold); background: rgba(251, 191, 36, 0.05); }
+.party-slot.filled { border-style: solid; border-color: #22c55e; background: rgba(34, 197, 94, 0.05); }
+.party-slot .slot-number { position: absolute; top: 5px; left: 8px; font-size: 0.7rem; color: var(--text-dim); font-weight: 700; }
+.party-slot .slot-placeholder-icon { font-size: 2rem; opacity: 0.4; }
+.party-slot .slot-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 5px; }
+.party-slot.filled .slot-mini-img { width: 80px; height: 60px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-color); }
+.party-slot.filled .slot-mini-name { font-size: 0.75rem; font-weight: 600; margin-top: 4px; color: var(--text-main); }
+.party-slot.filled .slot-mini-stats { font-size: 0.65rem; color: var(--text-dim); }
+.team-selection-actions { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+
+/* =============================================
+   🎴 CARD PICKER MODAL
+   ============================================= */
+.card-picker-modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); z-index: 210;
+    display: flex; align-items: center; justify-content: center;
+}
+.card-picker-panel {
+    background: var(--bg-card); border: 1px solid var(--border-color);
+    border-radius: 16px; padding: 20px;
+    max-width: 600px; width: 90%; max-height: 70vh;
+    display: flex; flex-direction: column;
+}
+.card-picker-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.card-picker-header h4 { margin: 0; color: var(--gold); }
+.card-picker-close { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+.card-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; padding: 5px; }
+.card-picker-item {
+    background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color);
+    border-radius: 8px; padding: 10px; cursor: pointer;
+    transition: all 0.2s; text-align: center;
+}
+.card-picker-item:hover { border-color: var(--gold); background: rgba(251, 191, 36, 0.05); }
+.card-picker-item.disabled { opacity: 0.4; cursor: not-allowed; }
+.card-picker-item .picker-card-img { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; margin-bottom: 5px; }
+.card-picker-item .picker-card-name { font-size: 0.8rem; font-weight: 600; }
+.card-picker-item .picker-card-stats { font-size: 0.65rem; color: var(--text-dim); }
+.card-picker-empty { grid-column: 1/-1; text-align: center; padding: 30px; color: var(--text-dim); }
+
+/* =============================================
+   ⚔️ PvE ARENA (Adventure Combat)
+   ============================================= */
+.pve-arena { display: none; flex-direction: column; gap: 15px; }
+.pve-arena.active { display: flex; }
+.pve-battlefield { display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: start; }
+.pve-enemy-side { display: flex; justify-content: center; }
+.enemy-card-display {
+    width: 240px; background: var(--bg-card);
+    border: 2px solid #ef4444; border-radius: 12px;
+    padding: 15px; text-align: center;
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.2);
+}
+.enemy-card-display .enemy-img { width: 100%; height: 160px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border-color); }
+.enemy-card-display .enemy-name { font-size: 1.1rem; font-weight: 800; color: #ef4444; }
+.enemy-card-display .enemy-element { font-size: 0.75rem; color: var(--text-dim); margin: 5px 0 10px; }
+.enemy-hp-bar-container { width: 100%; height: 20px; background: #1a1a2e; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-color); margin-bottom: 8px; position: relative; }
+.enemy-hp-bar-fill { height: 100%; background: linear-gradient(90deg, #ef4444, #dc2626); border-radius: 10px; transition: width 0.5s ease; }
+.enemy-hp-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 0.75rem; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.enemy-stats-row { display: flex; justify-content: center; gap: 15px; font-size: 0.8rem; color: var(--text-dim); }
+.pve-vs-column { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding-top: 60px; }
+.pve-turn-counter { font-size: 0.9rem; color: var(--gold); font-weight: 700; text-align: center; }
+.pve-squad-side { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.pve-party-side { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.squad-member-card {
+    width: 200px; background: rgba(30, 15, 15, 0.6);
+    border: 1px solid #991b1b; border-radius: 8px;
+    padding: 8px 12px; transition: all 0.3s;
+}
+.squad-member-card.dead { opacity: 0.3; filter: grayscale(1); }
+.squad-member-card.boss-card {
+    width: 240px; border: 2px solid #ef4444;
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.3);
+}
+.squad-member-card.boss-card .enemy-img {
+    width: 100%; height: 140px; object-fit: cover;
+    border-radius: 6px; margin-bottom: 8px; border: 1px solid #ef4444;
+}
+.squad-member-header {
+    font-size: 0.75rem; font-weight: 700; color: #ef4444;
+    margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.squad-hp-bar-container {
+    width: 100%; height: 14px; background: #1a1a2e;
+    border-radius: 7px; overflow: hidden; border: 1px solid var(--border-color);
+    margin-bottom: 4px; position: relative;
+}
+.squad-hp-bar-fill {
+    height: 100%; background: linear-gradient(90deg, #ef4444, #dc2626);
+    border-radius: 7px; transition: width 0.4s ease;
+}
+.squad-hp-text {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 0.65rem; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+.squad-stats-row {
+    display: flex; justify-content: center; gap: 10px;
+    font-size: 0.65rem; color: var(--text-dim);
+}
+.party-member-card {
+    width: 200px; background: var(--bg-card);
+    border: 1px solid var(--border-color); border-radius: 8px;
+    padding: 8px 12px; display: flex; align-items: center; gap: 10px; transition: all 0.3s;
+}
+.party-member-card.dead { opacity: 0.4; filter: grayscale(1); }
+.party-member-card .member-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-color); flex-shrink: 0; }
+.party-member-card .member-info { flex: 1; min-width: 0; }
+.party-member-card .member-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.party-member-card .member-element { font-size: 0.65rem; color: var(--text-dim); }
+.party-member-card .member-hp-text { font-size: 0.7rem; font-weight: 600; margin-top: 2px; }
+.party-member-hp-bar { width: 100%; height: 6px; background: #1a1a2e; border-radius: 3px; overflow: hidden; margin-top: 3px; }
+.party-member-hp-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #16a34a); border-radius: 3px; transition: width 0.3s ease; }
+.party-member-hp-fill.low { background: linear-gradient(90deg, #ef4444, #dc2626); }
+.pve-arena-actions { display: flex; gap: 12px; justify-content: center; }
+
+/* =============================================
+   📜 PvE BATTLE LOG
+   ============================================= */
+.pve-log-container {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid var(--border-color); border-radius: 10px;
+    padding: 15px; max-height: 200px; overflow-y: auto;
+}
+.pve-log-messages { font-size: 0.8rem; font-family: 'Courier New', monospace; }
+.pve-log-messages .log-entry { margin-bottom: 4px; }
+
+/* =============================================
+   🏆 PvE RESULT OVERLAY
+   ============================================= */
+.pve-result-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); z-index: 300;
+    display: flex; align-items: center; justify-content: center;
+}
+.pve-result-panel {
+    background: var(--bg-card); border-radius: 20px;
+    padding: 40px; text-align: center; max-width: 400px; width: 90%;
+}
+.pve-result-panel.victory { border: 2px solid var(--gold); box-shadow: 0 0 50px rgba(251,191,36,0.3); }
+.pve-result-panel.defeat { border: 2px solid #ef4444; box-shadow: 0 0 50px rgba(239,68,68,0.3); }
+.pve-result-icon { font-size: 4rem; margin-bottom: 15px; }
+.pve-result-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 10px; }
+.pve-result-title.victory { color: var(--gold); }
+.pve-result-title.defeat { color: #ef4444; }
+.pve-result-desc { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 20px; }
+.pve-result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }

@@ -23,7 +23,21 @@ const gameState = {
     },
     inventory: [],
     codex: [],
-    raidAttempts: 0
+    raidAttempts: 0,
+    adventure: {
+        currentStage: null,
+        selectedTeam: [],
+        activeSquad: [],
+        inCombat: false,
+        turnCount: 0,
+        stageProgress: {
+            '1-1': 'available',
+            '1-2': 'locked',
+            '1-3': 'locked',
+            '1-4': 'locked',
+            '1-5': 'locked'
+        }
+    }
 };
 
 console.log("🔥 Vanguard System: Conectando cables en tiempo real...");
@@ -50,14 +64,24 @@ function safeGsap(callback) {
 // 🔀 TRANSITION STATE MACHINE
 // =============================================
 const SECTION_WHITELIST = ['library', 'creator', 'coliseo', 'adventure', 'inventory', 'shop'];
-const ACTIVE_SECTIONS = ['library', 'creator', 'coliseo'];
-const LOCKED_SECTIONS = ['adventure', 'inventory', 'shop'];
+const ACTIVE_SECTIONS = ['library', 'creator', 'coliseo', 'adventure'];
+const LOCKED_SECTIONS = ['inventory', 'shop'];
 
 const onSectionEnter = {
     library: () => { UI.displayCards(); },
     creator: () => {},
     coliseo: () => { UI.renderSelector(); },
-    adventure: () => { UI.renderCodex(); UI.renderMapNodes(); },
+    adventure: () => {
+        UI.cleanAdventureOverlays();
+        UI.initTeamSlots();
+        gameState.adventure.inCombat = false;
+        gameState.adventure.currentStage = null;
+        gameState.adventure.selectedTeam = [];
+        gameState.adventure.activeSquad = [];
+        gameState.adventure.turnCount = 0;
+        UI.renderCodex();
+        UI.renderMapNodes(gameState.adventure);
+    },
     inventory: () => {},
     shop: () => {}
 };
@@ -374,6 +398,165 @@ function initEvents() {
     // --- 🛡️ REFORGE (bloqueado) ---
     safeListener('btnReforge', 'click', () => {
         UI.showComingSoon('reforge');
+    });
+
+    // =============================================
+    // 🌍 DELEGACIÓN GLOBAL (Adventure dinámico)
+    // =============================================
+    document.addEventListener('click', (e) => {
+        const adv = gameState.adventure;
+
+        // Map node click (available node)
+        const node = e.target.closest('.map-node');
+        if (node && node.dataset.stage && !node.classList.contains('locked')) {
+            const stageId = node.dataset.stage;
+            const status = adv.stageProgress[stageId];
+            if (status === 'available') {
+                adv.currentStage = stageId;
+                UI.renderTeamSelection(stageId);
+            }
+            return;
+        }
+
+        // Party slot click (empty)
+        const slot = e.target.closest('.party-slot:not(.filled)');
+        if (slot && slot.dataset.slotIndex !== undefined) {
+            UI.openCardPicker(parseInt(slot.dataset.slotIndex));
+            e.stopPropagation();
+            return;
+        }
+
+        // Card picker item click
+        const pickerItem = e.target.closest('.card-picker-item:not(.disabled)');
+        if (pickerItem && pickerItem.dataset.cardId) {
+            const cardId = pickerItem.dataset.cardId;
+            const card = Engine.cards.find(c => c.id === cardId);
+            if (card) {
+                const modal = document.getElementById('cardPickerModal');
+                const slotIndex = modal ? parseInt(modal.dataset.targetSlot) : -1;
+                if (slotIndex >= 0 && slotIndex < 5) {
+                    UI.fillTeamSlot(slotIndex, card);
+                }
+            }
+            const picker = document.getElementById('cardPickerModal');
+            if (picker) picker.remove();
+            return;
+        }
+
+        // Card picker close button
+        if (e.target.closest('.card-picker-close')) {
+            const picker = document.getElementById('cardPickerModal');
+            if (picker) picker.remove();
+            return;
+        }
+
+        // Close picker by clicking backdrop
+        if (e.target.closest('.card-picker-modal') && !e.target.closest('.card-picker-panel')) {
+            const picker = document.getElementById('cardPickerModal');
+            if (picker) picker.remove();
+            return;
+        }
+
+        // Confirm team button
+        if (e.target.id === 'btnConfirmTeam') {
+            const team = UI.getSelectedTeam();
+            if (team && team.length === 5 && adv.currentStage) {
+                UI.closeTeamSelection();
+                adv.selectedTeam = team;
+                adv.activeSquad = Engine.getSquadForStage(adv.currentStage);
+                adv.turnCount = 0;
+                adv.inCombat = true;
+                const squadSize = adv.activeSquad.length;
+                const stageLabel = adv.currentStage === '1-5' ? 'BOSS' : `${squadSize}v5`;
+                UI.pveLogConsole(`🔥 ¡QUE COMIENCE EL COMBATE EN ${adv.currentStage} (${stageLabel})! 🔥`, 'system');
+                UI.renderPvEArena(team, adv.activeSquad, adv.turnCount);
+            }
+            return;
+        }
+
+        // Cancel team button
+        if (e.target.id === 'btnCancelTeam') {
+            UI.closeTeamSelection();
+            adv.currentStage = null;
+            return;
+        }
+
+        // PvE Next Turn button
+        if (e.target.id === 'btnPvENextTurn') {
+            if (!adv.inCombat || !adv.activeSquad.length || !adv.selectedTeam.length) return;
+            if (adv.turnCount >= 100) return;
+
+            adv.turnCount++;
+            UI.pveLogConsole(`⚔️ TURN ${adv.turnCount} — Party assaults!`, 'round-header', adv.turnCount);
+
+            Engine.executePartyTurn(adv.selectedTeam, adv.activeSquad);
+            UI.updatePvEArena(adv.selectedTeam, adv.activeSquad, adv.turnCount);
+
+            const v = Engine.verifyPartyVictory(adv.selectedTeam, adv.activeSquad);
+            if (v.victory) {
+                UI.pveLogConsole(`🏆 ¡VICTORIA! Escuadrón enemigo derrotado.`, 'victory');
+                adv.inCombat = false;
+                adv.stageProgress[adv.currentStage] = 'completed';
+                const stages = ['1-1','1-2','1-3','1-4','1-5'];
+                const idx = stages.indexOf(adv.currentStage);
+                if (idx >= 0 && idx < stages.length - 1) {
+                    const next = stages[idx + 1];
+                    if (adv.stageProgress[next] === 'locked') {
+                        adv.stageProgress[next] = 'available';
+                    }
+                }
+                setTimeout(() => { UI.showPvEResult('victory'); }, 500);
+            } else if (v.defeat) {
+                UI.pveLogConsole(`💀 DERROTA — Todos los héroes han caído.`, 'victory');
+                adv.inCombat = false;
+                setTimeout(() => { UI.showPvEResult('defeat'); }, 500);
+            }
+            return;
+        }
+
+        // PvE Retreat button
+        if (e.target.id === 'btnPvERetreat') {
+            adv.inCombat = false;
+            adv.currentStage = null;
+            adv.selectedTeam = [];
+            adv.activeSquad = [];
+            adv.turnCount = 0;
+            UI.cleanAdventureOverlays();
+            UI.renderMapNodes(adv);
+            return;
+        }
+
+        // Result overlay: Continue (victory)
+        if (e.target.id === 'btnPvEResultContinue') {
+            adv.inCombat = false;
+            adv.currentStage = null;
+            adv.selectedTeam = [];
+            adv.activeSquad = [];
+            adv.turnCount = 0;
+            UI.cleanAdventureOverlays();
+            UI.renderMapNodes(adv);
+            return;
+        }
+
+        // Result overlay: Retry (defeat)
+        if (e.target.id === 'btnPvEResultRetry') {
+            const stageId = adv.currentStage;
+            UI.cleanAdventureOverlays();
+            UI.renderTeamSelection(stageId);
+            return;
+        }
+
+        // Result overlay: Back to Map (defeat)
+        if (e.target.id === 'btnPvEBackToMap') {
+            adv.inCombat = false;
+            adv.currentStage = null;
+            adv.selectedTeam = [];
+            adv.activeSquad = [];
+            adv.turnCount = 0;
+            UI.cleanAdventureOverlays();
+            UI.renderMapNodes(adv);
+            return;
+        }
     });
 
     // Restaurar última pestaña desde localStorage (solo activas)

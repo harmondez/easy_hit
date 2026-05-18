@@ -68,6 +68,15 @@ function calcularDetalleDaño(atk, def) {
         return { hpDamage: 0, defDamage: 0, piercing: 0, blocked: true };
     }
 
+    // Pasiva: Orc Warlord (orc_warlord) — bloquea 1er golpe + cura
+    if (def.passiveId === 'orc_warlord' && def._blockUsed === undefined) {
+        def._blockUsed = true;
+        let healAmt = Math.floor(rawDmg * 0.5);
+        def.hp = Math.min(def.maxHp, def.hp + healAmt);
+        logConsole(`🛡️ ${def.name} [Warlord's Bulwark]: ¡Bloquea el ataque y recupera ${healAmt} HP!`, 'passive');
+        return { hpDamage: 0, defDamage: 0, piercing: 0, blocked: true };
+    }
+
     // Reparto de daño (Equitativo)
     if (effectiveDef > 0) {
         let splitDmg = Math.floor(rawDmg / 2);
@@ -178,18 +187,27 @@ function processPostDamagePassives(receiver, attacker, dmg) {
 /**
  * Aplica un ataque individual (usado por pasivas como Double Strike y Leech).
  */
-export function procesarAtaque(atk, def) {
+function findFirstAliveIndex(arr, start = 0) {
+    for (let i = start; i < arr.length; i++) {
+        if (arr[i] && arr[i].hp > 0) return i;
+    }
+    return -1;
+}
+
+export function procesarAtaque(atk, def, atkLabel, defLabel) {
     if (!atk || !def || atk.hp <= 0 || def.hp <= 0) return { defDamage: 0, hpDamage: 0 };
 
     let rawDmg = atk.atq;
     let hpDamage = 0;
     let defDamage = 0;
 
-    logConsole(`⚔️ ${atk.name} lanza un ataque...`, 'attack');
+    const aName = atkLabel || atk.name;
+    const dName = defLabel || def.name;
+    logConsole(`⚔️ ${aName} strikes ${dName}!`, 'attack');
 
     if (atk.passiveId === 'anti_armor' && def.def > 0) {
         rawDmg = Math.floor(rawDmg * 1.5);
-        logConsole(`🎯 ¡Efecto Anti-Armadura! El daño sube a ${rawDmg}.`, 'passive');
+        logConsole(`🎯 ${aName} [Anti-Armor]: Daño sube a ${rawDmg}!`, 'passive');
     }
 
     if (atk.passiveId === 'armor_piercing' && def.def > 0) {
@@ -197,7 +215,7 @@ export function procesarAtaque(atk, def) {
         let remainingDmg = rawDmg - piercingDmg;
         def.hp = Math.max(0, def.hp - piercingDmg);
         hpDamage += piercingDmg;
-        logConsole(`💉 Penetración: ${piercingDmg} HP dañados directamente.`, 'passive');
+        logConsole(`💉 ${aName} [Armor Piercing]: ${piercingDmg} directo al HP!`, 'passive');
         rawDmg = remainingDmg;
     }
 
@@ -208,7 +226,7 @@ export function procesarAtaque(atk, def) {
         defDamage += actualDefDmg;
         hpDamage += (rawDmg - actualDefDmg);
         def.hp = Math.max(0, def.hp - (rawDmg - actualDefDmg));
-        logConsole(`🛡️ El impacto se reparte: ${actualDefDmg} DEF / ${rawDmg - actualDefDmg} HP.`, 'damage');
+        logConsole(`🛡️ ${dName} recibe: ${actualDefDmg} DEF / ${rawDmg - actualDefDmg} HP.`, 'damage');
     } else {
         def.hp = Math.max(0, def.hp - rawDmg);
         hpDamage += rawDmg;
@@ -219,7 +237,7 @@ export function procesarAtaque(atk, def) {
         hpDamage += 10;
     }
 
-    logConsole(`💥 Daño total recibido: ${hpDamage} HP.`, 'damage');
+    logConsole(`💥 ${dName} recibe ${hpDamage} HP de daño total.`, 'damage');
     return { defDamage, hpDamage };
 }
 
@@ -351,6 +369,20 @@ export function applyRoundStartPassives(f, r) {
                 logConsole(`🏛️ ${f.name} [Last Stand]: ¡Resistencia absoluta! DEF x4!`, 'passive');
             }
             break;
+
+        // === ORC WARLORD (pasiva dual: Berserker Fury + regeneración) ===
+        case 'orc_warlord':
+            // Regeneración pasiva cada turno
+            if (f.hp > 0 && f.hp < f.maxHp) {
+                let regen = Math.floor(f.maxHp * 0.02);
+                f.hp = Math.min(f.maxHp, f.hp + regen);
+                logConsole(`🩸 ${f.name} [Warlord's Vitality]: Regenera ${regen} HP!`, 'passive');
+            }
+            if (f.hp <= Math.floor((f.maxHp || f.hp || 1) * 0.3)) {
+                f.atq = Math.floor(f.atq * 3);
+                logConsole(`🔥 ${f.name} [Berserker Fury]: ¡ATK x3 al borde de la muerte!`, 'passive');
+            }
+            break;
     }
     return false;
 }
@@ -360,10 +392,10 @@ export let cards = [];
 
 function loadLibrary() {
     try {
+        if (typeof localStorage === 'undefined') { cards = []; return; }
         const savedData = localStorage.getItem('easyHitLibrary');
         cards = savedData ? JSON.parse(savedData) : [];
     } catch (error) {
-        console.error("Vanguard: Error al cargar biblioteca.", error);
         cards = [];
     }
 }
@@ -420,4 +452,110 @@ export function syncStorage() {
     } catch (e) {
         console.error("Vanguard Critico: El almacenamiento está lleno.");
     }
+}
+
+// =============================================
+// 👾 ENEMY ROSTER (Zona 1 — 5v5)
+// =============================================
+const ENEMY_ROSTER = {
+    orc_boss: {
+        id: 'orc_boss',
+        name: 'Orc Warlord',
+        element: 'Earth',
+        cardClass: 'Orc',
+        hp: 40000,
+        def: 5000,
+        atq: 3500,
+        maxHp: 40000,
+        passiveId: 'orc_warlord',
+        image: 'https://via.placeholder.com/300x200?text=Orc+Warlord+BOSS'
+    }
+};
+
+const ENEMY_SQUAD_ROSTER = {
+    goblin_shieldbearer: {
+        id: 'goblin_shield', name: 'Goblin Shieldbearer', element: 'Neutral',
+        cardClass: 'Goblin', hp: 3500, def: 2500, atq: 1400, maxHp: 3500,
+        passiveId: '', image: 'https://via.placeholder.com/120x80?text=Shield'
+    },
+    goblin_piker: {
+        id: 'goblin_piker', name: 'Goblin Piker', element: 'Neutral',
+        cardClass: 'Goblin', hp: 2800, def: 1500, atq: 2100, maxHp: 2800,
+        passiveId: '', image: 'https://via.placeholder.com/120x80?text=Piker'
+    },
+    goblin_sapper: {
+        id: 'goblin_sapper', name: 'Goblin Sapper', element: 'Darkness',
+        cardClass: 'Goblin', hp: 2500, def: 1200, atq: 2200, maxHp: 2500,
+        passiveId: 'prog_venom', image: 'https://via.placeholder.com/120x80?text=Sapper'
+    },
+    goblin_scout: {
+        id: 'goblin_scout', name: 'Goblin Scout', element: 'Wind',
+        cardClass: 'Goblin', hp: 2200, def: 1000, atq: 2700, maxHp: 2200,
+        passiveId: '', image: 'https://via.placeholder.com/120x80?text=Scout'
+    },
+    goblin_shaman: {
+        id: 'goblin_shaman', name: 'Goblin Shaman', element: 'Nature',
+        cardClass: 'Goblin', hp: 2000, def: 1500, atq: 1800, maxHp: 2000,
+        passiveId: 'shield_recharge', image: 'https://via.placeholder.com/120x80?text=Shaman'
+    }
+};
+
+export function getSquadForStage(stageId) {
+    if (stageId === '1-5') {
+        const boss = JSON.parse(JSON.stringify(ENEMY_ROSTER.orc_boss));
+        boss._uid = 'orc_boss';
+        return [boss];
+    }
+    const stageNum = parseInt(stageId.split('-')[1]);
+    const mult = 1.0 + (stageNum - 1) * 0.05;
+    const squad = Object.values(ENEMY_SQUAD_ROSTER).map((e, i) => {
+        const clone = JSON.parse(JSON.stringify(e));
+        clone.hp = Math.floor(clone.hp * mult);
+        clone.maxHp = clone.hp;
+        clone.def = Math.floor(clone.def * mult);
+        clone.atq = Math.floor(clone.atq * mult);
+        clone._uid = `enemy_slot_${i}`;
+        return clone;
+    });
+    return squad;
+}
+
+export function executePartyTurn(party, squad) {
+    if (!party || !squad) return { enemyDead: false, partyWiped: false };
+
+    // === ALIED PHASE: each alive ally targets first alive enemy ===
+    for (let i = 0; i < party.length; i++) {
+        const ally = party[i];
+        if (!ally || ally.hp <= 0) continue;
+        const eIdx = findFirstAliveIndex(squad);
+        if (eIdx === -1) break;
+        const enemy = squad[eIdx];
+        applyRoundStartPassives(ally, enemy);
+        if (enemy.hp <= 0) continue;
+        procesarAtaque(ally, enemy, `[Ally ${i+1}] ${ally.name}`, `[Enemy ${eIdx+1}] ${enemy.name}`);
+    }
+
+    // === ENEMY PHASE: each alive enemy targets first alive ally ===
+    for (let i = 0; i < squad.length; i++) {
+        const enemy = squad[i];
+        if (!enemy || enemy.hp <= 0) continue;
+        const aIdx = findFirstAliveIndex(party);
+        if (aIdx === -1) break;
+        const ally = party[aIdx];
+        applyRoundStartPassives(enemy, ally);
+        if (ally.hp <= 0) continue;
+        procesarAtaque(enemy, ally, `[Enemy ${i+1}] ${enemy.name}`, `[Ally ${aIdx+1}] ${ally.name}`);
+    }
+
+    return {
+        enemyDead: squad.every(e => !e || e.hp <= 0),
+        partyWiped: party.every(a => !a || a.hp <= 0)
+    };
+}
+
+export function verifyPartyVictory(party, squad) {
+    return {
+        victory: squad && squad.length > 0 && squad.every(e => !e || e.hp <= 0),
+        defeat: party && party.length > 0 && party.every(a => !a || a.hp <= 0)
+    };
 }
