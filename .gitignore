@@ -31,3 +31,7 @@ yarn-debug.log*
 yarn-error.log*
 
 
+.opencode/
+.continue
+#AGENTS.md
+#Plan_20_fases.md

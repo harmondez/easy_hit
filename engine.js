@@ -1,18 +1,9 @@
 import { logConsole, setColiseumButtonMode } from './ui.js';
 
 /**
- * Procesa un ataque individual entre dos combatientes.
- * Optimización: Blindaje total contra valores negativos y nulos.
+ * Calcula el daño detallado de un ataque individual.
+ * Reparto equitativo DEF/HP sin duplicación de exceso.
  */
-
-
-
-/**
- * Procesa una ronda de combate SIMULTÁNEA.
- * Implementa la mecánica de "Overkill" de Easy Hit (+200% en negativo).
- */
-
-
 function calcularDetalleDaño(atk, def) {
     let rawDmg = atk.atq;
     let hpDamage = 0;
@@ -28,21 +19,62 @@ function calcularDetalleDaño(atk, def) {
     // Pasiva: Armor Piercing
     if (atk.passiveId === 'armor_piercing' && def.def > 0) {
         piercing = Math.floor(rawDmg * 0.3);
-        rawDmg -= piercing; // El resto del daño se procesa normal
+        rawDmg -= piercing;
         hpDamage += piercing;
     }
 
-    // Reparto de daño (Equitativo si hay armadura)
-    if (def.def > 0) {
-        let splitDmg = Math.floor(rawDmg / 2);
-        
-        let actualDefDmg = Math.min(def.def, splitDmg);
-        defDamage += actualDefDmg;
+    // Pasiva: Dragon Slayer — ignora 50% DEF contra Dragones
+    let effectiveDef = def.def;
+    if (atk.passiveId === 'nem_dragon_slayer' && def.cardClass === 'Dragon') {
+        effectiveDef = Math.floor(effectiveDef * 0.5);
+        logConsole(`🐉 ${atk.name} [Dragon Slayer]: Ignora 50% de la DEF de ${def.name}!`, 'passive');
+    }
 
-        let excessDefDmg = splitDmg - actualDefDmg;
-        hpDamage += (splitDmg + excessDefDmg);
+    // Pasiva: Element Ward — reduce ATQ si rival es Rayo
+    if (def.passiveId === 'nem_element_ward' && atk.element === 'Rayo') {
+        let reduced = Math.floor(rawDmg * 0.5);
+        rawDmg -= reduced;
+        hpDamage += reduced;
+        logConsole(`⚡ ${def.name} [Lightning Rod]: Reduce ${reduced} ATK de ${atk.name}!`, 'passive');
+    }
+
+    // Pasiva: Graceful Strike (fen_revive) — si el portador recibe golpe letal sobrevive
+    if (def.passiveId === 'fen_revive' && def._revived === undefined) {
+        let incomingHpDmg = 0;
+        if (effectiveDef > 0) {
+            let splitDmg = Math.floor(rawDmg / 2);
+            let actualDefDmg = Math.min(effectiveDef, splitDmg);
+            let excessDefDmg = splitDmg - actualDefDmg;
+            incomingHpDmg = splitDmg + excessDefDmg;
+            defDamage += actualDefDmg;
+        } else {
+            incomingHpDmg = rawDmg;
+        }
+        incomingHpDmg += hpDamage;
+        if ((def.hp - incomingHpDmg) <= 0) {
+            def._revived = true;
+            def.hp = Math.floor((def.maxHp || def.hp) * 0.3);
+            logConsole(`✨ ${def.name} [Graceful Strike]: ¡Absorbe el golpe letal y renace con ${def.hp} HP!`, 'passive');
+            return { hpDamage: 0, defDamage: 0, piercing: 0, reviveCounter: true };
+        }
+    }
+
+    // Pasiva: Sacred Veil (gen_block_heal) — bloquea 1er ataque y lo convierte en HP
+    if (def.passiveId === 'gen_block_heal' && def._blockUsed === undefined) {
+        def._blockUsed = true;
+        let healAmt = Math.floor(rawDmg * 0.5);
+        def.hp = Math.min(def.maxHp || def.hp * 2, def.hp + healAmt);
+        logConsole(`🛡️ ${def.name} [Sacred Veil]: ¡Bloquea el ataque y recupera ${healAmt} HP!`, 'passive');
+        return { hpDamage: 0, defDamage: 0, piercing: 0, blocked: true };
+    }
+
+    // Reparto de daño (Equitativo)
+    if (effectiveDef > 0) {
+        let splitDmg = Math.floor(rawDmg / 2);
+        let actualDefDmg = Math.min(effectiveDef, splitDmg);
+        defDamage += actualDefDmg;
+        hpDamage += (rawDmg - actualDefDmg);
     } else {
-        // Sin armadura, todo al HP
         hpDamage += rawDmg;
     }
 
@@ -54,54 +86,98 @@ function calcularDetalleDaño(atk, def) {
     return { hpDamage, defDamage, piercing };
 }
 
-
-
+/**
+ * Procesa una ronda de combate SIMULTÁNEA con todas las fases.
+ */
 export function procesarRondaSimultanea(f1, f2) {
     if (f1.hp <= 0 || f2.hp <= 0) return;
 
     logConsole(`⚔️ ¡${f1.name} y ${f2.name} se abalanzan a la vez en un choque brutal!`, 'attack');
 
-    // 1. Calculamos todo el daño exacto (HP y DEF) antes de aplicarlo
+    // Fase 1: Calcular daño detallado (sin mutación aún)
     let dmgToF2 = calcularDetalleDaño(f1, f2);
     let dmgToF1 = calcularDetalleDaño(f2, f1);
 
-    // 2. Logs de Acción: F1 impacta a F2
+    // Verificar si algún revive canceló el daño
+    let f1Revived = dmgToF1.reviveCounter || false;
+    let f2Revived = dmgToF2.reviveCounter || false;
+    if (f1Revived) dmgToF1 = { hpDamage: 0, defDamage: 0, piercing: 0 };
+    if (f2Revived) dmgToF2 = { hpDamage: 0, defDamage: 0, piercing: 0 };
+
+    let f1Blocked = dmgToF1.blocked || false;
+    let f2Blocked = dmgToF2.blocked || false;
+    if (f1Blocked) dmgToF1 = { hpDamage: 0, defDamage: 0, piercing: 0 };
+    if (f2Blocked) dmgToF2 = { hpDamage: 0, defDamage: 0, piercing: 0 };
+
+    // 2. Logs de Acción
     if (dmgToF2.piercing > 0) logConsole(`💉 ${f1.name} [Armor Piercing]: ${dmgToF2.piercing} directo al HP!`, 'passive');
-    logConsole(`💥 ${f1.name} inflige -${dmgToF2.hpDamage} HP y destroza -${dmgToF2.defDamage} DEF.`, 'damage');
+    if (!f2Blocked && !f2Revived) logConsole(`💥 ${f1.name} inflige -${dmgToF2.hpDamage} HP y destroza -${dmgToF2.defDamage} DEF.`, 'damage');
 
-    // 3. Logs de Acción: F2 impacta a F1
     if (dmgToF1.piercing > 0) logConsole(`💉 ${f2.name} [Armor Piercing]: ${dmgToF1.piercing} directo al HP!`, 'passive');
-    logConsole(`💥 ${f2.name} inflige -${dmgToF1.hpDamage} HP y destroza -${dmgToF1.defDamage} DEF.`, 'damage');
+    if (!f1Blocked && !f1Revived) logConsole(`💥 ${f2.name} inflige -${dmgToF1.hpDamage} HP y destroza -${dmgToF1.defDamage} DEF.`, 'damage');
 
-    // 4. Aplicar el daño simultáneamente (Ahora la DEF sí se gasta correctamente)
+    // 3. Aplicar daño simultáneamente
     f2.def = Math.max(0, f2.def - dmgToF2.defDamage);
-    f2.hp -= dmgToF2.hpDamage; // Se permite bajar a negativo para el cálculo de victoria
+    f2.hp -= dmgToF2.hpDamage;
 
     f1.def = Math.max(0, f1.def - dmgToF1.defDamage);
-    f1.hp -= dmgToF1.hpDamage; // Se permite bajar a negativo
+    f1.hp -= dmgToF1.hpDamage;
+
+    // 4. Procesar pasivas post-daño (reflejo, absorción)
+    processPostDamagePassives(f1, f2, dmgToF1);
+    processPostDamagePassives(f2, f1, dmgToF2);
 
     logConsole(`📊 RESULTADO: ${f1.name} (${Math.floor(f1.hp)} HP) vs ${f2.name} (${Math.floor(f2.hp)} HP)`, 'system');
 }
 
 /**
- * Función auxiliar para calcular el daño siguiendo tus reglas de reparto DEF/HP
+ * Procesa pasivas que reaccionan al daño recibido (post-damage).
  */
-function calcularDaño(atk, def) {
-    let rawDmg = atk.atq;
-    
-    // Aplicamos pasivas de daño (Anti-Armor, etc.)
-    if (atk.passiveId === 'anti_armor' && def.def > 0) rawDmg = Math.floor(rawDmg * 1.5);
-    
-    // Si tiene DEF, el daño se reparte al 50% según tu regla de Easy Hit
-    if (def.def > 0) {
-        return Math.floor(rawDmg / 2) + Math.floor(rawDmg / 2); // Total rawDmg pero repartido visualmente
+function processPostDamagePassives(receiver, attacker, dmg) {
+    if (!receiver || !attacker || receiver.hp <= 0) return;
+    if (dmg.hpDamage <= 0 && dmg.defDamage <= 0) return;
+
+    const totalDmg = dmg.hpDamage + dmg.defDamage;
+
+    // Broken Mirror (gen_reflect_full): Refleja 100% del daño recibido (1 vez)
+    if (receiver.passiveId === 'gen_reflect_full' && receiver._reflected === undefined) {
+        receiver._reflected = true;
+        let reflectedDmg = Math.floor(totalDmg);
+        attacker.hp -= reflectedDmg;
+        logConsole(`🪞 ${receiver.name} [Broken Mirror]: ¡Refleja ${reflectedDmg} de daño a ${attacker.name}!`, 'passive');
     }
-    return rawDmg;
+
+    // Thorn Armor (abs_reflect): Refleja 20% del daño recibido
+    if (receiver.passiveId === 'abs_reflect') {
+        let reflected = Math.floor(totalDmg * 0.2);
+        if (reflected > 0) {
+            attacker.hp -= reflected;
+            logConsole(`🌵 ${receiver.name} [Thorn Armor]: Refleja ${reflected} de daño a ${attacker.name}!`, 'passive');
+        }
+    }
+
+    // Iron Skin (abs_def_convert): Convierte 50% del daño en DEF
+    if (receiver.passiveId === 'abs_def_convert') {
+        let converted = Math.floor(totalDmg * 0.5);
+        if (converted > 0) {
+            receiver.def += converted;
+            logConsole(`🛡️ ${receiver.name} [Iron Skin]: Convierte ${converted} de daño en DEF!`, 'passive');
+        }
+    }
+
+    // Leech (abs_hp_convert): Absorbe 30% del daño como curación
+    if (receiver.passiveId === 'abs_hp_convert') {
+        let healed = Math.floor(totalDmg * 0.3);
+        if (healed > 0) {
+            receiver.hp = Math.min(receiver.maxHp || receiver.hp + healed * 2, receiver.hp + healed);
+            logConsole(`🧛 ${receiver.name} [Leech]: Absorbe ${healed} HP del impacto!`, 'passive');
+        }
+    }
 }
 
-
-
-
+/**
+ * Aplica un ataque individual (usado por pasivas como Double Strike y Leech).
+ */
 export function procesarAtaque(atk, def) {
     if (!atk || !def || atk.hp <= 0 || def.hp <= 0) return { defDamage: 0, hpDamage: 0 };
 
@@ -111,54 +187,40 @@ export function procesarAtaque(atk, def) {
 
     logConsole(`⚔️ ${atk.name} lanza un ataque...`, 'attack');
 
-    // --- PASIVA: ANTI-ARMOR ---
     if (atk.passiveId === 'anti_armor' && def.def > 0) {
         rawDmg = Math.floor(rawDmg * 1.5);
         logConsole(`🎯 ¡Efecto Anti-Armadura! El daño sube a ${rawDmg}.`, 'passive');
     }
 
-    // --- PASIVA: ARMOR PIERCING (30% directo al HP) ---
     if (atk.passiveId === 'armor_piercing' && def.def > 0) {
         let piercingDmg = Math.floor(rawDmg * 0.3);
         let remainingDmg = rawDmg - piercingDmg;
-
         def.hp = Math.max(0, def.hp - piercingDmg);
         hpDamage += piercingDmg;
         logConsole(`💉 Penetración: ${piercingDmg} HP dañados directamente.`, 'passive');
-
         rawDmg = remainingDmg;
     }
 
-    // --- REGLA DE CONSUMO EQUITATIVO ---
     if (def.def > 0) {
         let splitDmg = Math.floor(rawDmg / 2);
-        
         let actualDefDmg = Math.min(def.def, splitDmg);
         def.def -= actualDefDmg;
         defDamage += actualDefDmg;
-
-        let excessDefDmg = splitDmg - actualDefDmg;
-        let totalHpImpact = splitDmg + excessDefDmg;
-        
-        def.hp = Math.max(0, def.hp - totalHpImpact);
-        hpDamage += totalHpImpact;
-
-        logConsole(`🛡️ El impacto se reparte: ${actualDefDmg} DEF / ${totalHpImpact} HP.`, 'damage');
+        hpDamage += (rawDmg - actualDefDmg);
+        def.hp = Math.max(0, def.hp - (rawDmg - actualDefDmg));
+        logConsole(`🛡️ El impacto se reparte: ${actualDefDmg} DEF / ${rawDmg - actualDefDmg} HP.`, 'damage');
     } else {
         def.hp = Math.max(0, def.hp - rawDmg);
         hpDamage += rawDmg;
     }
 
-    // Garantía de daño mínimo
     if (hpDamage < 10) {
         def.hp = Math.max(0, def.hp - 10);
         hpDamage += 10;
     }
 
     logConsole(`💥 Daño total recibido: ${hpDamage} HP.`, 'damage');
-    
-    // Retornamos los datos del daño para que otras funciones (como Leech) lo usen
-    return { defDamage, hpDamage }; 
+    return { defDamage, hpDamage };
 }
 
 /**
@@ -169,11 +231,9 @@ export function verifyVictory(c1, c2) {
         if (c1.hp === c2.hp) {
             logConsole("⚖️ ¡EMPATE ABSOLUTO! Impacto idéntico en el vacío.", "victory");
         } else {
-            // Ejemplo: c1 tiene -10 y c2 tiene -200. c1 > c2, por tanto c1 gana.
             const winner = c1.hp > c2.hp ? c1 : c2;
             logConsole(`🏆 ${winner.name} VICTORIOSO (Victoria Negativa: ${Math.floor(winner.hp)} HP)!`, "victory");
         }
-
         setColiseumButtonMode('finish');
         return true;
     }
@@ -181,13 +241,58 @@ export function verifyVictory(c1, c2) {
 }
 
 /**
- * Gestiona pasivas de inicio de ronda.
- * Optimizaciones: Uso de Switch y nuevas pasivas balanceadas.
+ * Gestiona todas las pasivas de inicio de ronda.
+ * Incluye Genesis, Nemesis, Progression, Absorption y Phoenix families.
  */
 export function applyRoundStartPassives(f, r) {
     if (!f || !r || !f.passiveId || f.hp <= 0) return false;
 
     switch (f.passiveId) {
+        // === GENESIS FAMILY (1 vez, primera ronda) ===
+        case 'gen_block_heal':
+            if (f._blockUsed === undefined) {
+                logConsole(`🛡️ ${f.name} [Sacred Veil]: Se prepara para bloquear el primer golpe.`, 'passive');
+            }
+            break;
+
+        case 'gen_reflect_full':
+            if (f._reflected === undefined) {
+                logConsole(`🪞 ${f.name} [Broken Mirror]: Su escudo reflectante está activo.`, 'passive');
+            }
+            break;
+
+        case 'gen_steal_stats':
+            if (f._stolen === undefined) {
+                f._stolen = true;
+                let stolenAtq = Math.floor(r.atq * 0.4);
+                let stolenDef = Math.floor(r.def * 0.4);
+                f.atq += stolenAtq;
+                r.atq = Math.max(1, r.atq - stolenAtq);
+                r.def = Math.max(0, r.def - stolenDef);
+                logConsole(`👻 ${f.name} [Soul Thief]: Roba ${stolenAtq} ATQ y ${stolenDef} DEF de ${r.name}!`, 'passive');
+            }
+            break;
+
+        // === NEMESIS FAMILY (Condicional por matchup) ===
+        case 'nem_xenophobia':
+            if (r.cardClass !== 'Human') {
+                let atkBoost = Math.floor(f.atq * 1.0);
+                let defBoost = Math.floor(f.def * 1.0);
+                f.atq += atkBoost;
+                f.def += defBoost;
+                logConsole(`👁️ ${f.name} [Xenophobia]: +${atkBoost} ATQ y +${defBoost} DEF contra no-humano!`, 'passive');
+            }
+            break;
+
+        case 'nem_dragon_slayer':
+            logConsole(`🐉 ${f.name} [Dragon Slayer]: Preparado para perforar dragones.`, 'passive');
+            break;
+
+        case 'nem_element_ward':
+            logConsole(`⚡ ${f.name} [Lightning Rod]: Protección elemental activa.`, 'passive');
+            break;
+
+        // === PROGRESSION FAMILY (Escalado por ronda) ===
         case 'prog_scale_stats':
             f.atq = Math.floor(f.atq * 1.1);
             f.def = Math.floor(f.def * 1.1);
@@ -195,10 +300,10 @@ export function applyRoundStartPassives(f, r) {
             break;
 
         case 'prog_venom':
-            let venomDmg = Math.floor((f.maxHp || f.hp) * 0.05);
+            let venomDmg = Math.floor((f.maxHp || f.hp || 1) * 0.05);
             r.hp = Math.max(0, r.hp - venomDmg);
             logConsole(`☠️ ${f.name} [Venom]: ${r.name} pierde ${venomDmg} HP.`, 'passive');
-            if (r.hp <= 0) return true; // El oponente ha muerto por veneno
+            if (r.hp <= 0) return true;
             break;
 
         case 'prog_drain_def':
@@ -207,27 +312,44 @@ export function applyRoundStartPassives(f, r) {
             logConsole(`⚙️ ${f.name} [Rust]: Corroe ${drain} DEF de ${r.name}.`, 'passive');
             break;
 
+        // === REACTIVE (Ataque extra / utilidad) ===
         case 'double_strike':
             logConsole(`⚡ ${f.name} [Double Strike]: ¡Ataque extra rápido!`, 'passive');
-            procesarAtaque(f, r); 
-            if (r.hp <= 0) return true; // Detener si el ataque extra mata al rival
+            procesarAtaque(f, r);
+            if (r.hp <= 0) return true;
             break;
 
         case 'life_leech':
-            // MEJORA: Ahora se cura basado en el daño real causado, no en el ATQ base
-            const { hpDamage } = procesarAtaque(f, r); 
-            let steal = Math.floor(hpDamage * 0.5); // Se cura el 50% del daño infligido
-            
+            const { hpDamage } = procesarAtaque(f, r);
+            let steal = Math.floor(hpDamage * 0.5);
             f.hp = Math.min(f.maxHp || f.hp * 2, f.hp + steal);
             logConsole(`🧛 ${f.name} [Leech]: Drena vida y recupera ${steal} HP.`, 'passive');
-            
-            if (r.hp <= 0) return true; 
+            if (r.hp <= 0) return true;
             break;
 
         case 'shield_recharge':
-            let regen = Math.floor((f.maxHp || f.hp) * 0.1);
+            let regen = Math.floor((f.maxHp || f.hp || 1) * 0.1);
             f.def += regen;
             logConsole(`🛡️ ${f.name} [Recharge]: Regenera ${regen} de Escudo.`, 'passive');
+            break;
+
+        // === PHOENIX FAMILY (Umbrales de vida) ===
+        case 'fen_revive':
+            logConsole(`✨ ${f.name} [Graceful Strike]: Su esencia vital está protegida.`, 'passive');
+            break;
+
+        case 'fen_berserker':
+            if (f.hp <= Math.floor((f.maxHp || f.hp || 1) * 0.3)) {
+                f.atq = Math.floor(f.atq * 3);
+                logConsole(`🔥 ${f.name} [Berserker]: ¡Furia desatada! ATK x3!`, 'passive');
+            }
+            break;
+
+        case 'fen_last_stand':
+            if (f.hp <= Math.floor((f.maxHp || f.hp || 1) * 0.2)) {
+                f.def = Math.floor(f.def * 4);
+                logConsole(`🏛️ ${f.name} [Last Stand]: ¡Resistencia absoluta! DEF x4!`, 'passive');
+            }
             break;
     }
     return false;
@@ -235,6 +357,7 @@ export function applyRoundStartPassives(f, r) {
 
 // --- GESTIÓN DE BIBLIOTECA ---
 export let cards = [];
+
 function loadLibrary() {
     try {
         const savedData = localStorage.getItem('easyHitLibrary');
@@ -246,25 +369,28 @@ function loadLibrary() {
 }
 loadLibrary();
 
-
-
-
 export function saveCard(card) {
-    // Validamos que la carta tenga lo mínimo para no romper el motor
     if (!card.id || !card.name || !card.hp) {
         console.error("Intento de guardar carta corrupta abortado.");
         return false;
     }
 
+    // Validación del límite de 7400 puntos (Regla de Oro)
+    const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
+    if (totalStats > 7400) {
+        console.error(`Carta '${card.name}' excede el límite de 7400 puntos (${totalStats}).`);
+        return false;
+    }
+
     const index = cards.findIndex(c => c.id === card.id);
     if (index !== -1) {
-        cards[index] = card; // Actualización
+        cards[index] = card;
         console.log(`🗃️ Carta '${card.name}' actualizada.`);
     } else {
-        cards.push(card); // Creación nueva
+        cards.push(card);
         console.log(`✨ Nueva carta '${card.name}' forjada.`);
     }
-    
+
     syncStorage();
     return true;
 }
@@ -274,60 +400,24 @@ export function deleteCard(id) {
     syncStorage();
 }
 
+export function importCards(importedArray) {
+    if (!Array.isArray(importedArray)) return false;
+    const merged = [...cards];
+    importedArray.forEach(newCard => {
+        const exists = merged.findIndex(c => c.id === newCard.id);
+        if (exists !== -1) merged[exists] = newCard;
+        else merged.push(newCard);
+    });
+    cards.length = 0;
+    cards.push(...merged);
+    syncStorage();
+    return true;
+}
 
-
-function syncStorage() {
+export function syncStorage() {
     try {
         localStorage.setItem('easyHitLibrary', JSON.stringify(cards));
     } catch (e) {
-        console.error("Vanguard Critico: El almacenamiento está lleno. ¿Demasiadas imágenes?");
-        alert("¡Error de memoria! La biblioteca es demasiado grande para el navegador.");
+        console.error("Vanguard Critico: El almacenamiento está lleno.");
     }
-}
-
-// ... Funciones de exportación e importación se mantienen idénticas ...
-
-export function exportarBiblioteca() {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cards));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "easy_hit_library.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-}
-
-export function importarBiblioteca(event, callback) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const imported = JSON.parse(e.target.result);
-            
-            // Verificación Vanguard: ¿Es un array y tiene contenido válido?
-            if (Array.isArray(imported) && imported.every(c => c.id && c.name)) {
-                // Opción Pro: Fusionar en lugar de borrar
-                // Esto evita que el usuario pierda sus cartas actuales al importar
-                const merged = [...cards];
-                imported.forEach(newCard => {
-                    const exists = merged.findIndex(c => c.id === newCard.id);
-                    if (exists !== -1) merged[exists] = newCard;
-                    else merged.push(newCard);
-                });
-
-                cards = merged;
-                syncStorage();
-                console.log(`📥 Importación exitosa: ${imported.length} cartas procesadas.`);
-                if (callback) callback();
-            } else {
-                throw new Error("Formato de datos incompatible.");
-            }
-        } catch (err) {
-            alert("⚠️ El archivo no es una biblioteca válida de Easy Hit.");
-            console.error("Fallo de importación:", err);
-        }
-    };
-    reader.readAsText(file);
 }
