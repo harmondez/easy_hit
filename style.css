@@ -1,5 +1,4 @@
 :root {
-    /* Paleta Dark Mode Elegante */
     --primary: #6366f1;
     --primary-hover: #4f46e5;
     --bg-main: #0f172a;
@@ -7,9 +6,17 @@
     --bg-input: #0f172a;
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
+    --text-dim: #64748b;
     --border-color: #334155;
-    
-    /* Estilo de Carta TCG */
+    --gold: #fbbf24;
+    --rarity-common: #94a3b8;
+    --rarity-rare: #3b82f6;
+    --rarity-epic: #a78bfa;
+    --rarity-legendary: #fbbf24;
+    --rarity-mythic: #ff6b6b;
+    --hud-height: 64px;
+    --tab-height: 48px;
+
     --card-width: 280px;
     --card-height: 400px;
     --art-height: 320px;
@@ -17,7 +24,8 @@
     --shadow-tcg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
 }
 
-/* Reset y Base */
+html { scroll-behavior: smooth; }
+
 body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-main);
@@ -25,36 +33,108 @@ body {
     color: var(--text-main);
     margin: 0;
     min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+}
+
+/* =============================================
+   🏛️ HUD GLOBAL SUPERIOR (sticky)
+   ============================================= */
+.global-hud {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 24px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--hud-height);
+    box-sizing: border-box;
 }
 
-/* Header Estilo Moderno */
-.header {
-    padding: 40px 20px 20px;
-    text-align: center;
+.hud-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-.header-title {
-    font-size: 2.5rem;
+.hud-brand-title {
+    font-size: 1.1rem;
     font-weight: 800;
-    letter-spacing: -2px;
-    margin: 0;
+    letter-spacing: -1px;
+    color: var(--text-main);
 }
 
-.header-accent { color: var(--primary); }
+.hud-brand-accent { color: var(--primary); }
 
-.header-tagline {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    margin-top: 5px;
+.hud-resources {
+    display: flex;
+    align-items: center;
+    gap: 20px;
 }
 
-/* Navegación por Pestañas (Glassmorphism) */
+.hud-resource {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.hud-resource .icon { font-size: 1.1rem; }
+
+.hud-resource .value { color: var(--gold); min-width: 40px; }
+
+.hud-player {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.hud-level-badge {
+    background: var(--primary);
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: white;
+}
+
+.hud-xp-bar {
+    width: 100px;
+    height: 6px;
+    background: var(--bg-input);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.hud-xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--gold));
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+/* =============================================
+   📌 HEADER (mantenido por compatibilidad)
+   ============================================= */
+.header {
+    display: none;
+}
+
+/* =============================================
+   📌 TAB NAV (glassmorphism, debajo del HUD)
+   ============================================= */
 .tabs-container {
     display: flex;
     justify-content: center;
-    margin-bottom: 30px;
+    padding: 10px 20px 5px;
+    background: rgba(15, 23, 42, 0.6);
+    border-bottom: 1px solid rgba(51, 65, 85, 0.3);
 }
 
 .tabs {
@@ -64,24 +144,28 @@ body {
     border-radius: 12px;
     border: 1px solid var(--border-color);
     display: flex;
-    gap: 5px;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .tab-item {
     background: transparent;
     border: none;
     color: var(--text-muted);
-    padding: 10px 24px;
+    padding: 8px 18px;
     border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
+    font-size: 0.8rem;
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    white-space: nowrap;
 }
 
-.tab-item:hover { color: white; }
+.tab-item:hover { color: white; background: rgba(255,255,255,0.05); }
 
 .tab-item.active {
     background: var(--primary);
@@ -89,81 +173,554 @@ body {
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
-/* Layout Principal */
+.tab-item.locked {
+    opacity: 0.4;
+    cursor: not-allowed;
+    position: relative;
+}
+
+.tab-item.locked::after {
+    content: '🔒';
+    font-size: 0.6rem;
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    opacity: 0.7;
+}
+
+.coming-soon-toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    border: 2px solid var(--primary);
+    border-radius: 12px;
+    padding: 14px 28px;
+    font-weight: 600;
+    color: var(--text-main);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    z-index: 99999;
+    backdrop-filter: blur(8px);
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.shake-error {
+    animation: shakeX 0.5s ease-in-out;
+}
+
+@keyframes shakeX {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+    20%, 40%, 60%, 80% { transform: translateX(8px); }
+}
+
+.btn-forge-error {
+    background: #ef4444 !important;
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.5) !important;
+}
+
+/* =============================================
+   📦 MAIN CONTENT AREA
+   ============================================= */
 .main-content {
-    flex: 1;
     max-width: 1200px;
     margin: 0 auto;
     width: 90%;
     padding-bottom: 50px;
 }
 
-/* --- ESTILOS PARA EL CROPPER "ESTILO INSTAGRAM" --- */
+/* =============================================
+   🎴 MODAL OVERLAY (cofre, recompensas)
+   ============================================= */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 20px;
+    animation: modalFadeIn 0.3s ease;
+}
 
-/* 1. Oscurecer el fondo que rodea la imagen para dar enfoque */
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.chest-container {
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    border: 2px solid var(--gold);
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    max-width: 450px;
+    width: 100%;
+    box-shadow: 0 0 60px rgba(251, 191, 36, 0.2);
+    animation: chestBounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes chestBounce {
+    0% { transform: scale(0.3) rotate(-5deg); opacity: 0; }
+    60% { transform: scale(1.05) rotate(2deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.chest-lid {
+    font-size: 5rem;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.5));
+    margin-bottom: 20px;
+}
+
+.chest-lid:hover {
+    transform: scale(1.1) rotate(-5deg);
+}
+
+.chest-lid.open {
+    animation: chestOpen 0.6s ease forwards;
+}
+
+@keyframes chestOpen {
+    0% { transform: scale(1) rotate(0); }
+    30% { transform: scale(1.2) rotate(-10deg); }
+    60% { transform: translateY(-30px) scale(1.1); opacity: 1; }
+    100% { transform: translateY(-80px) scale(0.8); opacity: 0; }
+}
+
+.chest-reward-area {
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.chest-reward-card {
+    animation: cardReveal 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes cardReveal {
+    0% { transform: scale(0) rotateY(180deg); opacity: 0; }
+    60% { transform: scale(1.1) rotateY(0deg); }
+    100% { transform: scale(1) rotateY(0deg); opacity: 1; }
+}
+
+.chest-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+/* =============================================
+   🗺️ ADVENTURE SECTION (World Map Canvas)
+   ============================================= */
+#section-adventure { display: none; }
+
+.adventure-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 30px;
+    align-items: start;
+}
+
+.adventure-map-container {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid var(--border-color);
+    border-radius: 15px;
+    padding: 20px;
+    min-height: 500px;
+    position: relative;
+    overflow: hidden;
+}
+
+.adventure-map-canvas {
+    width: 100%;
+    height: 100%;
+    min-height: 460px;
+    background: radial-gradient(ellipse at center, #1e293b, #020617);
+    border-radius: 10px;
+    position: relative;
+}
+
+.map-node {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.3rem;
+    border: 2px solid var(--border-color);
+    background: var(--bg-card);
+    transition: all 0.3s ease;
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+}
+
+.map-node:hover {
+    transform: scale(1.15);
+    border-color: var(--gold);
+    box-shadow: 0 0 25px rgba(251, 191, 36, 0.3);
+}
+
+.map-node.completed {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.2);
+}
+
+.map-node.locked {
+    filter: grayscale(0.8);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.map-node.boss {
+    width: 65px;
+    height: 65px;
+    border-color: #ef4444;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.adventure-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.adventure-mission-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.mission-rewards {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+}
+
+/* =============================================
+   🎒 INVENTORY SECTION
+   ============================================= */
+#section-inventory { display: none; }
+
+.inventory-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 25px;
+    align-items: start;
+}
+
+.inventory-sidebar {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 15px;
+}
+
+.inventory-category {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.inventory-category:hover { background: rgba(99, 102, 241, 0.1); }
+.inventory-category.active { background: rgba(99, 102, 241, 0.2); border-left: 3px solid var(--primary); }
+
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 15px;
+}
+
+.inventory-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.inventory-item:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+/* =============================================
+   🏪 SHOP SECTION
+   ============================================= */
+#section-shop { display: none; }
+
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+.shop-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 15px;
+    padding: 25px 20px;
+    text-align: center;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.shop-item:hover {
+    transform: translateY(-5px);
+    border-color: var(--gold);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+.shop-item .shop-icon { font-size: 2.5rem; margin-bottom: 10px; }
+.shop-item .shop-price { color: var(--gold); font-weight: 800; font-size: 1.1rem; margin: 10px 0; }
+.shop-item .btn-buy { margin-top: 10px; }
+
+.shop-banner {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(251, 191, 36, 0.1));
+    border: 1px solid var(--gold);
+    border-radius: 15px;
+    padding: 30px;
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+/* =============================================
+   ⚔️ RAID ALTAR (inside adventure)
+   ============================================= */
+.raid-altar {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.raid-boss-card {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    border: 2px solid #ef4444;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.15);
+}
+
+.raid-boss-visual {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: #000;
+    margin: 0 auto 15px;
+    background-size: cover;
+    background-position: center;
+    border: 3px solid #ef4444;
+}
+
+.raid-boss-stats {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-weight: 700;
+    margin: 10px 0;
+}
+
+.raid-party {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.raid-fighter-slot {
+    width: 100px;
+    height: 130px;
+    border: 2px dashed var(--border-color);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.3);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    gap: 5px;
+}
+
+/* =============================================
+   📖 DROP CODEX
+   ============================================= */
+.codex-container {
+    margin-top: 20px;
+}
+
+.codex-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.codex-progress {
+    background: var(--bg-card);
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: var(--gold);
+    font-weight: 700;
+}
+
+.codex-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.codex-entry {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.codex-entry:hover { border-color: var(--primary); transform: translateY(-2px); }
+
+.codex-entry .codex-icon { font-size: 2rem; margin-bottom: 5px; }
+.codex-entry .codex-name { font-size: 0.75rem; font-weight: 600; }
+.codex-entry .codex-drop-rate {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+}
+
+.codex-entry.owned {
+    border-color: #22c55e44;
+    background: rgba(34, 197, 94, 0.05);
+}
+
+.codex-entry.owned .codex-drop-rate { color: #22c55e; }
+
+/* =============================================
+   ✨ RARITY ANIMATIONS (shimmer, glow)
+   ============================================= */
+.rarity-glow {
+    position: relative;
+    overflow: hidden;
+}
+
+.rarity-glow::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(transparent, rgba(251, 191, 36, 0.1), transparent 30%);
+    animation: raritySpin 3s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes raritySpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.rarity-shimmer {
+    position: relative;
+    overflow: hidden;
+}
+
+.rarity-shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    animation: shimmerSweep 2.5s infinite;
+}
+
+@keyframes shimmerSweep {
+    0% { left: -100%; }
+    100% { left: 200%; }
+}
+
+/* --- ESTILOS PARA EL CROPPER --- */
 .modal-body-cropper {
-    background-color: #000; /* Negro puro detrás de la foto */
-    overflow: hidden; /* Evitar que la imagen grande se salga del modal */
+    background-color: #000;
+    overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-/* 2. El recuadro de recorte nativo lo hacemos invisible pero mantenemos los manejadores */
 .cropper-view-box,
 .cropper-face {
-    border: none !important; /* Quitamos el borde cuadrado por defecto */
+    border: none !important;
     outline: none !important;
 }
 
-/* 3. Recreamos el círculo gris claro (como en tu ejemplo) */
 .cropper-face {
-    background-color: transparent !important; /* Limpio por dentro */
-    
-    /* El borde gris claro del círculo */
-    border: 3px solid rgba(226, 232, 240, 0.7) !important; 
-    border-radius: 50%; /* ¡ESTO HACE EL CÍRCULO! */
-    
-    /* Sombra externa muy difuminada para que parezca que está "encima" */
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4); 
+    background-color: transparent !important;
+    border: 3px solid rgba(226, 232, 240, 0.7) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
 }
 
-/* 4. Creamos los costados oscuros (overlay) */
-/* Usamos el contenedor de la foto de Cropper para proyectar el oscurecimiento */
-.cropper-container {
-    position: relative;
-}
+.cropper-container { position: relative; }
 
-/* Sombra que viene desde la izquierda y derecha de la foto */
 .cropper-container::before,
 .cropper-container::after {
     content: "";
     position: absolute;
     top: 0;
-    width: 25%; /* Ajusta esto según cuánto quieras que se oscurezca a los lados */
+    width: 25%;
     height: 100%;
-    /* Degradado oscuro para que se sienta integrado con el fondo negro */
     background: linear-gradient(to right, rgba(0,0,0,0.9), rgba(0,0,0,0.5) 70%, transparent);
-    pointer-events: none; /* Crucial: Para que el usuario pueda hacer zoom a la foto de abajo */
-    z-index: 10; /* Por encima de la foto, por debajo del círculo */
+    pointer-events: none;
+    z-index: 10;
 }
 
-/* Espejamos la sombra para el lado derecho */
 .cropper-container::after {
     left: auto;
     right: 0;
     background: linear-gradient(to left, rgba(0,0,0,0.9), rgba(0,0,0,0.5) 70%, transparent);
 }
 
-
+/* --- CREATOR --- */
 .creator-container {
     display: grid;
-    grid-template-columns: 1fr 350px; /* Split screen */
+    grid-template-columns: 1fr 350px;
     gap: 40px;
     align-items: start;
 }
 
-/* Secciones de Contenido */
 .section-container {
     width: 95%;
     max-width: 1200px;
@@ -177,7 +734,6 @@ body {
 .section-header h2 { margin: 0; font-size: 1.5rem; }
 .section-header p { color: var(--text-muted); font-size: 0.9rem; margin: 5px 0 0; }
 
-/* Formulario */
 .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -205,7 +761,6 @@ body {
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* --- BOTÓN DE INVOCACIÓN DE ARTE (File Upload) --- */
 .custom-file-btn {
     display: flex;
     align-items: center;
@@ -222,50 +777,35 @@ body {
     letter-spacing: 2px;
     font-size: 0.9rem;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    
-    /* Efecto de luz mística y sombreado profundo */
-    box-shadow: 
-        0 5px 15px rgba(0, 0, 0, 0.5), /* Sombra física */
-        0 0 15px rgba(139, 92, 246, 0.4), /* Resplandor violeta externo */
-        inset 0 0 10px rgba(139, 92, 246, 0.2); /* Brillo interno */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5), 0 0 15px rgba(139, 92, 246, 0.4), inset 0 0 10px rgba(139, 92, 246, 0.2);
 }
 
-/* Efecto al pasar el ratón: La energía cambia a Dorado */
 .custom-file-btn:hover {
     background: linear-gradient(145deg, rgba(30, 27, 75, 1), rgba(15, 23, 42, 1));
     border-color: var(--gold);
     color: var(--gold);
-    transform: translateY(-4px); /* Se levanta de la mesa */
-    
-    box-shadow: 
-        0 10px 25px rgba(0, 0, 0, 0.7), /* Sombra más alargada */
-        0 0 20px rgba(251, 191, 36, 0.5), /* Resplandor dorado externo */
-        inset 0 0 15px rgba(251, 191, 36, 0.3); /* Brillo dorado interno */
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7), 0 0 20px rgba(251, 191, 36, 0.5), inset 0 0 15px rgba(251, 191, 36, 0.3);
 }
 
 .custom-file-btn:active {
-    transform: translateY(2px); /* Efecto de pulsación dura */
+    transform: translateY(2px);
     box-shadow: 0 2px 10px rgba(251, 191, 36, 0.6);
 }
 
 .custom-file-btn .icon {
     font-size: 1.4rem;
-    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4)); /* Pequeño halo al icono */
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4));
     transition: transform 0.3s ease;
 }
 
-.custom-file-btn:hover .icon {
-    transform: scale(1.2) rotate(5deg); /* El icono reacciona al hover */
-}
-
-
+.custom-file-btn:hover .icon { transform: scale(1.2) rotate(5deg); }
 
 .input-field:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
-/* Workshop de Stats (Sliders) */
 .stats-workshop {
     background: rgba(15, 23, 42, 0.5);
     padding: 20px;
@@ -290,7 +830,6 @@ body {
     cursor: pointer;
 }
 
-/* Badge de Puntos */
 .budget-card {
     text-align: center;
     border-top: 1px solid var(--border-color);
@@ -304,24 +843,19 @@ body {
     color: var(--primary);
 }
 
-/* --- ESTILOS PARA LAS FAMILIAS DE PASIVAS --- */
 #cardPassive optgroup {
-    font-size: 1.1rem;      /* Aumenta ligeramente la letra */
-    font-weight: 800;       /* Le da más grosor para que destaque */
-    font-style: normal;     /* Quita la cursiva que traen los navegadores por defecto */
-    color: var(--gold);     /* Le damos ese toque dorado de la forja */
-    background-color: var(--bg-card); /* Fondo oscuro para que no desentone */
+    font-size: 1.1rem;
+    font-weight: 800;
+    font-style: normal;
+    color: var(--gold);
+    background-color: var(--bg-card);
 }
 
-/* Opcional: Aumentar un pelín también las opciones normales para que haya armonía */
 #cardPassive option {
     font-size: 0.95rem;
     color: var(--text-main);
 }
 
-
-
-/* Botón de Forja */
 .btn-forge {
     width: 100%;
     padding: 16px;
@@ -347,15 +881,11 @@ body {
     cursor: not-allowed;
 }
 
-
-
-
-
-/* --- LA CARTA (TCG Visual Refinado) --- */
+/* Preview y Card TCG */
 .preview-container {
     display: flex;
     justify-content: center;
-    perspective: 1000px; /* Efecto 3D para la carta */
+    perspective: 1000px;
 }
 
 .sticky-preview {
@@ -364,39 +894,26 @@ body {
 }
 
 .card-preview {
-    /* CAMBIO CLAVE: Cambiamos width por max-width y usamos 100% */
-    width: 100%; 
-    max-width: var(--card-width); 
+    width: 100%;
+    max-width: var(--card-width);
     min-height: var(--card-height);
-    
-    /* Mantenemos tu estética intacta */
     display: flex;
     flex-direction: column;
     background: #0f172a;
     border-radius: 12px;
     overflow: hidden;
     position: relative;
-    
-    /* El marco que tanto te gusta */
-    border: 6px solid #2d2d2d; 
+    border: 6px solid #2d2d2d;
     outline: 2px solid var(--gold);
     outline-offset: -4px;
-    
-    box-shadow: 
-        0 20px 50px rgba(0,0,0,0.8),
-        0 0 20px rgba(139, 92, 246, 0.2);
-    
-    /* Animación fluida */
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 20px rgba(139, 92, 246, 0.2);
     transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    
-    /* Evita que la carta se colapse si no hay contenido */
-    aspect-ratio: 280 / 400; 
+    aspect-ratio: 280 / 400;
 }
 
-/* Ajuste sutil para móviles muy pequeños */
 @media (max-width: 480px) {
     .card-preview {
-        outline-width: 1px; /* Un poco más fino para que no sature */
+        outline-width: 1px;
         border-width: 4px;
     }
 }
@@ -412,15 +929,12 @@ body {
     background-position: center;
     background-repeat: no-repeat;
     background-color: #000;
-    
-    /* Efecto de cristalización sobre el arte */
     border-bottom: 3px solid var(--gold);
     position: relative;
     z-index: 1;
     image-rendering: -webkit-optimize-contrast;
 }
 
-/* Brillo Holográfico sutil en el arte */
 .card-art::before {
     content: "";
     position: absolute;
@@ -429,7 +943,6 @@ body {
     z-index: 2;
 }
 
-/* Sombra inferior para legibilidad del nombre */
 .card-art::after {
     content: "";
     position: absolute;
@@ -446,7 +959,7 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: #1a1a1a; /* Fondo de piedra oscura */
+    background: #1a1a1a;
     background-image: url('https://www.transparenttextures.com/patterns/dark-leather.png');
     border: 2px solid #333;
     margin: 6px;
@@ -457,7 +970,7 @@ body {
 .card-header-inner h3 {
     margin: 0;
     font-size: 1.2rem;
-    font-family: 'Serif', Georgia, serif; /* Fuente RPG */
+    font-family: 'Serif', Georgia, serif;
     color: var(--gold);
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -485,24 +998,22 @@ body {
 .stat-box {
     background: linear-gradient(145deg, #262626, #171717);
     border: 1px solid #444;
-    padding: 8px 4px; /* Un poco más de aire interior */
+    padding: 8px 4px;
     border-radius: 4px;
     font-size: 0.9rem;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
-    
-    /* MAGIA PARA CENTRAR */
     display: flex;
     flex-direction: column;
-    align-items: center;    /* Centra horizontalmente */
-    justify-content: center; /* Centra verticalmente */
+    align-items: center;
+    justify-content: center;
     text-align: center;
 }
 
 .stat-box b {
     color: #fff;
     display: block;
-    font-size: 1.1rem; /* Un pelín más grandes para que destaquen */
-    margin-top: 4px;   /* Separación entre el icono y el número */
+    font-size: 1.1rem;
+    margin-top: 4px;
 }
 
 .passive-desc {
@@ -516,7 +1027,7 @@ body {
     line-height: 1.4;
 }
 
-/* Biblioteca (Grid pulido) */
+/* Biblioteca */
 .cards-deck {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -524,12 +1035,9 @@ body {
     padding: 20px;
 }
 
-
-
-/* --- CARTAS EN LA BIBLIOTECA (.card-item) --- */
 .card-item {
     background: var(--bg-card);
-    border: 2px solid; /* El color se inyecta por JS según el elemento */
+    border: 2px solid;
     border-radius: 12px;
     overflow: hidden;
     display: flex;
@@ -545,11 +1053,11 @@ body {
 
 .card-item-art {
     width: 100%;
-    height: 180px; /* Crucial para que la imagen tenga espacio */
+    height: 180px;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    background-color: #000; /* Fondo por si no hay imagen */
+    background-color: #000;
     border-bottom: 2px solid rgba(255,255,255,0.1);
 }
 
@@ -561,16 +1069,8 @@ body {
     text-align: center;
 }
 
-.card-item-info strong {
-    font-size: 1.1rem;
-    color: white;
-}
-
-.card-item-info p {
-    margin: 0;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-}
+.card-item-info strong { font-size: 1.1rem; color: white; }
+.card-item-info p { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
 
 .btn-delete-card {
     margin-top: 10px;
@@ -584,74 +1084,56 @@ body {
     transition: background 0.2s;
 }
 
-.btn-delete-card:hover {
-    background: #dc2626;
-}
+.btn-delete-card:hover { background: #dc2626; }
 
-
-
-/* --- LIBRARY SHOWCASE MODE (Escaparate Bonito) --- */
-
-/* 1. Contenedor Principal: Limpia Flexbox y centra */
+/* Library Showcase Mode */
 .library-detail-view.showcase-mode {
     display: flex;
     justify-content: center;
     align-items: center;
-    perspective: 1000px; /* Efecto 3D sutil */
+    perspective: 1000px;
     padding: 0;
-    overflow: hidden; /* Evita scrolls raros */
+    overflow: hidden;
 }
 
-/* 2. La Carta en el Escaparate: Forzamos proporciones TCG */
 .library-detail-view.showcase-mode .card-visual {
-    width: 320px; /* Un poco más grande para el mostrador */
-    height: 480px; /* Proporción TCG estricta */
+    width: 320px;
+    height: 480px;
     margin: 0;
-    transform: rotateY(-5deg) scale(1); /* Efecto mostrador */
-    box-shadow: 
-        0 25px 50px -12px rgba(0, 0, 0, 0.7),
-        0 0 30px 5px rgba(99, 102, 241, 0.2); /* Brillo sutil */
+    transform: rotateY(-5deg) scale(1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px 5px rgba(99, 102, 241, 0.2);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
-    background: #000; /* Fondo negro puro detrás del arte */
+    background: #000;
 }
 
-/* Efecto hover en el mostrador */
 .library-detail-view.showcase-mode .card-visual:hover {
     transform: rotateY(0deg) scale(1.02);
-    box-shadow: 
-        0 35px 60px -15px rgba(0, 0, 0, 0.8),
-        0 0 40px 10px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px 10px rgba(99, 102, 241, 0.3);
 }
 
-/* 3. Estructura Interna (Modo Mostrador) */
-
-/* Nombre arriba, dentro de la carta */
 .library-detail-view.showcase-mode .card-visual .card-name-text {
     font-size: 1.2rem;
     color: var(--gold);
     text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
-/* Contenedor del Arte: Ocupa la mayor parte */
 .library-detail-view.showcase-mode .card-visual .card-art-container {
-    height: 380px; /* Espacio para stats abajo */
-    border-radius: 0; /* Imagen cuadrada TCG */
+    height: 380px;
+    border-radius: 0;
 }
 
-/* Stats Grid: Superpuesta abajo con Glassmorphism */
 .library-detail-view.showcase-mode .card-visual .card-stats-grid {
     position: absolute;
-    bottom: 60px; /* Espacio para la pasiva */
+    bottom: 60px;
     left: 0;
     width: 100%;
-    background: rgba(15, 23, 42, 0.8); /* var(--bg-main) con opacidad */
+    background: rgba(15, 23, 42, 0.8);
     backdrop-filter: blur(5px);
     border-top: 1px solid rgba(255,255,255,0.1);
     margin: 0;
     padding: 8px 15px;
 }
 
-/* Pasiva: Abajo del todo, texto pequeño elegante */
 .library-detail-view.showcase-mode .card-visual .card-passive-area {
     position: absolute;
     bottom: 0;
@@ -664,7 +1146,6 @@ body {
     border-top: 1px solid rgba(255,255,255,0.05);
 }
 
-/* Botón Eliminar: Fuera de la carta, abajo del mostrador */
 .btn-delete-showcase {
     position: absolute;
     bottom: 20px;
@@ -679,15 +1160,10 @@ body {
     transition: background 0.2s;
 }
 
-.btn-delete-showcase:hover {
-    background: #dc2626;
-}
+.btn-delete-showcase:hover { background: #dc2626; }
 
-
-/* --- ESTILO ROSTER AGRUPADO --- */
-.roster-group {
-    margin-bottom: 20px;
-}
+/* Roster agrupado */
+.roster-group { margin-bottom: 20px; }
 
 .roster-category-header {
     background: rgba(255, 255, 255, 0.03);
@@ -722,7 +1198,7 @@ body {
 
 .card-list-item:hover {
     background: rgba(99, 102, 241, 0.1);
-    padding-left: 20px; /* Efecto de desplazamiento */
+    padding-left: 20px;
 }
 
 .card-list-item.active {
@@ -731,7 +1207,6 @@ body {
     color: white;
 }
 
-/* Punto de color del elemento */
 .item-element-dot {
     width: 8px;
     height: 8px;
@@ -753,16 +1228,7 @@ body {
     opacity: 0.7;
 }
 
-
-
-
-
-
-
-/* --- COLISEO --- */
-
-
-
+/* Coliseo (sin cambios estructurales) */
 .vs-badge {
     font-size: 2.5rem;
     font-weight: 800;
@@ -771,55 +1237,36 @@ body {
     text-shadow: 0 0 15px rgba(251, 191, 36, 0.6);
 }
 
-.arena-actions {
-    margin-bottom: 20px;
-}
+.arena-actions { margin-bottom: 20px; }
 
-/* Consola de Combate */
-/* --- CONSOLA DE COMBATE PROFESIONAL --- */
 .combat-console {
     background: #020617 !important;
     border: 2px solid #1e293b;
     border-radius: 8px;
-    
-    /* 1. Altura estática: Suficiente para unas 2-3 rondas (aprox 400px) */
-    height: 400px; 
+    height: 400px;
     max-height: 400px;
-    
-    /* 2. Habilitar el slider (scroll) */
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Evita que el borde se rompa */
+    overflow: hidden;
     position: relative;
 }
 
 #logContent {
     flex: 1;
-    overflow-y: auto; /* Aquí aparece el slider si el contenido supera los 400px */
+    overflow-y: auto;
     padding: 15px;
     display: flex;
-    flex-direction: column; /* Cambiamos a column para control total */
+    flex-direction: column;
     gap: 4px;
-    
-    /* Personalización del slider (Scrollbar) para que se vea Pro */
     scrollbar-width: thin;
     scrollbar-color: var(--primary) #0f172a;
 }
 
-/* Estilo del scrollbar para Chrome/Safari/Edge */
-#logContent::-webkit-scrollbar {
-    width: 6px;
-}
-#logContent::-webkit-scrollbar-track {
-    background: #0f172a;
-}
-#logContent::-webkit-scrollbar-thumb {
-    background: var(--primary);
-    border-radius: 10px;
-}
+#logContent::-webkit-scrollbar { width: 6px; }
+#logContent::-webkit-scrollbar-track { background: #0f172a; }
+#logContent::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
 
 .log-entry {
-    
     margin-bottom: 4px;
     border-radius: 4px;
     font-size: 0.85rem;
@@ -828,7 +1275,7 @@ body {
     animation: fadeInLog 0.3s ease-out;
     border-bottom: 1px solid rgba(255,255,255,0.05);
     padding: 8px 0;
-    word-wrap: break-word; /* Blindaje para que el texto no se salga en móviles */
+    word-wrap: break-word;
 }
 
 @keyframes fadeInLog {
@@ -836,48 +1283,12 @@ body {
     to { opacity: 1; transform: translateX(0); }
 }
 
-/* Tipos de Log con colores distinguidos */
-.log-entry.system { 
-    color: #94a3b8; 
-    border-left-color: #475569; 
-    background: rgba(71, 85, 105, 0.1);
-}
-
-.log-entry.round-header { 
-    color: var(--gold); 
-    font-weight: 800; 
-    text-transform: uppercase;
-    text-align: center;
-    border: 1px solid rgba(251, 191, 36, 0.3);
-    margin: 15px 0 10px 0;
-    background: rgba(251, 191, 36, 0.05);
-    letter-spacing: 2px;
-}
-
-.log-entry.attack { 
-    color: #f8fafc; 
-    border-left-color: #ef4444; /* Rojo ataque */
-    background: rgba(239, 68, 68, 0.05);
-}
-
-.log-entry.damage { 
-    color: #fca5a5; 
-    font-style: italic;
-}
-
-.log-entry.victory { 
-    color: #4ade80; 
-    border-left-color: #22c55e; 
-    font-weight: bold;
-    background: rgba(34, 197, 94, 0.1);
-    font-size: 1rem;
-}
-
-.log-entry.passive { 
-    color: #a78bfa; 
-    border-left-color: #8b5cf6; 
-    background: rgba(139, 92, 246, 0.05);
-}
+.log-entry.system { color: #94a3b8; border-left-color: #475569; background: rgba(71, 85, 105, 0.1); }
+.log-entry.round-header { color: var(--gold); font-weight: 800; text-transform: uppercase; text-align: center; border: 1px solid rgba(251, 191, 36, 0.3); margin: 15px 0 10px 0; background: rgba(251, 191, 36, 0.05); letter-spacing: 2px; }
+.log-entry.attack { color: #f8fafc; border-left-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
+.log-entry.damage { color: #fca5a5; font-style: italic; }
+.log-entry.victory { color: #4ade80; border-left-color: #22c55e; font-weight: bold; background: rgba(34, 197, 94, 0.1); font-size: 1rem; }
+.log-entry.passive { color: #a78bfa; border-left-color: #8b5cf6; background: rgba(139, 92, 246, 0.05); }
 
 .log-round-tag {
     background: var(--primary);
@@ -891,19 +1302,6 @@ body {
     vertical-align: middle;
 }
 
-/* Badge de Ronda dentro del log */
-.log-round-tag {
-    font-size: 0.7rem;
-    background: #334155;
-    color: #f8fafc;
-    padding: 1px 5px;
-    border-radius: 3px;
-    margin-right: 8px;
-    vertical-align: middle;
-}
-
-
-/* --- COLOSSEUM ARENA V1.2 --- */
 .arena-setup {
     display: flex;
     justify-content: space-between;
@@ -948,14 +1346,40 @@ body {
 }
 
 .mini-card-slot {
-    height: 60px;
+    height: auto;
+    min-height: 60px;
     border: 2px dashed var(--border-color);
     border-radius: 8px;
     margin-top: 10px;
     background: rgba(0,0,0,0.2);
 }
 
-/* Consola con Scroll Interno */
+.arena-fighter-stats {
+    display: none;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px;
+    background: rgba(15, 23, 42, 0.85);
+    border-top: 1px solid var(--border-color);
+    font-size: 0.7rem;
+    font-family: 'Courier New', monospace;
+    align-items: center;
+}
+
+.arena-fighter-stats .stat-name {
+    width: 100%;
+    font-weight: 700;
+    color: var(--gold);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.arena-fighter-stats .stat-hp { color: #ef4444; font-weight: 700; }
+.arena-fighter-stats .stat-atq { color: #f59e0b; font-weight: 700; }
+.arena-fighter-stats .stat-def { color: #3b82f6; font-weight: 700; }
+
 .combat-console {
     background: #020617;
     border: 2px solid var(--border-color);
@@ -986,105 +1410,22 @@ body {
     scrollbar-color: var(--primary) transparent;
 }
 
+/* Biblioteca Layout */
+.library-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 25px;
+}
 
-
-
-
-
-
-/* --- MEDIA QUERIES (Ajustes para móviles) --- */
-@media (max-width: 768px) {
-    .arena-setup {
-        flex-direction: column;
-        align-items: center;
-    }
-
-    .vs-badge-container {
-        padding: 10px 0;
-        transform: rotate(90deg); /* El VS gira para flujo vertical */
-    }
-
-    .fighter-select {
-        width: 100%;
-    }
-
-    .arena-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .btn-forge {
-        width: 100%;
-    }
-    .header-title { font-size: 1.5rem; }
-    
-    /* Tabs más fáciles de tocar con el pulgar */
-    .tabs {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 5px;
-    }
-    
-    .tab-item {
-        padding: 12px 5px;
-        font-size: 0.8rem;
-        flex-direction: column;
-    }
-
-    /* Biblioteca: De Lista/Detalle a Vertical */
-    .library-sidebar {
+.library-sidebar {
     background: rgba(15, 23, 42, 0.5);
     border: 1px solid var(--border-color);
     border-radius: 12px;
+    padding: 15px;
     overflow-y: auto;
-    padding: 10px;
-    }
-
-    .library-sidebar {
-        width: 100%;
-        height: 300px;
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .library-list-container .card-list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px;
-    margin-bottom: 8px;
-    background: rgba(30, 41, 59, 0.5);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-    }
-
-    .library-detail-view.showcase-mode .card-visual {
-        transform: scale(0.85); /* Reducimos la carta para que quepa */
-        margin: -40px 0;
-    }
-
-    /* Coliseo: Ajuste de la Arena */
-
-
-    .vs-badge {
-        margin: 10px 0;
-        font-size: 1.8rem;
-    }
+    max-height: 70vh;
 }
 
-.library-list-container .card-list-item:hover {
-    background: var(--primary);
-    transform: translateX(5px);
-}
-
-.library-list-container .card-list-item.active {
-    border-left: 4px solid var(--primary);
-    background: rgba(99, 102, 241, 0.2);
-}
-
-/* Panel de Detalle */
 .library-detail-view {
     background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
     border: 1px solid var(--border-color);
@@ -1109,26 +1450,9 @@ body {
     max-width: 400px;
 }
 
-.btn-delete-card {
-    margin-top: 20px;
-    background: #450a0a;
-    color: #ef4444;
-    border: 1px solid #ef4444;
-    padding: 10px 20px;
-    border-radius: 6px;
-    cursor: pointer;
-    width: 100%;
-    transition: 0.3s;
-}
-
-.btn-delete-card:hover {
-    background: #ef4444;
-    color: white;
-}
-
 .mini-card-slot {
     position: relative;
-    height: 200px; /* Altura para que se vea bien la imagen */
+    height: 200px;
     border: 2px solid #1e293b;
     border-radius: 12px;
     background: radial-gradient(circle, #1e293b 0%, #020617 100%);
@@ -1144,7 +1468,7 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: none; /* Se activa por JS */
+    display: none;
 }
 
 .slot-placeholder {
@@ -1154,7 +1478,6 @@ body {
     letter-spacing: 2px;
 }
 
-/* Barras de Vida Estilo RPG */
 .hp-bar-container {
     position: absolute;
     top: 10px;
@@ -1175,31 +1498,7 @@ body {
     transition: width 0.4s ease-out;
 }
 
-/* Contenedor de grupos */
-.roster-group { margin-bottom: 20px; }
-
-.roster-category-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.75rem;
-    font-weight: 800;
-    color: var(--primary);
-    letter-spacing: 1.5px;
-    margin-bottom: 10px;
-    padding-bottom: 5px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-.category-count {
-    margin-left: auto;
-    background: rgba(255,255,255,0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.6rem;
-}
-
-/* Efectos de Rareza */
+/* Roster / Rarity */
 .card-list-item.rarity-legendary {
     border-left: 3px solid #fbbf24;
     background: linear-gradient(90deg, rgba(251, 191, 36, 0.1) 0%, transparent 100%);
@@ -1222,4 +1521,195 @@ body {
     height: 8px;
     border-radius: 50%;
     box-shadow: 0 0 5px currentColor;
+}
+
+/* Library list */
+.library-list-container .card-list-item:hover {
+    background: var(--primary);
+    transform: translateX(5px);
+}
+
+.library-list-container .card-list-item.active {
+    border-left: 4px solid var(--primary);
+    background: rgba(99, 102, 241, 0.2);
+}
+
+/* Forge Upgrade Panel (nuevo, dentro de creator) */
+.forge-upgrade-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.forge-level-display {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.level-badge {
+    background: linear-gradient(135deg, var(--primary), #8b5cf6);
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: white;
+}
+
+.xp-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-input);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--gold));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.bonus-stats {
+    font-size: 0.8rem;
+    color: var(--gold);
+    font-weight: 600;
+}
+
+.forge-sacrifice-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    color: var(--text-dim);
+    transition: all 0.3s;
+}
+
+.forge-sacrifice-zone.drag-over {
+    border-color: var(--primary);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+/* =============================================
+   📱 MEDIA QUERIES
+   ============================================= */
+@media (max-width: 768px) {
+    .global-hud {
+        padding: 6px 12px;
+        flex-wrap: wrap;
+        height: auto;
+        min-height: var(--hud-height);
+    }
+
+    .hud-resources {
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .hud-xp-bar { width: 60px; }
+
+    .tabs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+        gap: 4px;
+        width: 100%;
+    }
+
+    .tab-item {
+        padding: 8px 6px;
+        font-size: 0.7rem;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .creator-container {
+        grid-template-columns: 1fr;
+    }
+
+    .library-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .library-sidebar {
+        width: 100%;
+        height: 300px;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .library-detail-view.showcase-mode .card-visual {
+        transform: scale(0.85);
+        margin: -40px 0;
+    }
+
+    .adventure-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .inventory-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .arena-setup {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .vs-badge-container {
+        padding: 10px 0;
+        transform: rotate(90deg);
+    }
+
+    .fighter-select { width: 100%; }
+    .arena-actions { display: flex; flex-direction: column; gap: 10px; }
+    .btn-forge { width: 100%; }
+
+    .form-grid { grid-template-columns: 1fr; }
+
+    .header-title { font-size: 1.5rem; }
+
+    .tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 5px;
+    }
+
+    .tab-item {
+        padding: 12px 5px;
+        font-size: 0.8rem;
+        flex-direction: column;
+    }
+
+    .library-sidebar {
+        width: 100%;
+        height: 300px;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .library-list-container .card-list-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        margin-bottom: 8px;
+        background: rgba(30, 41, 59, 0.5);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .library-detail-view.showcase-mode .card-visual {
+        transform: scale(0.85);
+        margin: -40px 0;
+    }
+
+    .vs-badge {
+        margin: 10px 0;
+        font-size: 1.8rem;
+    }
 }

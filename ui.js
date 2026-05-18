@@ -36,34 +36,106 @@ export const passiveNames = {
 
 // --- 🛠️ FUNCIONES DE INTERFAZ Y NAVEGACIÓN ---
 
-export function showSection(section) {
-    const creatorGroup = document.getElementById('creatorMainGroup');
-    const library = document.getElementById('library');
-    const coliseo = document.getElementById('coliseo');
+const ALL_SECTION_IDS = ['section-library', 'creatorMainGroup', 'section-coliseo', 'section-adventure', 'section-inventory', 'section-shop'];
+const ALL_TAB_IDS = ['tab-library', 'tab-creator', 'tab-coliseo', 'tab-adventure', 'tab-inventory', 'tab-shop'];
 
-    const tabCreator = document.getElementById('tab-creator');
-    const tabLibrary = document.getElementById('tab-library');
-    const tabColiseo = document.getElementById('tab-coliseo');
+// =============================================
+// 🔒 COMING SOON TOAST
+// =============================================
+export function showComingSoon(feature) {
+    const existing = document.querySelector('.coming-soon-toast');
+    if (existing) existing.remove();
 
-    if (creatorGroup) creatorGroup.style.display = 'none';
-    if (library) library.style.display = 'none';
-    if (coliseo) coliseo.style.display = 'none';
+    const labels = {
+        coliseo: 'Coliseum',
+        adventure: 'Adventure',
+        inventory: 'Inventory',
+        shop: 'Shop',
+        chest: 'Loot Chest',
+        reforge: 'Reforge Altar'
+    };
 
-    if (tabCreator) tabCreator.classList.remove('active');
-    if (tabLibrary) tabLibrary.classList.remove('active');
-    if (tabColiseo) tabColiseo.classList.remove('active');
+    const label = labels[feature] || feature;
 
-    if (section === 'creator') {
-        if (creatorGroup) creatorGroup.style.display = 'flex';
-        if (tabCreator) tabCreator.classList.add('active');
-    } else if (section === 'coliseo') {
-        if (coliseo) coliseo.style.display = 'block';
-        if (tabColiseo) tabColiseo.classList.add('active');
-        renderSelector();
+    const toast = document.createElement('div');
+    toast.className = 'coming-soon-toast';
+    toast.innerHTML = `🔒 <strong>${label}</strong> — Coming in Phase 4`;
+
+    document.body.appendChild(toast);
+
+    if (typeof gsap !== 'undefined') {
+        try {
+            gsap.fromTo(toast, { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power2.out" });
+            gsap.to(toast, { y: 50, opacity: 0, delay: 2.5, duration: 0.3, onComplete: () => { if (toast.parentNode) toast.remove(); } });
+        } catch (e) {
+            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
+        }
     } else {
-        if (library) library.style.display = 'block';
-        if (tabLibrary) tabLibrary.classList.add('active');
-        displayCards();
+        setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
+    }
+}
+
+export function showSection(section) {
+    // Ocultar todas las secciones
+    ALL_SECTION_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    // Quitar active de todas las pestañas
+    ALL_TAB_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+    });
+
+    // Activar sección y pestaña correspondiente
+    switch (section) {
+        case 'library':
+            const lib = document.getElementById('section-library');
+            if (lib) { lib.style.display = 'block'; }
+            const tabLib = document.getElementById('tab-library');
+            if (tabLib) tabLib.classList.add('active');
+            displayCards();
+            break;
+
+        case 'creator':
+            const creatorGroup = document.getElementById('creatorMainGroup');
+            if (creatorGroup) { creatorGroup.style.display = 'flex'; }
+            const tabCreator = document.getElementById('tab-creator');
+            if (tabCreator) tabCreator.classList.add('active');
+            break;
+
+        case 'coliseo':
+            const col = document.getElementById('section-coliseo');
+            if (col) { col.style.display = 'block'; }
+            const tabCol = document.getElementById('tab-coliseo');
+            if (tabCol) tabCol.classList.add('active');
+            renderSelector();
+            break;
+
+        case 'adventure':
+            const adv = document.getElementById('section-adventure');
+            if (adv) { adv.style.display = 'block'; }
+            const tabAdv = document.getElementById('tab-adventure');
+            if (tabAdv) tabAdv.classList.add('active');
+            break;
+
+        case 'inventory':
+            const inv = document.getElementById('section-inventory');
+            if (inv) { inv.style.display = 'block'; }
+            const tabInv = document.getElementById('tab-inventory');
+            if (tabInv) tabInv.classList.add('active');
+            break;
+
+        case 'shop':
+            const shop = document.getElementById('section-shop');
+            if (shop) { shop.style.display = 'block'; }
+            const tabShop = document.getElementById('tab-shop');
+            if (tabShop) tabShop.classList.add('active');
+            break;
+
+        default:
+            console.warn(`showSection: sección '${section}' no reconocida.`);
     }
 }
 
@@ -663,6 +735,7 @@ export function updateFighterPreview(fighter, num) {
     const img = document.getElementById(`img-f${num}`);
     const placeholder = slot ? slot.querySelector('.slot-placeholder') : null;
     const hpBar = document.getElementById(`hp-bar-${num}`);
+    const stats = document.getElementById(`statsF${num}`);
 
     if (fighter && fighter.image) {
         if (img) {
@@ -670,14 +743,33 @@ export function updateFighterPreview(fighter, num) {
             img.style.display = 'block';
         }
         if (placeholder) placeholder.style.display = 'none';
+        if (stats) stats.style.display = 'flex';
 
         if (hpBar) hpBar.style.width = '100%';
+
+        const hpEl = document.getElementById(`statHP-${num}`);
+        const atqEl = document.getElementById(`statATQ-${num}`);
+        const defEl = document.getElementById(`statDEF-${num}`);
+        const nameEl = document.getElementById(`statNameF${num}`);
+        if (hpEl) hpEl.innerText = fighter.hp || 0;
+        if (atqEl) atqEl.innerText = fighter.atq || 0;
+        if (defEl) defEl.innerText = fighter.def || 0;
+        if (nameEl) nameEl.innerText = fighter.name || '';
 
         if (img && typeof gsap !== 'undefined') {
             try {
                 gsap.fromTo(img,
                     { scale: 1.5, filter: "brightness(5) contrast(2)", opacity: 0 },
                     { scale: 1, filter: "brightness(1) contrast(1)", opacity: 1, duration: 0.6, ease: "power2.out" }
+                );
+            } catch (e) {}
+        }
+
+        if (stats && typeof gsap !== 'undefined') {
+            try {
+                gsap.fromTo(stats,
+                    { y: 10, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 0.4, delay: 0.2 }
                 );
             } catch (e) {}
         }
@@ -691,6 +783,7 @@ export function updateFighterPreview(fighter, num) {
     } else {
         if (img) { img.style.display = 'none'; }
         if (placeholder) placeholder.style.display = 'block';
+        if (stats) stats.style.display = 'none';
         if (slot && typeof gsap !== 'undefined') {
             try { gsap.to(slot, { borderColor: '#1e293b', duration: 0.3 }); } catch (e) {}
         } else if (slot) {
@@ -747,4 +840,129 @@ export function importarBiblioteca(event, callback) {
         }
     };
     reader.readAsText(file);
+}
+
+// =============================================
+// 🗺️ RENDER MAP NODES (Adventure World Map)
+// =============================================
+export function renderMapNodes() {
+    const canvas = document.getElementById('worldMapCanvas');
+    if (!canvas) return;
+
+    const nodes = [
+        { id: 'node1', x: 10, y: 50, icon: '🏰', label: 'Stage 1', status: 'completed' },
+        { id: 'node2', x: 30, y: 20, icon: '🌲', label: 'Stage 2', status: 'completed' },
+        { id: 'node3', x: 55, y: 35, icon: '🏜️', label: 'Stage 3', status: 'active' },
+        { id: 'node4', x: 45, y: 65, icon: '🗿', label: 'Stage 4', status: 'locked' },
+        { id: 'node5', x: 70, y: 55, icon: '🌋', label: 'Stage 5', status: 'locked' },
+        { id: 'node6', x: 85, y: 25, icon: '👑', label: 'BOSS', status: 'locked', boss: true }
+    ];
+
+    canvas.innerHTML = nodes.map(n => {
+        const cls = `map-node${n.status === 'active' ? ' active' : ''}${n.status === 'locked' ? ' locked' : ''}${n.status === 'completed' ? ' completed' : ''}${n.boss ? ' boss' : ''}`;
+        return `<div class="${cls}" style="left:${n.x}%;top:${n.y}%;" data-node="${n.id}" title="${n.label}">${n.icon}</div>`;
+    }).join('');
+}
+
+// =============================================
+// 📖 RENDER CODEX (Drop Codex)
+// =============================================
+export function renderCodex() {
+    const grid = document.getElementById('codexGrid');
+    const progress = document.getElementById('codexProgress');
+    if (!grid) return;
+
+    const codexEntries = [
+        { id: 'c1', name: 'Forest Wisp', icon: '🧚', dropRate: '25%', owned: true },
+        { id: 'c2', name: 'Stone Golem', icon: '🗿', dropRate: '15%', owned: true },
+        { id: 'c3', name: 'Shadow Stalker', icon: '👻', dropRate: '10%', owned: false },
+        { id: 'c4', name: 'Fire Drake', icon: '🐉', dropRate: '5%', owned: false },
+        { id: 'c5', name: 'Abyssal Mage', icon: '🧙', dropRate: '3%', owned: false },
+        { id: 'c6', name: 'Colossal Warden', icon: '👁️', dropRate: '1%', owned: false }
+    ];
+
+    const owned = codexEntries.filter(e => e.owned).length;
+
+    grid.innerHTML = codexEntries.map(e => `
+        <div class="codex-entry${e.owned ? ' owned' : ''}">
+            <div class="codex-icon">${e.icon}</div>
+            <div class="codex-name">${e.name}</div>
+            <div class="codex-drop-rate">${e.owned ? '✅ Collected' : `⬜ ${e.dropRate}`}</div>
+        </div>
+    `).join('');
+
+    if (progress) {
+        progress.innerText = `${owned}/${codexEntries.length} collected`;
+    }
+}
+
+// =============================================
+// 🎴 CHEST OPEN (Loot Chest Modal)
+// =============================================
+export function openChest(count, gameState) {
+    const modal = document.getElementById('chestModal');
+    const lid = document.getElementById('chestLid');
+    const rewardArea = document.getElementById('chestRewardArea');
+    const chestOpenBtn = document.getElementById('btnChestOpen');
+
+    if (!modal || !lid || !rewardArea) return;
+
+    modal.style.display = 'flex';
+    lid.className = 'chest-lid';
+    rewardArea.innerHTML = `<span style="color:var(--text-dim);font-size:0.9rem;">Click to open ${count > 1 ? `${count} chests` : 'the chest'}...</span>`;
+    if (chestOpenBtn) chestOpenBtn.style.display = 'none';
+
+    // Animar apertura
+    lid.classList.add('open');
+
+    setTimeout(() => {
+        const rewardCards = generateRewardCards(count);
+        let rewardsHTML = '';
+
+        rewardCards.forEach((card, i) => {
+            const delay = i * 150;
+            rewardsHTML += `
+                <div class="chest-reward-card rarity-${card.rarity}" style="animation-delay:${delay}ms; text-align:center; margin:8px; padding:10px; background:var(--bg-card); border-radius:10px; border:2px solid ${card.borderColor};">
+                    <div style="font-size:2rem;">${card.icon}</div>
+                    <div style="font-weight:700;font-size:0.9rem;">${card.name}</div>
+                    <div style="font-size:0.75rem;color:var(--text-dim);">${card.rarity.toUpperCase()}</div>
+                </div>
+            `;
+        });
+
+        rewardArea.innerHTML = `
+            <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;">${rewardsHTML}</div>
+            <button id="btnChestClaim" class="btn-forge" style="margin-top:20px;padding:12px 30px;width:auto;" onclick="document.getElementById('chestModal').style.display='none'">CLAIM ALL</button>
+        `;
+
+        if (count > 1 && typeof gsap !== 'undefined') {
+            try {
+                gsap.from('.chest-reward-card', { scale: 0, rotation: 180, duration: 0.5, stagger: 0.1, ease: "back.out(2)" });
+            } catch (e) {}
+        }
+
+        if (chestOpenBtn) chestOpenBtn.style.display = 'inline-block';
+    }, 700);
+}
+
+function generateRewardCards(count) {
+    const pool = [
+        { name: 'Iron Shield', icon: '🛡️', rarity: 'common', borderColor: '#94a3b8' },
+        { name: 'Healing Potion', icon: '🧪', rarity: 'common', borderColor: '#94a3b8' },
+        { name: 'Silver Dagger', icon: '🗡️', rarity: 'common', borderColor: '#94a3b8' },
+        { name: 'Arcane Scroll', icon: '📜', rarity: 'rare', borderColor: '#3b82f6' },
+        { name: 'Shadow Amulet', icon: '📿', rarity: 'rare', borderColor: '#3b82f6' },
+        { name: 'Dragon Scale', icon: '🐉', rarity: 'epic', borderColor: '#a78bfa' },
+        { name: 'Phoenix Feather', icon: '🪶', rarity: 'epic', borderColor: '#a78bfa' },
+        { name: 'Excalibur Shard', icon: '⚔️', rarity: 'legendary', borderColor: '#fbbf24' },
+        { name: 'Crown of Ages', icon: '👑', rarity: 'legendary', borderColor: '#fbbf24' },
+        { name: 'Void Crystal', icon: '💎', rarity: 'mythic', borderColor: '#ff6b6b' }
+    ];
+
+    const results = [];
+    for (let i = 0; i < count; i++) {
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        results.push({ ...pick });
+    }
+    return results;
 }
