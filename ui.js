@@ -1,6 +1,17 @@
 import { cards } from './engine.js';
 import * as Engine from './engine.js';
 
+function esc(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function (m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        if (m === '"') return '&quot;';
+        return '&#39;';
+    });
+}
+
 export const elementConfigs = {
     'Fuego':      { icon: '🔥', color: '#ef4444' },
     'Agua':       { icon: '💧', color: '#3b82f6' },
@@ -139,6 +150,54 @@ export function showSection(section) {
     }
 }
 
+// =============================================
+// 📋 2A — TURN ORDER BAR
+// =============================================
+export function renderTurnBar(turnQueue, currentIndex, containerId = 'coliseumTurnBar') {
+    const bar = document.getElementById(containerId);
+    if (!bar || !turnQueue) return;
+
+    if (turnQueue.length === 0) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+
+    const total = turnQueue.length;
+    const startIdx = currentIndex;
+    const maxShow = 8;
+    const preview = [];
+
+    for (let i = 0; i < Math.min(maxShow, total); i++) {
+        const idx = (startIdx + i) % total;
+        const entry = turnQueue[idx];
+        if (!entry || !entry.actor) continue;
+        preview.push({ ...entry, queueIdx: idx });
+    }
+
+    bar.innerHTML = preview.map((entry, i) => {
+        const isActive = entry.queueIdx === currentIndex && i === 0;
+        const isDead = entry.actor.hp <= 0;
+        const sideClass = entry.isAlly ? 'ally' : 'enemy';
+        const imgSrc = entry.actor.image || '';
+        const imgHtml = imgSrc
+            ? `<img class="tb-portrait" src="${esc(imgSrc)}" alt="">`
+            : `<span class="tb-portrait" style="background:${entry.isAlly ? '#3b82f6' : '#ef4444'};display:inline-flex;align-items:center;justify-content:center;font-size:0.6rem;">${entry.isAlly ? 'A' : 'E'}</span>`;
+
+        const nameDisplay = entry.actor.name.length > 8
+            ? entry.actor.name.slice(0, 7) + '…'
+            : entry.actor.name;
+
+        let html = `<div class="turn-bar-entry ${isActive ? 'active' : ''} ${isDead ? 'dead' : ''} ${sideClass}">`;
+        html += imgHtml;
+        html += `<span class="tb-name">${esc(nameDisplay)}</span>`;
+        html += `<span class="tb-vel">💨${entry.vel}</span>`;
+        html += `</div>`;
+
+        if (i < preview.length - 1) {
+            html += `<span class="turn-bar-arrow">→</span>`;
+        }
+        return html;
+    }).join('');
+}
+
 // --- ⚔️ SECCIÓN DEL COLISEO ---
 
 export function renderSelector() {
@@ -159,7 +218,7 @@ export function renderSelector() {
         const icon = classIcons[className] || '👤';
         optionsHTML += `<optgroup label="${icon} ${className.toUpperCase()}S">`;
         groups[className].forEach(card => {
-            optionsHTML += `<option value="${card.id}">${card.name} (ATK: ${card.atq})</option>`;
+            optionsHTML += `<option value="${esc(card.id)}">${esc(card.name)} (ATK: ${card.atq})</option>`;
         });
         optionsHTML += `</optgroup>`;
     });
@@ -180,7 +239,7 @@ export function logConsole(msg, type = 'system', round = null, containerId = 'lo
         const prefix = containerId === 'pveLogContent' ? 'T' : 'R';
         roundTag = `<span class="log-round-tag">${prefix}${round}</span> `;
     }
-    div.innerHTML = `${roundTag}${msg}`;
+    div.innerHTML = `${roundTag}${esc(msg)}`;
 
     consoleEl.appendChild(div);
     consoleEl.scrollTop = consoleEl.scrollHeight;
@@ -212,6 +271,9 @@ export function resetColiseum() {
     if (consoleEl) {
         consoleEl.innerHTML = '<div class="empty-state-msg" style="color:#94a3b8;">🏛️ Architect Harmondez Edition — The arena awaits the contenders...</div>';
     }
+
+    const turnBar = document.getElementById('coliseumTurnBar');
+    if (turnBar) turnBar.style.display = 'none';
 
     setColiseumButtonMode('next');
 
@@ -329,15 +391,15 @@ export function displayCards(searchTerm) {
             </div>
             <div class="roster-category-list">
                 ${groups[className].map(card => {
-                    const totalPoints = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
+                    const totalPoints = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * 2);
                     const isMythic = totalPoints >= 7400;
                     const rarityClass = isMythic ? 'rarity-legendary' : totalPoints > 5000 ? 'rarity-epic' : 'rarity-common';
 
                     return `
-                    <div class="card-list-item ${rarityClass}" data-id="${card.id}" onclick="selectLibraryCard('${card.id}')">
+                    <div class="card-list-item ${rarityClass}" data-id="${esc(card.id)}" onclick="selectLibraryCard('${esc(card.id)}')">
                         <div class="item-main-info">
                             <span class="item-element-dot" style="background-color: ${elementConfigs[card.element]?.color || '#fff'}"></span>
-                            <span class="item-name">${card.name}</span>
+                            <span class="item-name">${esc(card.name)}</span>
                         </div>
                         <div class="item-stats-brief">
                             <span style="color:#ef4444">❤️${card.hp}</span>
@@ -360,7 +422,7 @@ export function renderCardDetail(card) {
 
     const skillName = passiveNames[card.passiveId] || card.passiveId || 'None';
     const elementColor = elementConfigs[card.element]?.color || '#94a3b8';
-    const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
+    const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * 2);
     const isMythic = totalStats >= 7400;
 
     detailContainer.innerHTML = `
@@ -389,7 +451,7 @@ export function renderCardDetail(card) {
                 border: 1px solid rgba(255,255,255,0.2);
                 margin-bottom: 8px;
             ">
-                <span style="font-weight: 800; font-size: 1rem; color: #eee; text-transform: uppercase; letter-spacing: 1px;">${card.name}</span>
+                <span style="font-weight: 800; font-size: 1rem; color: #eee; text-transform: uppercase; letter-spacing: 1px;">${esc(card.name)}</span>
                 <span>${elementConfigs[card.element]?.icon || '🔘'}</span>
             </div>
 
@@ -402,7 +464,7 @@ export function renderCardDetail(card) {
                 border: 3px solid #333;
                 box-shadow: inset 0 0 10px #000;
             ">
-                <img src="${card.image || ''}" style="width: 100%; height: 100%; object-fit: cover; filter: contrast(1.1) brightness(1.1);" onerror="this.src='https://via.placeholder.com/300x200?text=Forjando...'">
+                <img src="${esc(card.image || '')}" style="width: 100%; height: 100%; object-fit: cover; filter: contrast(1.1) brightness(1.1);" onerror="this.src='https://via.placeholder.com/300x200?text=Forjando...'">
             </div>
 
             <div style="
@@ -416,7 +478,7 @@ export function renderCardDetail(card) {
                 border-radius: 3px;
                 font-style: italic;
             ">
-                ${card.cardClass} // ${card.element}
+                ${esc(card.cardClass)} // ${esc(card.element)}
             </div>
 
             <div style="
@@ -445,6 +507,7 @@ export function renderCardDetail(card) {
                 <span style="color: #ef4444; text-shadow: 1px 1px 0 #000;">❤️ ${card.hp}</span>
                 <span style="color: #3b82f6; text-shadow: 1px 1px 0 #000;">🛡️ ${card.def}</span>
                 <span style="color: #f59e0b; text-shadow: 1px 1px 0 #000;">⚔️ ${card.atq}</span>
+                <span style="color: #a78bfa; text-shadow: 1px 1px 0 #000;">💨 ${card.vel || 100}</span>
             </div>
         </div>
 
@@ -485,13 +548,16 @@ export function updatePreview(croppedImg) {
     const element = document.getElementById('cardElement')?.value || "Neutral";
     const cardClass = document.getElementById('cardClass')?.value || "Human";
     const passiveId = document.getElementById('cardPassive')?.value || "";
+    const ultimateId = document.getElementById('cardUltimate')?.value || "";
     const hp = parseInt(document.getElementById('inputHP')?.value) || 1;
     const def = parseInt(document.getElementById('inputDEF')?.value) || 1;
     const atq = parseInt(document.getElementById('inputATQ')?.value) || 1;
+    const vel = parseInt(document.getElementById('inputVEL')?.value) || 100;
 
     const skillName = passiveNames[passiveId] || "Passive: Select one";
+    const ultName = ultimateId ? (Engine.ULTIMATE_DB[ultimateId]?.name || 'Ultimate') : '';
     const config = elementConfigs[element];
-    const totalStats = hp + def + atq;
+    const totalStats = hp + def + atq + (vel * 2);
     const isMythic = totalStats >= 7400;
 
     previewContainer.innerHTML = `
@@ -510,27 +576,29 @@ export function updatePreview(croppedImg) {
             margin: auto;
         ">
             <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 8px;">
-                <span style="font-weight: 800; font-size: 0.9rem; color: #eee; text-transform: uppercase;">${name}</span>
+                <span style="font-weight: 800; font-size: 0.9rem; color: #eee; text-transform: uppercase;">${esc(name)}</span>
                 <span>${config?.icon || '🔘'}</span>
             </div>
 
-            <div id="previewArt" style="width: 100%; height: 190px; background: #000; border-radius: 4px; overflow: hidden; border: 2px solid #333; background-image: url('${croppedImg || ''}'); background-size: cover; background-position: center;">
+            <div id="previewArt" style="width: 100%; height: 190px; background: #000; border-radius: 4px; overflow: hidden; border: 2px solid #333; background-image: url('${esc(croppedImg || '')}'); background-size: cover; background-position: center;">
                 ${!croppedImg ? '<div style="color:#444; display:flex; align-items:center; justify-content:center; height:100%; font-size:0.8rem;">AWAITING ART...</div>' : ''}
             </div>
 
             <div style="margin: 8px 0; background: #2a2a2a; padding: 2px 10px; font-size: 0.7rem; font-weight: bold; color: ${config?.color || '#fff'}; border: 1px solid ${config?.color}44; border-radius: 3px; font-style: italic;">
-                ${classIcons[cardClass] || '❓'} ${cardClass} // ${element}
+                ${classIcons[cardClass] || '❓'} ${esc(cardClass)} // ${esc(element)}
             </div>
 
             <div style="flex-grow: 1; background: #d1d1d1; border-radius: 4px; padding: 8px; color: #111; font-size: 0.75rem; line-height: 1.2; border: 2px solid #888; overflow-y: auto;">
-                <b style="color: #000;">Ability:</b><br>
+                <b style="color: #000;">Passive:</b><br>
                 <span>${skillName}</span>
+                ${ultName ? `<br><b style="color: #000;">Ultimate:</b><br><span style="color:#ef4444;">🔥 ${ultName}</span>` : ''}
             </div>
 
             <div style="display: flex; justify-content: space-around; margin-top: 10px; font-weight: 900; font-size: 0.85rem;">
                 <span style="color: #ef4444; text-shadow: 1px 1px 0 #000;">❤️ ${hp}</span>
                 <span style="color: #3b82f6; text-shadow: 1px 1px 0 #000;">🛡️ ${def}</span>
                 <span style="color: #f59e0b; text-shadow: 1px 1px 0 #000;">⚔️ ${atq}</span>
+                <span id="previewStatVEL" style="color: #a78bfa; text-shadow: 1px 1px 0 #000;">💨 ${vel}</span>
             </div>
         </div>
     `;
@@ -542,12 +610,14 @@ export function updateRemainingPoints() {
     const elHP = document.getElementById('inputHP');
     const elDEF = document.getElementById('inputDEF');
     const elATQ = document.getElementById('inputATQ');
+    const elVEL = document.getElementById('inputVEL');
 
     const hp = elHP ? parseInt(elHP.value) || 0 : 0;
     const def = elDEF ? parseInt(elDEF.value) || 0 : 0;
     const atq = elATQ ? parseInt(elATQ.value) || 0 : 0;
+    const vel = elVEL ? parseInt(elVEL.value) || 0 : 0;
 
-    const total = hp + def + atq;
+    const total = hp + def + atq + (vel * 2);
     const remaining = 7400 - total;
 
     const display = document.getElementById('remainingPts');
@@ -560,7 +630,7 @@ export function updateRemainingPoints() {
         }
     }
 
-    const labels = { 'valHP': hp, 'valDEF': def, 'valATQ': atq };
+    const labels = { 'valHP': hp, 'valDEF': def, 'valATQ': atq, 'valVEL': vel, 'statVEL': vel };
     for (const [id, val] of Object.entries(labels)) {
         const el = document.getElementById(id);
         if (el) el.innerText = val;
@@ -581,6 +651,7 @@ export function resetCropperData() {
     if (document.getElementById('inputHP')) document.getElementById('inputHP').value = 1;
     if (document.getElementById('inputDEF')) document.getElementById('inputDEF').value = 1;
     if (document.getElementById('inputATQ')) document.getElementById('inputATQ').value = 1;
+    if (document.getElementById('inputVEL')) document.getElementById('inputVEL').value = 100;
 
     updateRemainingPoints();
     updatePreview(null);
@@ -634,6 +705,19 @@ export function refreshFighterStats(fighter, num) {
 
     if (!fighter || !hpBar) return;
 
+    // Fervor bar
+    const fervorFill = document.getElementById(`fervorFill-${num}`);
+    const fervorText = document.getElementById(`fervorText-${num}`);
+    if (fervorFill && fervorText) {
+        const pct = Math.min(100, ((fighter.fervor || 0) / 10) * 100);
+        fervorFill.style.width = `${pct}%`;
+        fervorText.innerText = `🔥 ${fighter.fervor || 0}/10`;
+        const parent = fervorFill.closest('.arena-fervor-bar');
+        if (parent) {
+            parent.classList.toggle('fervor-full', (fighter.fervor || 0) >= 10);
+        }
+    }
+
     const maxHp = fighter.maxHp || 1000;
     const percentage = Math.max(0, (fighter.hp / maxHp) * 100);
 
@@ -675,6 +759,100 @@ export function animatePassiveTrigger(fighterNum) {
                 ease: "back.out(1.7)"
             }
         );
+    } catch (e) {}
+}
+
+// =============================================
+// 👁️ 2C — ACTIVE TURN HIGHLIGHT
+// =============================================
+export function setActiveHighlight(isColiseum, isAlly, slotIndex) {
+    if (isColiseum) {
+        [1, 2].forEach(n => {
+            const el = document.getElementById(`boxF${n}`);
+            if (el) el.classList.remove('active-turn');
+        });
+        const num = isAlly ? 1 : 2;
+        const el = document.getElementById(`boxF${num}`);
+        if (el) el.classList.add('active-turn');
+    } else {
+        document.querySelectorAll('.party-member-card.active-turn, .squad-member-card.active-turn').forEach(el => {
+            el.classList.remove('active-turn');
+        });
+        const selector = isAlly
+            ? `.party-member-card[data-index="${slotIndex}"]`
+            : `.squad-member-card[data-enemy-index="${slotIndex}"]`;
+        const el = document.querySelector(selector);
+        if (el) el.classList.add('active-turn');
+    }
+}
+
+export function clearActiveHighlight() {
+    document.querySelectorAll('.active-turn').forEach(el => el.classList.remove('active-turn'));
+}
+
+// =============================================
+// 💥 2D — FLOATING DAMAGE NUMBERS
+// =============================================
+export function spawnDmgFloat(parentSelector, type, value) {
+    if (value <= 0) return;
+    const parent = document.querySelector(parentSelector);
+    if (!parent) return;
+
+    const el = document.createElement('div');
+    el.className = `dmg-float ${type}`;
+    el.innerText = type === 'heal' ? `+${value}` : `-${value}`;
+    el.style.left = (20 + Math.random() * 40) + '%';
+    el.style.top = '10%';
+    parent.style.position = 'relative';
+    parent.appendChild(el);
+
+    if (typeof gsap !== 'undefined') {
+        try {
+            gsap.fromTo(el,
+                { y: 0, opacity: 1, scale: 0.5 },
+                { y: -60, opacity: 0, scale: 1.2, duration: 1.0, ease: "power2.out", onComplete: () => el.remove() }
+            );
+        } catch (e) { setTimeout(() => el.remove(), 1000); }
+    } else {
+        setTimeout(() => el.remove(), 1000);
+    }
+}
+
+// =============================================
+// 💫 2E — ULTIMATE / DEATH ANIMATIONS
+// =============================================
+export function playUltimateAnimation(fighterName, ultName) {
+    const flash = document.createElement('div');
+    flash.className = 'ultimate-flash';
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 600);
+
+    const banner = document.createElement('div');
+    banner.className = 'ultimate-banner';
+    banner.innerHTML = `🔥 ${esc(fighterName)}<br><span style="font-size:1.2rem;">${esc(ultName)}</span>`;
+    document.body.appendChild(banner);
+    setTimeout(() => banner.remove(), 1200);
+}
+
+export function playDeathAnimation(selector) {
+    const el = document.querySelector(selector);
+    if (!el || typeof gsap === 'undefined') return;
+    try {
+        gsap.to(el, {
+            scale: 0, opacity: 0, duration: 0.5, ease: "power2.in",
+            onComplete: () => { el.classList.add('dead'); gsap.set(el, { scale: 1, opacity: 1 }); }
+        });
+    } catch (e) { el.classList.add('dead'); }
+}
+
+export function playHitAnimation(selector, isAlly) {
+    const el = document.querySelector(selector);
+    if (!el || typeof gsap === 'undefined') return;
+    try {
+        const color = isAlly ? 'rgba(59,130,246,0.8)' : 'rgba(239,68,68,0.8)';
+        gsap.timeline()
+            .to(el, { x: isAlly ? 10 : -10, duration: 0.05 })
+            .to(el, { x: 0, duration: 0.25, ease: "elastic.out(1,0.3)", boxShadow: `0 0 20px ${color}`, onComplete: () => { el.style.boxShadow = ''; } });
     } catch (e) {}
 }
 
@@ -758,10 +936,12 @@ export function updateFighterPreview(fighter, num) {
         const hpEl = document.getElementById(`statHP-${num}`);
         const atqEl = document.getElementById(`statATQ-${num}`);
         const defEl = document.getElementById(`statDEF-${num}`);
+        const velEl = document.getElementById(`statVEL-${num}`);
         const nameEl = document.getElementById(`statNameF${num}`);
         if (hpEl) hpEl.innerText = fighter.hp || 0;
         if (atqEl) atqEl.innerText = fighter.atq || 0;
         if (defEl) defEl.innerText = fighter.def || 0;
+        if (velEl) velEl.innerText = fighter.vel || 0;
         if (nameEl) nameEl.innerText = fighter.name || '';
 
         if (img && typeof gsap !== 'undefined') {
@@ -1073,13 +1253,13 @@ export function openCardPicker(slotIndex) {
         gridHtml = `<div class="card-picker-empty">No available heroes in your Library</div>`;
     } else {
         gridHtml = available.map(c => {
-            const totalStats = (c.hp || 0) + (c.atq || 0) + (c.def || 0);
+            const totalStats = (c.hp || 0) + (c.atq || 0) + (c.def || 0) + ((c.vel || 0) * 2);
             const isMythic = totalStats >= 7400;
             return `
-                <div class="card-picker-item" data-card-id="${c.id}">
-                    <img class="picker-card-img" src="${c.image || ''}" alt="${c.name}" onerror="this.src='https://via.placeholder.com/140x60?text=No+Image'">
-                    <div class="picker-card-name">${c.name}</div>
-                    <div class="picker-card-stats">❤️${c.hp} ⚔️${c.atq} 🛡️${c.def}${isMythic ? ' 👑' : ''}</div>
+                <div class="card-picker-item" data-card-id="${esc(c.id)}">
+                    <img class="picker-card-img" src="${esc(c.image || '')}" alt="${esc(c.name)}" onerror="this.src='https://via.placeholder.com/140x60?text=No+Image'">
+                    <div class="picker-card-name">${esc(c.name)}</div>
+                    <div class="picker-card-stats">❤️${c.hp} ⚔️${c.atq} 🛡️${c.def} 💨${c.vel || 80}${isMythic ? ' 👑' : ''}</div>
                 </div>
             `;
         }).join('');
@@ -1111,9 +1291,9 @@ export function fillTeamSlot(slotIndex, card) {
         slot.classList.add('filled');
         slot.innerHTML = `
             <span class="slot-number">#${slotIndex + 1}</span>
-            <img class="slot-mini-img" src="${card.image || ''}" alt="${card.name}" onerror="this.src='https://via.placeholder.com/80x60?text=No+Image'">
-            <span class="slot-mini-name">${card.name}</span>
-            <span class="slot-mini-stats">❤️${card.hp} ⚔️${card.atq} 🛡️${card.def}</span>
+            <img class="slot-mini-img" src="${esc(card.image || '')}" alt="${esc(card.name)}" onerror="this.src='https://via.placeholder.com/80x60?text=No+Image'">
+            <span class="slot-mini-name">${esc(card.name)}</span>
+            <span class="slot-mini-stats">❤️${card.hp} ⚔️${card.atq} 🛡️${card.def} 💨${card.vel || 80}</span>
         `;
     }
 
@@ -1140,8 +1320,8 @@ export function renderPvEArena(party, squad, turnCount) {
 
     const squadHtml = squad.map((m, i) => `
         <div class="squad-member-card${m.hp <= 0 ? ' dead' : ''}${isBoss ? ' boss-card' : ''}" data-enemy-index="${i}">
-            <div class="squad-member-header">${isBoss ? '👑' : `[Enemy ${i+1}]`} ${m.name}</div>
-            ${isBoss ? `<img class="enemy-img" src="${m.image || ''}" alt="${m.name}" onerror="this.src='https://via.placeholder.com/240x160?text=Boss'">` : ''}
+            <div class="squad-member-header">${isBoss ? '👑' : `[Enemy ${i+1}]`} ${esc(m.name)}</div>
+            ${isBoss ? `<img class="enemy-img" src="${esc(m.image || '')}" alt="${esc(m.name)}" onerror="this.src='https://via.placeholder.com/240x160?text=Boss'">` : ''}
             <div class="squad-hp-bar-container">
                 <div class="squad-hp-bar-fill" id="squadHpFill${i}" style="width:100%"></div>
                 <span class="squad-hp-text" id="squadHpText${i}">${Math.floor(m.hp)}/${m.maxHp}</span>
@@ -1150,20 +1330,29 @@ export function renderPvEArena(party, squad, turnCount) {
                 <span>❤️${Math.floor(m.hp)}</span>
                 <span>🛡️${Math.floor(m.def)}</span>
                 <span>⚔️${Math.floor(m.atq)}</span>
+                <span>💨${m.vel || 80}</span>
+            </div>
+            <div class="squad-fervor-bar" id="squadFervorBar${i}">
+                <div class="fervor-fill" id="squadFervorFill${i}" style="width:${Math.min(100, ((m.fervor || 0)/10)*100)}%"></div>
+                <span class="fervor-text" id="squadFervorText${i}">🔥${m.fervor || 0}/10</span>
             </div>
         </div>
     `).join('');
 
     const partyHtml = party.map((member, i) => `
         <div class="party-member-card" data-index="${i}">
-            <img class="member-img" src="${member.image || ''}" alt="${member.name}" onerror="this.src='https://via.placeholder.com/40x40?text=?'">
+            <img class="member-img" src="${esc(member.image || '')}" alt="${esc(member.name)}" onerror="this.src='https://via.placeholder.com/40x40?text=?'">
             <div class="member-info">
-                <div class="member-name">[Ally ${i+1}] ${member.name}</div>
+                <div class="member-name">[Ally ${i+1}] ${esc(member.name)}</div>
                 <div class="member-element">${member.element || 'Neutral'}</div>
                 <div class="party-member-hp-bar">
                     <div class="party-member-hp-fill" id="partyHpFill${i}" style="width:100%"></div>
                 </div>
                 <div class="member-hp-text" id="partyHpText${i}">${Math.floor(member.hp)}/${member.maxHp}</div>
+                <div class="party-fervor-bar" id="partyFervorBar${i}">
+                    <div class="fervor-fill" id="partyFervorFill${i}" style="width:${Math.min(100, ((member.fervor || 0)/10)*100)}%"></div>
+                    <span class="fervor-text" id="partyFervorText${i}">🔥${member.fervor || 0}/10</span>
+                </div>
             </div>
         </div>
     `).join('');
@@ -1172,6 +1361,7 @@ export function renderPvEArena(party, squad, turnCount) {
     arena.className = 'pve-arena active';
     arena.id = 'pveArena';
     arena.innerHTML = `
+        <div id="pveTurnBar" class="turn-bar"></div>
         <div class="pve-battlefield">
             <div class="pve-squad-side" id="pveSquadSide">${squadHtml}</div>
             <div class="pve-vs-column">
@@ -1221,13 +1411,25 @@ export function updatePvEArena(party, squad, turnCount) {
                 card.classList.remove('dead');
                 if (fill) {
                     const pct = Math.max(0, (m.hp / m.maxHp) * 100);
-                    fill.style.width = pct + '%';
+                    if (typeof gsap !== 'undefined') {
+                        try { gsap.to(fill, { width: pct + '%', duration: 0.3, ease: "power2.out" }); } catch (e) { fill.style.width = pct + '%'; }
+                    } else { fill.style.width = pct + '%'; }
                 }
                 if (text) text.innerText = `${Math.floor(m.hp)}/${m.maxHp}`;
             }
             const statsRow = card.querySelector('.squad-stats-row');
             if (statsRow) {
-                statsRow.innerHTML = `<span>❤️${Math.floor(m.hp)}</span><span>🛡️${Math.floor(m.def)}</span><span>⚔️${Math.floor(m.atq)}</span>`;
+                statsRow.innerHTML = `<span>❤️${Math.floor(m.hp)}</span><span>🛡️${Math.floor(m.def)}</span><span>⚔️${Math.floor(m.atq)}</span><span>💨${m.vel || 80}</span>`;
+            }
+            // Fervor update
+            const fervorFill = document.getElementById(`squadFervorFill${i}`);
+            const fervorText = document.getElementById(`squadFervorText${i}`);
+            if (fervorFill && fervorText) {
+                const pct = Math.min(100, ((m.fervor || 0) / 10) * 100);
+                fervorFill.style.width = `${pct}%`;
+                fervorText.innerText = `🔥${m.fervor || 0}/10`;
+                const parent = fervorFill.closest('.squad-fervor-bar');
+                if (parent) parent.classList.toggle('fervor-full', (m.fervor || 0) >= 10);
             }
         });
     }
@@ -1241,16 +1443,32 @@ export function updatePvEArena(party, squad, turnCount) {
 
             if (member.hp <= 0) {
                 card.classList.add('dead');
-                if (hpFill) hpFill.style.width = '0%';
+                if (hpFill) {
+                    if (typeof gsap !== 'undefined') {
+                        try { gsap.to(hpFill, { width: '0%', duration: 0.3, ease: "power2.out" }); } catch (e) { hpFill.style.width = '0%'; }
+                    } else { hpFill.style.width = '0%'; }
+                }
                 if (hpText) hpText.innerText = '💀';
             } else {
                 card.classList.remove('dead');
                 if (hpFill) {
                     const pct = Math.max(0, (member.hp / member.maxHp) * 100);
-                    hpFill.style.width = pct + '%';
+                    if (typeof gsap !== 'undefined') {
+                        try { gsap.to(hpFill, { width: pct + '%', duration: 0.3, ease: "power2.out" }); } catch (e) { hpFill.style.width = pct + '%'; }
+                    } else { hpFill.style.width = pct + '%'; }
                     hpFill.className = 'party-member-hp-fill' + (pct < 30 ? ' low' : '');
                 }
                 if (hpText) hpText.innerText = `${Math.floor(member.hp)}/${member.maxHp}`;
+            }
+            // Fervor update
+            const fervorFill = document.getElementById(`partyFervorFill${i}`);
+            const fervorText = document.getElementById(`partyFervorText${i}`);
+            if (fervorFill && fervorText) {
+                const pct = Math.min(100, ((member.fervor || 0) / 10) * 100);
+                fervorFill.style.width = `${pct}%`;
+                fervorText.innerText = `🔥${member.fervor || 0}/10`;
+                const parent = fervorFill.closest('.party-fervor-bar');
+                if (parent) parent.classList.toggle('fervor-full', (member.fervor || 0) >= 10);
             }
         });
     }
@@ -1308,8 +1526,65 @@ export function cleanAdventureOverlays() {
     if (arena) arena.remove();
     const result = document.getElementById('pveResultOverlay');
     if (result) result.remove();
+    const reward = document.getElementById('rewardModal');
+    if (reward) reward.style.display = 'none';
     const mapLayout = document.querySelector('.adventure-layout');
     if (mapLayout) mapLayout.style.display = 'grid';
     _teamSlots = [null, null, null, null, null];
     _currentStageId = null;
+}
+
+// =============================================
+// 🎁 2F — REWARD MODAL
+// =============================================
+export function showRewardModal(stageId) {
+    const modal = document.getElementById('rewardModal');
+    if (!modal) return;
+    const goldEl = document.getElementById('rewardGold');
+    const xpEl = document.getElementById('rewardXp');
+    const dropArea = document.getElementById('rewardDropArea');
+
+    const stageNum = parseInt(stageId.split('-')[1]);
+    const gold = 20 + stageNum * 15;
+    const xp = 10 + stageNum * 8;
+
+    if (goldEl) goldEl.innerText = gold;
+    if (xpEl) xpEl.innerText = xp;
+
+    // Random drop chance (30%)
+    const hasDrop = Math.random() < 0.3;
+    if (dropArea) {
+        if (hasDrop) {
+            const pool = [
+                { name: 'Iron Ore', icon: '🪨', rarity: 'Common' },
+                { name: 'Silver Coin', icon: '🪙', rarity: 'Common' },
+                { name: 'Magic Dust', icon: '✨', rarity: 'Rare' },
+                { name: 'Dragon Scale', icon: '🐉', rarity: 'Epic' },
+                { name: 'Crown Shard', icon: '👑', rarity: 'Legendary' }
+            ];
+            const pick = pool[Math.floor(Math.random() * pool.length)];
+            dropArea.innerHTML = `
+                <div class="drop-item">
+                    <span class="drop-icon">${pick.icon}</span>
+                    <span class="drop-name">${pick.name}</span>
+                    <span class="drop-rarity rarity-${pick.rarity.toLowerCase()}">${pick.rarity}</span>
+                </div>
+            `;
+        } else {
+            dropArea.innerHTML = `<span style="color:var(--text-dim);font-size:0.85rem;">No item drops this time.</span>`;
+        }
+    }
+
+    modal.style.display = 'flex';
+    modal.dataset.stageId = stageId || '';
+
+    const claimBtn = document.getElementById('btnClaimRewards');
+    if (claimBtn) {
+        claimBtn.onclick = () => {
+            modal.style.display = 'none';
+            const sid = modal.dataset.stageId;
+            const evt = new CustomEvent('rewardsClaimed', { detail: { stageId: sid } });
+            document.dispatchEvent(evt);
+        };
+    }
 }

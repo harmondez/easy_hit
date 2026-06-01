@@ -1379,6 +1379,7 @@ body {
 .arena-fighter-stats .stat-hp { color: #ef4444; font-weight: 700; }
 .arena-fighter-stats .stat-atq { color: #f59e0b; font-weight: 700; }
 .arena-fighter-stats .stat-def { color: #3b82f6; font-weight: 700; }
+.arena-fighter-stats .stat-vel { color: #a78bfa; font-weight: 700; }
 
 .combat-console {
     background: #020617;
@@ -1896,3 +1897,321 @@ body {
 .pve-result-title.defeat { color: #ef4444; }
 .pve-result-desc { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 20px; }
 .pve-result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+/* =============================================
+   📋 2A — TURN ORDER BAR
+   ============================================= */
+.turn-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background: rgba(15, 23, 42, 0.85);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 12px;
+    overflow-x: auto;
+    min-height: 44px;
+}
+.turn-bar-entry {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid transparent;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    transition: all 0.2s;
+    position: relative;
+}
+.turn-bar-entry .tb-portrait {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #444;
+}
+.turn-bar-entry .tb-name {
+    color: var(--text-muted);
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.turn-bar-entry .tb-vel {
+    color: #a78bfa;
+    font-size: 0.6rem;
+    font-weight: 700;
+}
+.turn-bar-entry.active {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: #6366f1;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+    transform: scale(1.08);
+}
+.turn-bar-entry.active .tb-name { color: #fff; font-weight: 700; }
+.turn-bar-entry.active::before {
+    content: '▶';
+    color: #6366f1;
+    font-size: 0.6rem;
+    margin-right: 2px;
+}
+.turn-bar-entry.dead {
+    opacity: 0.35;
+    text-decoration: line-through;
+}
+.turn-bar-entry.ally { border-left: 2px solid #3b82f6; }
+.turn-bar-entry.enemy { border-left: 2px solid #ef4444; }
+.turn-bar-arrow {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+/* =============================================
+   🔥 2B — FERVOR BAR
+   ============================================= */
+.arena-fervor-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+    margin-top: 4px;
+}
+.fervor-fill {
+    height: 6px;
+    background: linear-gradient(90deg, #f97316, #ef4444);
+    border-radius: 3px;
+    flex: 1;
+    min-width: 0;
+    transition: width 0.3s ease;
+}
+.fervor-text {
+    font-size: 0.65rem;
+    color: #f97316;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.fervor-full .fervor-fill {
+    animation: fervor-pulse 0.6s ease-in-out infinite alternate;
+}
+.fervor-full .fervor-text {
+    color: #ef4444;
+    animation: fervor-glow 0.6s ease-in-out infinite alternate;
+}
+@keyframes fervor-pulse {
+    0% { box-shadow: 0 0 4px #f97316; }
+    100% { box-shadow: 0 0 14px #ef4444, 0 0 25px #ef4444; }
+}
+@keyframes fervor-glow {
+    0% { text-shadow: 0 0 2px #f97316; }
+    100% { text-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444; }
+}
+
+/* PvE fervor bars */
+.party-fervor-bar, .squad-fervor-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    margin-top: 2px;
+}
+.party-fervor-bar .fervor-fill, .squad-fervor-bar .fervor-fill {
+    height: 4px;
+    flex: 1;
+}
+.party-fervor-bar .fervor-text, .squad-fervor-bar .fervor-text {
+    font-size: 0.55rem;
+}
+
+/* =============================================
+   👁️ 2C — ACTIVE TURN HIGHLIGHT
+   ============================================= */
+.party-member-card.active-turn {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.7), 0 0 40px rgba(59, 130, 246, 0.3);
+    transform: scale(1.05);
+    border-color: #3b82f6;
+    z-index: 10;
+    transition: all 0.25s ease;
+}
+.squad-member-card.active-turn {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.7), 0 0 40px rgba(239, 68, 68, 0.3);
+    transform: scale(1.05);
+    border-color: #ef4444;
+    z-index: 10;
+    transition: all 0.25s ease;
+}
+.fighter-select.active-turn {
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.6);
+    transform: scale(1.03);
+    border-color: #6366f1;
+    transition: all 0.25s ease;
+}
+.fighter-select.active-turn .mini-card-slot {
+    border-color: #6366f1;
+}
+
+/* =============================================
+   💥 2D — FLOATING DAMAGE NUMBERS
+   ============================================= */
+.dmg-float {
+    position: absolute;
+    font-weight: 900;
+    font-size: 1.4rem;
+    pointer-events: none;
+    z-index: 50;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.5);
+    font-family: 'Inter', sans-serif;
+}
+.dmg-float.hp { color: #ef4444; }
+.dmg-float.def { color: #3b82f6; }
+.dmg-float.pierce { color: #f59e0b; }
+.dmg-float.heal { color: #10b981; }
+.dmg-float-container {
+    position: relative;
+    overflow: visible;
+}
+@keyframes dmg-rise {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    50% { opacity: 1; transform: translateY(-30px) scale(1.2); }
+    100% { opacity: 0; transform: translateY(-60px) scale(0.6); }
+}
+.dmg-float {
+    animation: dmg-rise 0.9s ease-out forwards;
+}
+
+/* Death fade-out */
+@keyframes death-fade {
+    0% { opacity: 1; filter: grayscale(0); transform: scale(1); }
+    50% { opacity: 0.6; filter: grayscale(0.5); transform: scale(0.8); }
+    100% { opacity: 0.3; filter: grayscale(1); transform: scale(0.7); }
+}
+.death-anim {
+    animation: death-fade 0.6s ease-out forwards;
+}
+
+/* Hit shake */
+@keyframes hit-shake {
+    0% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+    100% { transform: translateX(0); }
+}
+.hit-shake {
+    animation: hit-shake 0.4s ease-out;
+}
+
+/* =============================================
+   💫 2E — ULTIMATE / DEATH ANIMATIONS
+   ============================================= */
+.ultimate-flash {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255,255,255,0.6);
+    z-index: 999;
+    pointer-events: none;
+    animation: flash-fade 0.6s ease-out forwards;
+}
+@keyframes flash-fade {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+.ultimate-banner {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #ef4444;
+    text-shadow: 0 0 30px rgba(239,68,68,0.8), 0 4px 20px rgba(0,0,0,0.9);
+    z-index: 1000;
+    pointer-events: none;
+    text-align: center;
+    letter-spacing: 2px;
+    animation: banner-pop 1s ease-out forwards;
+}
+@keyframes banner-pop {
+    0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+    40% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    70% { transform: translate(-50%, -50%) scale(0.95); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* =============================================
+   🎁 2F — REWARD MODAL
+   ============================================= */
+#rewardModal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+.reward-container {
+    background: var(--bg-card);
+    border: 2px solid var(--gold);
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(251,191,36,0.3);
+    animation: reward-pop 0.5s ease-out;
+}
+@keyframes reward-pop {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.reward-header {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--gold);
+    margin-bottom: 20px;
+    text-shadow: 0 0 20px rgba(251,191,36,0.4);
+}
+.reward-body {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+}
+.reward-gold {
+    font-size: 1.3rem;
+    color: var(--gold);
+    font-weight: 700;
+}
+.reward-xp {
+    font-size: 1.1rem;
+    color: #a78bfa;
+    font-weight: 600;
+}
+.reward-drop {
+    padding: 15px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    border: 1px dashed var(--border-color);
+    min-width: 200px;
+}
+.reward-drop .drop-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    font-size: 0.9rem;
+}
+.reward-drop .drop-item .drop-icon { font-size: 1.5rem; }
+.reward-drop .drop-item .drop-name { font-weight: 600; }
+.reward-drop .drop-item .drop-rarity {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.rarity-common { color: #94a3b8; }
+.rarity-rare { color: #3b82f6; }
+.rarity-epic { color: #a78bfa; }
+.rarity-legendary { color: #fbbf24; }

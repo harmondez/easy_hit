@@ -1,12 +1,18 @@
 import * as UI from './ui.js';
 import * as Engine from './engine.js';
 
+// Expose for debugging / browser tests
+window.Engine = Engine;
+window.UI = UI;
+
 // =============================================
 // 🎮 GAME STATE GLOBAL
 // =============================================
 const gameState = {
     fighter1: null,
     fighter2: null,
+    coliseumCombat: null,
+    adventureCombat: null,
     round: 0,
     lastSection: null,
     currentSection: null,
@@ -205,7 +211,7 @@ function initEvents() {
     });
 
     // --- ✍️ CREADOR: FEEDBACK EN TIEMPO REAL ---
-    const creatorInputs = ['cardName', 'cardElement', 'cardClass', 'inputHP', 'inputDEF', 'inputATQ', 'cardPassive'];
+    const creatorInputs = ['cardName', 'cardElement', 'cardClass', 'inputHP', 'inputDEF', 'inputATQ', 'inputVEL', 'cardPassive', 'cardUltimate'];
     creatorInputs.forEach(id => {
         safeListener(id, 'input', () => {
             UI.updateRemainingPoints();
@@ -245,8 +251,11 @@ function initEvents() {
             hp: parseInt(document.getElementById('inputHP')?.value) || 1,
             def: parseInt(document.getElementById('inputDEF')?.value) || 1,
             atq: parseInt(document.getElementById('inputATQ')?.value) || 1,
+            vel: parseInt(document.getElementById('inputVEL')?.value) || 100,
             maxHp: parseInt(document.getElementById('inputHP')?.value) || 1,
             passiveId: document.getElementById('cardPassive')?.value || '',
+            ultimateId: document.getElementById('cardUltimate')?.value || '',
+            ultimateLevel: 1,
             image: UI.croppedImageBase64
         };
 
@@ -291,8 +300,27 @@ function initEvents() {
     safeListener('btnInitCombat', 'click', () => {
         if (!gameState.fighter1 || !gameState.fighter2) return alert("La arena requiere dos contendientes.");
 
+        const f1 = Engine.initializeCard(gameState.fighter1);
+        const f2 = Engine.initializeCard(gameState.fighter2);
+        gameState.fighter1 = f1;
+        gameState.fighter2 = f2;
+
+        const turnQueue = Engine.buildTurnOrder([f1], [f2]);
+        gameState.coliseumCombat = {
+            turnQueue,
+            currentIndex: 0,
+            turnNumber: 0,
+            activeF1: f1,
+            activeF2: f2
+        };
         gameState.round = 0;
-        UI.logConsole(`🔥 ¡QUE COMIENCE EL COMBATE! 🔥`, 'system');
+
+        UI.logConsole(`🔥 ¡QUE COMIENCE EL COMBATE POR INICIATIVA! 🔥`, 'system');
+        UI.logConsole(`📋 Orden: ${turnQueue.map(e => e.actor.name + (e.isAlly ? ' (Tú)' : ' (Enemy)')).join(' → ')}`, 'system');
+
+        UI.refreshFighterStats(f1, 1);
+        UI.refreshFighterStats(f2, 2);
+        UI.renderTurnBar(turnQueue, 0, 'coliseumTurnBar');
 
         const btnInit = document.getElementById('btnInitCombat');
         const btnNext = document.getElementById('btnNextRound');
@@ -310,11 +338,76 @@ function initEvents() {
         });
     });
 
+    function processColiseumTurn() {
+        const cc = gameState.coliseumCombat;
+        if (!cc) return;
+
+        if (cc.turnQueue.length === 0) return;
+
+        const entry = cc.turnQueue[cc.currentIndex];
+
+        if (!entry.actor || entry.actor.hp <= 0) {
+            cc.turnQueue.splice(cc.currentIndex, 1);
+            if (cc.currentIndex >= cc.turnQueue.length) cc.currentIndex = 0;
+            UI.refreshFighterStats(cc.activeF1, 1);
+            UI.refreshFighterStats(cc.activeF2, 2);
+            UI.renderTurnBar(cc.turnQueue, cc.currentIndex);
+            if (!Engine.verifyVictory(cc.activeF1, cc.activeF2)) processColiseumTurn();
+            return;
+        }
+
+        const isF1 = entry.isAlly;
+        cc.turnNumber++;
+
+        UI.setActiveHighlight(true, entry.isAlly, entry.slotIndex);
+        UI.renderTurnBar(cc.turnQueue, cc.currentIndex);
+        UI.logConsole(`🎯 Turno de ${entry.actor.name}`, 'round-header', cc.turnNumber);
+
+        const result = Engine.resolveCombatTurn(entry, cc.turnQueue);
+
+        // Damage floats
+        const targetNum = result.target === cc.activeF1 ? '1' : '2';
+        const targetSelector = `#boxF${targetNum}`;
+        if (result.hpDamage > 0) UI.spawnDmgFloat(targetSelector, 'hp', result.hpDamage);
+        if (result.defDamage > 0) UI.spawnDmgFloat(targetSelector, 'def', result.defDamage);
+
+        // Ultimate animation
+        if (result.ultimateUsed) {
+            const ult = Engine.ULTIMATE_DB[entry.actor.ultimateId];
+            if (ult) UI.playUltimateAnimation(entry.actor.name, ult.name);
+        }
+
+        // Death animation
+        if (result.targetKilled && result.target) {
+            UI.playDeathAnimation(`#boxF${targetNum}`);
+        }
+
+        UI.animateCombatHit(isF1);
+        setTimeout(() => UI.animateCombatHit(!isF1), 120);
+
+        UI.refreshFighterStats(cc.activeF1, 1);
+        UI.refreshFighterStats(cc.activeF2, 2);
+
+        cc.currentIndex++;
+        if (cc.currentIndex >= cc.turnQueue.length) cc.currentIndex = 0;
+
+        UI.clearActiveHighlight();
+        UI.renderTurnBar(cc.turnQueue, cc.currentIndex);
+
+        if (!Engine.verifyVictory(cc.activeF1, cc.activeF2)) {
+            const alive = cc.turnQueue.filter(e => e.actor && e.actor.hp > 0);
+            if (alive.length <= 1) {
+                Engine.verifyVictory(cc.activeF1, cc.activeF2);
+            }
+        }
+    }
+
     safeListener('btnNextRound', 'click', (e) => {
         const btnNext = e.currentTarget;
         const btnInit = document.getElementById('btnInitCombat');
 
         if (btnNext.dataset.mode === 'finish') {
+            gameState.coliseumCombat = null;
             UI.resetColiseum();
             gameState.fighter1 = null;
             gameState.fighter2 = null;
@@ -332,26 +425,9 @@ function initEvents() {
             return;
         }
 
-        if (!gameState.fighter1 || !gameState.fighter2) return;
+        if (!gameState.coliseumCombat) return;
 
-        gameState.round++;
-        UI.logConsole(`⚔️ ROUND ${gameState.round}`, 'round-header', gameState.round);
-
-        Engine.applyRoundStartPassives(gameState.fighter1, gameState.fighter2);
-        Engine.applyRoundStartPassives(gameState.fighter2, gameState.fighter1);
-
-        UI.refreshFighterStats(gameState.fighter1, 1);
-        UI.refreshFighterStats(gameState.fighter2, 2);
-
-        UI.animateCombatHit(true);
-        setTimeout(() => UI.animateCombatHit(false), 120);
-
-        Engine.procesarRondaSimultanea(gameState.fighter1, gameState.fighter2);
-
-        UI.refreshFighterStats(gameState.fighter1, 1);
-        UI.refreshFighterStats(gameState.fighter2, 2);
-
-        Engine.verifyVictory(gameState.fighter1, gameState.fighter2);
+        processColiseumTurn();
     });
 
     // --- 🔍 BIBLIOTECA: BUSCADOR ---
@@ -462,14 +538,30 @@ function initEvents() {
             const team = UI.getSelectedTeam();
             if (team && team.length === 5 && adv.currentStage) {
                 UI.closeTeamSelection();
-                adv.selectedTeam = team;
-                adv.activeSquad = Engine.getSquadForStage(adv.currentStage);
+                const initializedParty = team.map(c => Engine.initializeCard(c));
+                const squad = Engine.getSquadForStage(adv.currentStage);
+                const initializedSquad = squad.map(e => Engine.initializeCard(e));
+
+                adv.selectedTeam = initializedParty;
+                adv.activeSquad = initializedSquad;
                 adv.turnCount = 0;
                 adv.inCombat = true;
-                const squadSize = adv.activeSquad.length;
+
+                const turnQueue = Engine.buildTurnOrder(initializedParty, initializedSquad);
+                gameState.adventureCombat = {
+                    turnQueue,
+                    currentIndex: 0,
+                    turnNumber: 0,
+                    party: initializedParty,
+                    squad: initializedSquad
+                };
+
+                const squadSize = initializedSquad.length;
                 const stageLabel = adv.currentStage === '1-5' ? 'BOSS' : `${squadSize}v5`;
                 UI.pveLogConsole(`🔥 ¡QUE COMIENCE EL COMBATE EN ${adv.currentStage} (${stageLabel})! 🔥`, 'system');
-                UI.renderPvEArena(team, adv.activeSquad, adv.turnCount);
+                UI.pveLogConsole(`📋 Orden: ${turnQueue.map(e => e.actor.name + (e.isAlly ? ' (Tú)' : ' (Enemy)')).join(' → ')}`, 'system');
+                UI.renderPvEArena(initializedParty, initializedSquad, adv.turnCount);
+                UI.renderTurnBar(turnQueue, 0, 'pveTurnBar');
             }
             return;
         }
@@ -483,19 +575,96 @@ function initEvents() {
 
         // PvE Next Turn button
         if (e.target.id === 'btnPvENextTurn') {
-            if (!adv.inCombat || !adv.activeSquad.length || !adv.selectedTeam.length) return;
-            if (adv.turnCount >= 100) return;
+            if (!adv.inCombat || !gameState.adventureCombat) return;
+            if (adv.turnCount >= 200) return;
+
+            const ac = gameState.adventureCombat;
+
+            if (ac.turnQueue.length === 0) {
+                adv.inCombat = false;
+                return;
+            }
+
+            const entry = ac.turnQueue[ac.currentIndex];
+
+            if (!entry.actor || entry.actor.hp <= 0) {
+                ac.turnQueue.splice(ac.currentIndex, 1);
+                if (ac.currentIndex >= ac.turnQueue.length) ac.currentIndex = 0;
+                UI.updatePvEArena(ac.party, ac.squad, adv.turnCount);
+                UI.renderTurnBar(ac.turnQueue, ac.currentIndex, 'pveTurnBar');
+                const v = Engine.verifyPartyVictory(ac.party, ac.squad);
+                if (v.victory) {
+                    adv.inCombat = false;
+                    gameState.adventureCombat = null;
+                    adv.stageProgress[adv.currentStage] = 'completed';
+                    const stages = ['1-1','1-2','1-3','1-4','1-5'];
+                    const idx = stages.indexOf(adv.currentStage);
+                    if (idx >= 0 && idx < stages.length - 1) {
+                        const next = stages[idx + 1];
+                        if (adv.stageProgress[next] === 'locked') {
+                            adv.stageProgress[next] = 'available';
+                        }
+                    }
+                    UI.pveLogConsole(`🏆 ¡VICTORIA!`, 'victory');
+                    setTimeout(() => {
+                        UI.showRewardModal(adv.currentStage);
+                    }, 400);
+                } else if (v.defeat) {
+                    adv.inCombat = false;
+                    gameState.adventureCombat = null;
+                    UI.pveLogConsole(`💀 DERROTA — Todos los héroes han caído.`, 'victory');
+                    setTimeout(() => { UI.showPvEResult('defeat'); }, 500);
+                }
+                return;
+            }
 
             adv.turnCount++;
-            UI.pveLogConsole(`⚔️ TURN ${adv.turnCount} — Party assaults!`, 'round-header', adv.turnCount);
+            ac.turnNumber++;
 
-            Engine.executePartyTurn(adv.selectedTeam, adv.activeSquad);
-            UI.updatePvEArena(adv.selectedTeam, adv.activeSquad, adv.turnCount);
+            UI.setActiveHighlight(false, entry.isAlly, entry.slotIndex);
+            UI.renderTurnBar(ac.turnQueue, ac.currentIndex, 'pveTurnBar');
+            UI.pveLogConsole(`🎯 Turno de ${entry.actor.name}`, 'round-header', ac.turnNumber);
 
-            const v = Engine.verifyPartyVictory(adv.selectedTeam, adv.activeSquad);
+            const result = Engine.resolveCombatTurn(entry, ac.turnQueue);
+
+            // Damage floats
+            const isTargetAlly = result.target ? ac.party.includes(result.target) : false;
+            const targetIdx = result.target
+                ? (isTargetAlly
+                    ? ac.party.findIndex(p => p === result.target)
+                    : ac.squad.findIndex(s => s === result.target))
+                : -1;
+            const dmgTargetSel = result.target && targetIdx >= 0
+                ? (isTargetAlly
+                    ? `.party-member-card[data-index="${targetIdx}"]`
+                    : `.squad-member-card[data-enemy-index="${targetIdx}"]`)
+                : '';
+            if (result.hpDamage > 0 && dmgTargetSel) UI.spawnDmgFloat(dmgTargetSel, 'hp', result.hpDamage);
+            if (result.defDamage > 0 && dmgTargetSel) UI.spawnDmgFloat(dmgTargetSel, 'def', result.defDamage);
+
+            // Ultimate animation
+            if (result.ultimateUsed) {
+                const ult = Engine.ULTIMATE_DB[entry.actor.ultimateId];
+                if (ult) UI.playUltimateAnimation(entry.actor.name, ult.name);
+            }
+
+            // Death animation
+            if (result.targetKilled && dmgTargetSel) {
+                UI.playDeathAnimation(dmgTargetSel);
+            }
+
+            ac.currentIndex++;
+            if (ac.currentIndex >= ac.turnQueue.length) ac.currentIndex = 0;
+
+            UI.clearActiveHighlight();
+            UI.updatePvEArena(ac.party, ac.squad, adv.turnCount);
+            UI.renderTurnBar(ac.turnQueue, ac.currentIndex, 'pveTurnBar');
+
+            const v = Engine.verifyPartyVictory(ac.party, ac.squad);
             if (v.victory) {
                 UI.pveLogConsole(`🏆 ¡VICTORIA! Escuadrón enemigo derrotado.`, 'victory');
                 adv.inCombat = false;
+                gameState.adventureCombat = null;
                 adv.stageProgress[adv.currentStage] = 'completed';
                 const stages = ['1-1','1-2','1-3','1-4','1-5'];
                 const idx = stages.indexOf(adv.currentStage);
@@ -505,10 +674,13 @@ function initEvents() {
                         adv.stageProgress[next] = 'available';
                     }
                 }
-                setTimeout(() => { UI.showPvEResult('victory'); }, 500);
+                setTimeout(() => {
+                    UI.showRewardModal(adv.currentStage);
+                }, 400);
             } else if (v.defeat) {
                 UI.pveLogConsole(`💀 DERROTA — Todos los héroes han caído.`, 'victory');
                 adv.inCombat = false;
+                gameState.adventureCombat = null;
                 setTimeout(() => { UI.showPvEResult('defeat'); }, 500);
             }
             return;
@@ -521,6 +693,7 @@ function initEvents() {
             adv.selectedTeam = [];
             adv.activeSquad = [];
             adv.turnCount = 0;
+            gameState.adventureCombat = null;
             UI.cleanAdventureOverlays();
             UI.renderMapNodes(adv);
             return;
@@ -533,6 +706,7 @@ function initEvents() {
             adv.selectedTeam = [];
             adv.activeSquad = [];
             adv.turnCount = 0;
+            gameState.adventureCombat = null;
             UI.cleanAdventureOverlays();
             UI.renderMapNodes(adv);
             return;
@@ -541,6 +715,7 @@ function initEvents() {
         // Result overlay: Retry (defeat)
         if (e.target.id === 'btnPvEResultRetry') {
             const stageId = adv.currentStage;
+            gameState.adventureCombat = null;
             UI.cleanAdventureOverlays();
             UI.renderTeamSelection(stageId);
             return;
@@ -553,10 +728,16 @@ function initEvents() {
             adv.selectedTeam = [];
             adv.activeSquad = [];
             adv.turnCount = 0;
+            gameState.adventureCombat = null;
             UI.cleanAdventureOverlays();
             UI.renderMapNodes(adv);
             return;
         }
+    });
+
+    // 🎁 Rewards claimed → show result overlay
+    document.addEventListener('rewardsClaimed', () => {
+        UI.showPvEResult('victory');
     });
 
     // Restaurar última pestaña desde localStorage (solo activas)

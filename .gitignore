@@ -31,7 +31,20 @@ yarn-debug.log*
 yarn-error.log*
 
 
+# --- Node.js (dependencias de desarrollo, no del juego) ---
+package.json
+package-lock.json
+
+# --- Tests (usan Node.js + Playwright) ---
+tests/
+
+# --- Backups pre-refactor ---
+*.backup
+
+# --- Python / Servidores ---
+__pycache__/
+*.pyc
+*.pyo
+
 .opencode/
 .continue
-#AGENTS.md
-#Plan_20_fases.md
