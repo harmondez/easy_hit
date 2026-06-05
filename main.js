@@ -926,8 +926,8 @@ function initEvents() {
             UI.updatePvEArena(ac.party, ac.squad, adv.turnCount);
             UI.renderTurnBar(ac.turnQueue, ac.currentIndex, 'pveTurnBar');
 
-            const v = Engine.verifyPartyVictory(ac.party, ac.squad);
-            handlePvEOutcome(v);
+            const v2 = Engine.verifyPartyVictory(ac.party, ac.squad);
+            handlePvEOutcome(v2);
             return;
         }
 
