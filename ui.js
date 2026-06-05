@@ -16,7 +16,9 @@ export const elementConfigs = {
     'Fuego':      { icon: '🔥', color: '#ef4444' },
     'Agua':       { icon: '💧', color: '#3b82f6' },
     'Rayo':       { icon: '⚡', color: '#f59e0b' },
-    'Naturaleza': { icon: '🌿', color: '#10b981' }
+    'Naturaleza': { icon: '🌿', color: '#10b981' },
+    'Oscuridad':  { icon: '🌑', color: '#7c3aed' },
+    'Luz':        { icon: '☀️', color: '#fbbf24' }
 };
 
 export const classIcons = {
@@ -42,13 +44,17 @@ export const passiveNames = {
     'abs_reflect': 'Thorn Armor: Reflects 20% of damage received',
     'fen_revive': 'Graceful Strike: Absorbs lethal hit as HP and strikes back',
     'fen_berserker': 'Berserker: ATK x3 when dropping below 30% HP',
-    'fen_last_stand': 'Last Stand: DEF x4 when dropping below 20% HP'
+    'fen_last_stand': 'Last Stand: DEF x4 when dropping below 20% HP',
+    'fen_antimatter': 'Overkill: Detonates core upon death (Negative Victory)',
+    'anti_armor': 'Anti-Armor: +50% ATK vs targets with DEF > 0',
+    'armor_piercing': 'Armor Piercing: Ignores 50% of enemy DEF',
+    'orc_warlord': 'Warlord: Blocks 1st hit and enters enraged state'
 };
 
 // --- 🛠️ FUNCIONES DE INTERFAZ Y NAVEGACIÓN ---
 
-const ALL_SECTION_IDS = ['section-library', 'creatorMainGroup', 'section-coliseo', 'section-adventure', 'section-inventory', 'section-shop'];
-const ALL_TAB_IDS = ['tab-library', 'tab-creator', 'tab-coliseo', 'tab-adventure', 'tab-inventory', 'tab-shop'];
+const ALL_SECTION_IDS = ['section-library', 'creatorMainGroup', 'section-coliseo', 'section-adventure', 'section-gallery', 'section-tournament', 'section-inventory', 'section-shop'];
+const ALL_TAB_IDS = ['tab-library', 'tab-creator', 'tab-coliseo', 'tab-adventure', 'tab-gallery', 'tab-tournament', 'tab-inventory', 'tab-shop'];
 
 // =============================================
 // 🔒 COMING SOON TOAST
@@ -131,6 +137,22 @@ export function showSection(section) {
             if (tabAdv) tabAdv.classList.add('active');
             break;
 
+        case 'gallery':
+            const gal = document.getElementById('section-gallery');
+            if (gal) { gal.style.display = 'block'; }
+            const tabGal = document.getElementById('tab-gallery');
+            if (tabGal) tabGal.classList.add('active');
+            renderGallery();
+            break;
+
+        case 'tournament':
+            const tourn = document.getElementById('section-tournament');
+            if (tourn) { tourn.style.display = 'block'; }
+            const tabTourn = document.getElementById('tab-tournament');
+            if (tabTourn) tabTourn.classList.add('active');
+            renderTournamentSetup();
+            break;
+
         case 'inventory':
             const inv = document.getElementById('section-inventory');
             if (inv) { inv.style.display = 'block'; }
@@ -205,7 +227,9 @@ export function renderSelector() {
     const select2 = document.getElementById('selectF2');
     if (!select1 || !select2) return;
 
-    const groups = cards.reduce((acc, card) => {
+    const allCards = Engine.getAllPlayableCards();
+
+    const groups = allCards.reduce((acc, card) => {
         const className = card.cardClass || 'Neutral';
         if (!acc[className]) acc[className] = [];
         acc[className].push(card);
@@ -218,7 +242,8 @@ export function renderSelector() {
         const icon = classIcons[className] || '👤';
         optionsHTML += `<optgroup label="${icon} ${className.toUpperCase()}S">`;
         groups[className].forEach(card => {
-            optionsHTML += `<option value="${esc(card.id)}">${esc(card.name)} (ATK: ${card.atq})</option>`;
+            const tag = card._official ? '🏛️ ' : '';
+            optionsHTML += `<option value="${esc(card.id)}">${tag}${esc(card.name)} (ATK: ${card.atq})</option>`;
         });
         optionsHTML += `</optgroup>`;
     });
@@ -227,22 +252,59 @@ export function renderSelector() {
     select2.innerHTML = optionsHTML;
 }
 
+let _currentTurnGroup = null;
+const _turnGroupMap = new Map();
+
+function _shouldAutoScroll(el) {
+    const threshold = 40;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+}
+
 export function logConsole(msg, type = 'system', round = null, containerId = 'logContent') {
     const consoleEl = document.getElementById(containerId);
     if (!consoleEl) return;
+
+    const prefix = containerId === 'pveLogContent' ? 'T' : 'R';
+
+    if (type === 'round-header') {
+        const group = document.createElement('div');
+        group.className = 'log-turn-group';
+        const header = document.createElement('div');
+        header.className = 'log-turn-header';
+        const tag = round !== null ? `<span class="log-round-tag">${prefix}${round}</span> ` : '';
+        header.innerHTML = `${tag}${esc(msg.replace(/^[^\s]+\s*/, ''))}`;
+        group.appendChild(header);
+        const msgContainer = document.createElement('div');
+        msgContainer.className = 'log-turn-messages';
+        group.appendChild(msgContainer);
+        consoleEl.appendChild(group);
+        if (_shouldAutoScroll(consoleEl)) consoleEl.scrollTop = consoleEl.scrollHeight;
+        _currentTurnGroup = group;
+        _turnGroupMap.set(containerId, group);
+        return;
+    }
+
+    // Append to current turn group, or directly to container
+    const targetGroup = _turnGroupMap.get(containerId);
+    const parent = targetGroup ? targetGroup.querySelector('.log-turn-messages') : null;
+    const targetEl = parent || consoleEl;
 
     const div = document.createElement('div');
     div.className = `log-entry ${type}`;
 
     let roundTag = '';
     if (round !== null) {
-        const prefix = containerId === 'pveLogContent' ? 'T' : 'R';
         roundTag = `<span class="log-round-tag">${prefix}${round}</span> `;
     }
     div.innerHTML = `${roundTag}${esc(msg)}`;
 
-    consoleEl.appendChild(div);
-    consoleEl.scrollTop = consoleEl.scrollHeight;
+    targetEl.appendChild(div);
+    if (_shouldAutoScroll(consoleEl)) consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+export function resetTurnGroups(containerId) {
+    _turnGroupMap.delete(containerId);
+    if (_currentTurnGroup) _currentTurnGroup = null;
 }
 
 export function pveLogConsole(msg, type = 'system', turn = null) {
@@ -267,6 +329,7 @@ export function setColiseumButtonMode(mode) {
 }
 
 export function resetColiseum() {
+    resetTurnGroups('logContent');
     const consoleEl = document.getElementById('logContent');
     if (consoleEl) {
         consoleEl.innerHTML = '<div class="empty-state-msg" style="color:#94a3b8;">🏛️ Architect Harmondez Edition — The arena awaits the contenders...</div>';
@@ -317,7 +380,8 @@ export function resetColiseum() {
 // --- 📜 SECCIÓN DE LA BIBLIOTECA (UI) ---
 
 export function previewLibraryCard(id) {
-    const card = Engine.cards.find(c => c.id === id);
+    const library = Engine.cards || [];
+    const card = library.find(c => c.id === id);
     const previewImg = document.getElementById('library-preview-img');
     const previewName = document.getElementById('library-preview-name');
 
@@ -339,6 +403,11 @@ export function previewLibraryCard(id) {
 
 window.handleDeleteCard = function(id) {
     if (confirm("¿Seguro que quieres borrar este héroe de la historia?")) {
+        const library = Engine.cards || [];
+        if (library.length <= 1) {
+            alert("No puedes eliminar la única carta restante.");
+            return;
+        }
         Engine.deleteCard(id);
         displayCards();
 
@@ -391,8 +460,8 @@ export function displayCards(searchTerm) {
             </div>
             <div class="roster-category-list">
                 ${groups[className].map(card => {
-                    const totalPoints = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * 2);
-                    const isMythic = totalPoints >= 7400;
+                    const totalPoints = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * Engine.VEL_WEIGHT);
+                    const isMythic = totalPoints >= Engine.STAT_LIMIT;
                     const rarityClass = isMythic ? 'rarity-legendary' : totalPoints > 5000 ? 'rarity-epic' : 'rarity-common';
 
                     return `
@@ -413,6 +482,50 @@ export function displayCards(searchTerm) {
     }).join('');
 }
 
+// =============================================
+// 🖼️ RENDER GALERÍA OFICIAL
+// =============================================
+export function renderGallery() {
+    const grid = document.getElementById('galleryGrid');
+    if (!grid) return;
+
+    const official = Engine.OFFICIAL_CARDS || [];
+
+    grid.innerHTML = official.map(card => {
+        const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * Engine.VEL_WEIGHT);
+        const elCfg = elementConfigs[card.element] || { icon: '❓', color: '#777' };
+        const classIcon = classIcons[card.cardClass] || '👤';
+        const ultData = Engine.ULTIMATE_DB[card.ultimateId];
+        const ultName = ultData ? ultData.name : '—';
+        const passName = passiveNames[card.passiveId] || card.passiveId || 'None';
+
+        return `
+        <div class="gallery-card-item">
+            <div class="gallery-card-header" style="border-left: 4px solid ${elCfg.color};">
+                <div class="gallery-card-name">${elCfg.icon} ${esc(card.name)}</div>
+                <div class="gallery-card-class">${classIcon} ${card.cardClass}</div>
+            </div>
+            <div class="gallery-card-img-wrapper">
+                <img class="gallery-card-img" src="${esc(card.image || '')}" alt="${esc(card.name)}"
+                     onerror="this.src='https://via.placeholder.com/280x160?text=${encodeURIComponent(card.name)}'">
+            </div>
+            <div class="gallery-card-stats">
+                <div class="gallery-stat"><span class="gsl">❤️</span> ${card.hp}</div>
+                <div class="gallery-stat"><span class="gsl">🛡️</span> ${card.def}</div>
+                <div class="gallery-stat"><span class="gsl">⚔️</span> ${card.atq}</div>
+                <div class="gallery-stat"><span class="gsl">💨</span> ${card.vel}</div>
+                <div class="gallery-stat"><span class="gsl">📊</span> ${totalStats}</div>
+            </div>
+            <div class="gallery-card-detail">
+                <div class="gallery-detail-row"><span class="gdl">Passive:</span> ${esc(passName)}</div>
+                <div class="gallery-detail-row"><span class="gdl">Ultimate:</span> ${esc(ultName)}</div>
+                <div class="gallery-detail-row gallery-desc">${esc(card.description || '')}</div>
+            </div>
+        </div>
+        `;
+    }).join('');
+}
+
 /**
  * Renderiza el detalle de una carta en el panel derecho de la biblioteca.
  */
@@ -422,8 +535,8 @@ export function renderCardDetail(card) {
 
     const skillName = passiveNames[card.passiveId] || card.passiveId || 'None';
     const elementColor = elementConfigs[card.element]?.color || '#94a3b8';
-    const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * 2);
-    const isMythic = totalStats >= 7400;
+    const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * Engine.VEL_WEIGHT);
+    const isMythic = totalStats >= Engine.STAT_LIMIT;
 
     detailContainer.innerHTML = `
         <div class="tcg-card ${isMythic ? 'mythic-glow' : ''}" style="
@@ -521,7 +634,7 @@ export function renderCardDetail(card) {
                 <span style="color: var(--primary); font-weight: bold;">${totalStats}</span> points.
             </p>
 
-            <button onclick="handleDeleteCard('${card.id}')" class="btn-delete-pro">
+            <button onclick="handleDeleteCard('${esc(card.id)}')" class="btn-delete-pro">
                 DISMANTLE HERO
             </button>
         </div>
@@ -557,8 +670,8 @@ export function updatePreview(croppedImg) {
     const skillName = passiveNames[passiveId] || "Passive: Select one";
     const ultName = ultimateId ? (Engine.ULTIMATE_DB[ultimateId]?.name || 'Ultimate') : '';
     const config = elementConfigs[element];
-    const totalStats = hp + def + atq + (vel * 2);
-    const isMythic = totalStats >= 7400;
+    const totalStats = hp + def + atq + (vel * Engine.VEL_WEIGHT);
+    const isMythic = totalStats >= Engine.STAT_LIMIT;
 
     previewContainer.innerHTML = `
         <div class="tcg-card ${isMythic ? 'mythic-glow' : ''}" style="
@@ -617,8 +730,8 @@ export function updateRemainingPoints() {
     const atq = elATQ ? parseInt(elATQ.value) || 0 : 0;
     const vel = elVEL ? parseInt(elVEL.value) || 0 : 0;
 
-    const total = hp + def + atq + (vel * 2);
-    const remaining = 7400 - total;
+    const total = hp + def + atq + (vel * Engine.VEL_WEIGHT);
+    const remaining = Engine.STAT_LIMIT - total;
 
     const display = document.getElementById('remainingPts');
     if (display) {
@@ -668,10 +781,7 @@ export function animateCombatHit(isFighter1Attacking) {
 
     if (typeof gsap === 'undefined') return;
 
-    const tl = gsap.timeline({ onComplete: () => {
-        f2.style.boxShadow = '';
-        f1.style.boxShadow = '';
-    }});
+    const tl = gsap.timeline();
 
     if (isFighter1Attacking) {
         tl.to(f1, { x: 50, duration: 0.1, ease: "power2.in" })
@@ -680,9 +790,10 @@ export function animateCombatHit(isFighter1Attacking) {
         tl.to(f2, {
             x: 10, rotation: 5, duration: 0.05,
             boxShadow: "0 0 25px 8px rgba(239,68,68,0.8)",
-            yoyo: true, repeat: 3
+            yoyo: true, repeat: 3,
+            onComplete: () => { f2.style.boxShadow = ''; }
         }, "-=0.4")
-          .to(f2, { x: 0, rotation: 0, duration: 0.2, boxShadow: "0 0 0px rgba(239,68,68,0)" });
+          .to(f2, { x: 0, rotation: 0, duration: 0.2 });
     } else {
         tl.to(f2, { x: -50, duration: 0.1, ease: "power2.in" })
           .to(f2, { x: 0, duration: 0.4, ease: "elastic.out(1, 0.3)" });
@@ -690,9 +801,10 @@ export function animateCombatHit(isFighter1Attacking) {
         tl.to(f1, {
             x: -10, rotation: -5, duration: 0.05,
             boxShadow: "0 0 25px 8px rgba(239,68,68,0.8)",
-            yoyo: true, repeat: 3
+            yoyo: true, repeat: 3,
+            onComplete: () => { f1.style.boxShadow = ''; }
         }, "-=0.4")
-          .to(f1, { x: 0, rotation: 0, duration: 0.2, boxShadow: "0 0 0px rgba(239,68,68,0)" });
+          .to(f1, { x: 0, rotation: 0, duration: 0.2 });
     }
 }
 
@@ -736,7 +848,22 @@ export function refreshFighterStats(fighter, num) {
     }
 
     if (hpText) {
-        hpText.innerText = Math.ceil(fighter.hp);
+        hpText.innerText = Math.ceil(fighter.hp || 0);
+    }
+
+    const defText = document.getElementById(`statDEF-${num}`);
+    if (defText) {
+        defText.innerText = Math.floor(fighter.def || 0);
+    }
+
+    const atqText = document.getElementById(`statATQ-${num}`);
+    if (atqText) {
+        atqText.innerText = Math.floor(fighter.atq || 0);
+    }
+
+    const velText = document.getElementById(`statVEL-${num}`);
+    if (velText) {
+        velText.innerText = fighter.vel || 0;
     }
 }
 
@@ -794,13 +921,14 @@ export function clearActiveHighlight() {
 // 💥 2D — FLOATING DAMAGE NUMBERS
 // =============================================
 export function spawnDmgFloat(parentSelector, type, value) {
-    if (value <= 0) return;
+    const dmg = Number(value);
+    if (isNaN(dmg) || dmg <= 0) return;
     const parent = document.querySelector(parentSelector);
     if (!parent) return;
 
     const el = document.createElement('div');
     el.className = `dmg-float ${type}`;
-    el.innerText = type === 'heal' ? `+${value}` : `-${value}`;
+    el.innerText = type === 'heal' ? `+${dmg}` : `-${dmg}`;
     el.style.left = (20 + Math.random() * 40) + '%';
     el.style.top = '10%';
     parent.style.position = 'relative';
@@ -962,11 +1090,11 @@ export function updateFighterPreview(fighter, num) {
             } catch (e) {}
         }
 
-        const elementColors = { Fire: '#ef4444', Water: '#3b82f6', Earth: '#10b981', Air: '#60a5fa' };
+        const elementColors = elementConfigs;
         if (slot && typeof gsap !== 'undefined') {
-            try { gsap.to(slot, { borderColor: elementColors[fighter.element] || '#475569', duration: 0.5 }); } catch (e) {}
+            try { gsap.to(slot, { borderColor: elementColors[fighter.element]?.color || '#475569', duration: 0.5 }); } catch (e) {}
         } else if (slot) {
-            slot.style.borderColor = elementColors[fighter.element] || '#475569';
+            slot.style.borderColor = elementColors[fighter.element]?.color || '#475569';
         }
     } else {
         if (img) { img.style.display = 'none'; }
@@ -985,7 +1113,7 @@ window.selectLibraryCard = function(id) {
     if (card) {
         renderCardDetail(card);
         document.querySelectorAll('.card-list-item').forEach(el => el.classList.remove('active'));
-        const el = document.querySelector(`[data-id="${id}"]`);
+        const el = document.querySelector(`[data-id="${CSS.escape(id)}"]`);
         if (el) el.classList.add('active');
     }
 };
@@ -1098,7 +1226,7 @@ export function renderCodex() {
 // =============================================
 // 🎴 CHEST OPEN (Loot Chest Modal)
 // =============================================
-export function openChest(count, gameState) {
+export function openChest(count) {
     const modal = document.getElementById('chestModal');
     const lid = document.getElementById('chestLid');
     const rewardArea = document.getElementById('chestRewardArea');
@@ -1240,8 +1368,8 @@ export function openCardPicker(slotIndex) {
     const existing = document.getElementById('cardPickerModal');
     if (existing) existing.remove();
 
-    const library = Engine.cards || [];
-    const available = library.filter(c => !_teamSlots.some(s => s && s.id === c.id));
+    const allCards = Engine.getAllPlayableCards();
+    const available = allCards.filter(c => !_teamSlots.some(s => s && s.id === c.id));
 
     const modal = document.createElement('div');
     modal.className = 'card-picker-modal';
@@ -1250,15 +1378,16 @@ export function openCardPicker(slotIndex) {
 
     let gridHtml;
     if (available.length === 0) {
-        gridHtml = `<div class="card-picker-empty">No available heroes in your Library</div>`;
+        gridHtml = `<div class="card-picker-empty">No available heroes in your Library or Gallery</div>`;
     } else {
         gridHtml = available.map(c => {
-            const totalStats = (c.hp || 0) + (c.atq || 0) + (c.def || 0) + ((c.vel || 0) * 2);
-            const isMythic = totalStats >= 7400;
+            const totalStats = (c.hp || 0) + (c.atq || 0) + (c.def || 0) + ((c.vel || 0) * Engine.VEL_WEIGHT);
+            const isMythic = totalStats >= Engine.STAT_LIMIT;
+            const tag = c._official ? '🏛️ ' : '';
             return `
-                <div class="card-picker-item" data-card-id="${esc(c.id)}">
+                <div class="card-picker-item ${c._official ? 'gallery-card' : ''}" data-card-id="${esc(c.id)}">
                     <img class="picker-card-img" src="${esc(c.image || '')}" alt="${esc(c.name)}" onerror="this.src='https://via.placeholder.com/140x60?text=No+Image'">
-                    <div class="picker-card-name">${esc(c.name)}</div>
+                    <div class="picker-card-name">${tag}${esc(c.name)}</div>
                     <div class="picker-card-stats">❤️${c.hp} ⚔️${c.atq} 🛡️${c.def} 💨${c.vel || 80}${isMythic ? ' 👑' : ''}</div>
                 </div>
             `;
@@ -1361,26 +1490,31 @@ export function renderPvEArena(party, squad, turnCount) {
     arena.className = 'pve-arena active';
     arena.id = 'pveArena';
     arena.innerHTML = `
-        <div id="pveTurnBar" class="turn-bar"></div>
-        <div class="pve-battlefield">
-            <div class="pve-squad-side" id="pveSquadSide">${squadHtml}</div>
-            <div class="pve-vs-column">
-                <div class="pve-turn-counter" id="pveTurnCounter">⚔️ TURN ${turnCount}</div>
-                <div class="vs-badge" style="font-size:2rem;">⚔️</div>
+        <div class="combat-layout">
+            <div class="combat-main">
+                <div id="pveTurnBar" class="turn-bar"></div>
+                <div class="pve-battlefield">
+                    <div class="pve-squad-side" id="pveSquadSide">${squadHtml}</div>
+                    <div class="pve-vs-column">
+                        <div class="pve-turn-counter" id="pveTurnCounter">⚔️ TURN ${turnCount}</div>
+                        <div class="vs-badge" style="font-size:2rem;">⚔️</div>
+                    </div>
+                    <div class="pve-party-side" id="pvePartySide">${partyHtml}</div>
+                </div>
+                <div class="pve-arena-actions">
+                    <button id="btnPvENextTurn" class="btn-forge">NEXT TURN</button>
+                    <button id="btnPvERetreat" class="tab-item" style="background:#334155;">RETREAT</button>
+                </div>
             </div>
-            <div class="pve-party-side" id="pvePartySide">${partyHtml}</div>
-        </div>
-        <div class="pve-log-container">
-            <div class="console-header" style="margin-bottom:8px;">
-                <span>ADVENTURE LOG</span>
+            <div class="combat-console" id="pveLogConsole">
+                <div class="console-header">
+                    <span>ADVENTURE LOG</span>
+                    <span class="console-status">⚔️</span>
+                </div>
+                <div class="log-messages" id="pveLogContent">
+                    <div class="log-entry system">⚔️ ${isBoss ? 'BOSS ENCOUNTER' : '5v5 Squad Battle'} — Fight!</div>
+                </div>
             </div>
-            <div class="pve-log-messages" id="pveLogContent">
-                <div class="log-entry system">⚔️ ${isBoss ? 'BOSS ENCOUNTER' : '5v5 Squad Battle'} — Fight!</div>
-            </div>
-        </div>
-        <div class="pve-arena-actions">
-            <button id="btnPvENextTurn" class="btn-forge">NEXT TURN</button>
-            <button id="btnPvERetreat" class="tab-item" style="background:#334155;">RETREAT</button>
         </div>
     `;
 
@@ -1538,6 +1672,7 @@ export function cleanAdventureOverlays() {
 // 🎁 2F — REWARD MODAL
 // =============================================
 export function showRewardModal(stageId) {
+    if (!stageId || typeof stageId !== 'string') return;
     const modal = document.getElementById('rewardModal');
     if (!modal) return;
     const goldEl = document.getElementById('rewardGold');
@@ -1587,4 +1722,221 @@ export function showRewardModal(stageId) {
             document.dispatchEvent(evt);
         };
     }
+}
+
+// =============================================
+// 🏆 TOURNAMENT — UI
+// =============================================
+let _tournamentSlots = [];
+
+export function renderTournamentSetup() {
+    const grid = document.getElementById('tournamentSlotGrid');
+    if (!grid) return;
+
+    grid.innerHTML = Array.from({ length: 16 }, (_, i) => `
+        <div class="tournament-slot ${_tournamentSlots[i] ? 'filled' : ''}" data-slot="${i}" id="tslot-${i}" onclick="_openTournamentPicker(${i})">
+            ${_tournamentSlots[i]
+                ? `<span class="slot-number">#${i+1}</span>
+                   <img class="slot-img" src="${esc(_tournamentSlots[i].image || '')}" alt="">
+                   <span class="slot-name">${esc(_tournamentSlots[i].name)}</span>
+                   <span class="slot-class">${_tournamentSlots[i].cardClass}</span>`
+                : `<span class="slot-number">#${i+1}</span>
+                   <span style="font-size:2rem;">➕</span>
+                   <span style="font-size:0.7rem;color:var(--text-dim);">Select fighter</span>`
+            }
+        </div>
+    `).join('');
+
+    const btn = document.getElementById('btnStartDraw');
+    if (btn) btn.disabled = _tournamentSlots.filter(Boolean).length !== 16;
+}
+
+export function _openTournamentPicker(slotIndex) {
+    const existing = document.getElementById('tournamentPickerModal');
+    if (existing) existing.remove();
+
+    const allCards = Engine.getAllPlayableCards();
+    const usedIds = _tournamentSlots.map(s => s && s.id);
+    const available = allCards.filter(c => !usedIds.includes(c.id));
+
+    const modal = document.createElement('div');
+    modal.className = 'card-picker-modal';
+    modal.id = 'tournamentPickerModal';
+
+    let gridHtml;
+    if (available.length === 0) {
+        gridHtml = '<div class="card-picker-empty">No available fighters</div>';
+    } else {
+        gridHtml = available.map(c => {
+            const tag = c._official ? '🏛️ ' : '';
+            return `<div class="card-picker-item" data-card-id="${esc(c.id)}" data-target-slot="${slotIndex}">
+                <img class="picker-card-img" src="${esc(c.image || '')}" alt="" onerror="this.src='https://via.placeholder.com/140x60?text=No+Image'">
+                <div class="picker-card-name">${tag}${esc(c.name)}</div>
+                <div class="picker-card-stats">❤️${c.hp} ⚔️${c.atq} 🛡️${c.def} 💨${c.vel || 80}</div>
+            </div>`;
+        }).join('');
+    }
+
+    modal.innerHTML = `
+        <div class="card-picker-panel">
+            <div class="card-picker-header">
+                <h4>🏆 Select Fighter #${slotIndex+1}</h4>
+                <button class="card-picker-close">&times;</button>
+            </div>
+            <div class="card-picker-grid">${gridHtml}</div>
+        </div>`;
+    document.body.appendChild(modal);
+
+    modal.querySelectorAll('.card-picker-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const cardId = el.dataset.cardId;
+            const slot = parseInt(el.dataset.targetSlot);
+            const card = Engine.getAllPlayableCards().find(c => c.id === cardId);
+            if (card !== undefined && slot >= 0 && slot < 16) {
+                _tournamentSlots[slot] = card;
+            }
+            modal.remove();
+            renderTournamentSetup();
+        });
+    });
+}
+
+export function getTournamentContestants() {
+    return _tournamentSlots.filter(Boolean);
+}
+
+export function resetTournamentSlots() {
+    _tournamentSlots = [];
+}
+
+export function renderTournamentBracket(bracket) {
+    const container = document.getElementById('tournamentRoundsContainer');
+    if (!container) return;
+
+    const roundLabels = ['Round of 16', 'Quarter-finals', 'Semi-finals', 'Final'];
+
+    container.innerHTML = bracket.map((round, r) => `
+        <div class="tournament-round-col">
+            <div class="tournament-round-title">${roundLabels[r] || `Round ${r+1}`}</div>
+            ${round.map((match, m) => {
+                const isCompleted = match.completed;
+                const isActive = !match.completed && match.f1 && match.f2;
+                const f1Name = match.f1 ? match.f1.name : 'TBD';
+                const f2Name = match.f2 ? match.f2.name : 'TBD';
+                const f1Win = isCompleted && match.winner && match.winner.id === match.f1?.id;
+                const f2Win = isCompleted && match.winner && match.winner.id === match.f2?.id;
+                return `
+                    <div class="tournament-match-card ${isCompleted ? 'completed' : ''} ${isActive ? 'active-match' : ''}">
+                        <div class="tm-fighter ${f1Win ? 'tm-winner' : (isCompleted && !f1Win ? 'tm-loser' : '')}">
+                            <img class="tm-portrait" src="${match.f1 ? esc(match.f1.image || '') : ''}" alt="" onerror="this.style.display='none'">
+                            <span class="tm-name">${esc(f1Name)}</span>
+                            ${f1Win ? '<span style="color:#22c55e;font-size:0.8rem;">👑</span>' : ''}
+                        </div>
+                        <div class="tm-vs">VS</div>
+                        <div class="tm-fighter ${f2Win ? 'tm-winner' : (isCompleted && !f2Win ? 'tm-loser' : '')}">
+                            <img class="tm-portrait" src="${match.f2 ? esc(match.f2.image || '') : ''}" alt="" onerror="this.style.display='none'">
+                            <span class="tm-name">${esc(f2Name)}</span>
+                            ${f2Win ? '<span style="color:#22c55e;font-size:0.8rem;">👑</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `).join('');
+}
+
+export function renderTournamentMatch(f1, f2, round, matchNum) {
+    const arena = document.getElementById('tournamentMatchArena');
+    if (!arena) return;
+    if (!f1 || !f2) {
+        arena.innerHTML = '<div class="empty-state-msg">Waiting for fighters...</div>';
+        return;
+    }
+
+    const label = document.getElementById('tournamentMatchLabel');
+    if (label) label.innerText = `Match ${matchNum+1} · ${round === 0 ? 'Round of 16' : round === 1 ? 'Quarter-finals' : round === 2 ? 'Semi-finals' : 'Final'}`;
+
+    function renderBox(fighter, side) {
+        const hpPct = Math.min(100, (fighter.hp / fighter.maxHp) * 100);
+        const fervorPct = Math.min(100, ((fighter.fervor || 0) / 10) * 100);
+        return `
+            <div class="tournament-fighter-box" id="tBox-${side}">
+                <img class="tf-img" src="${esc(fighter.image || '')}" alt="" onerror="this.src='https://via.placeholder.com/80x80?text=${esc(fighter.name[0])}'">
+                <div class="tf-name">${esc(fighter.name)}</div>
+                <div style="font-size:0.75rem;color:var(--text-dim);">${fighter.cardClass || ''} · ${fighter.element || ''}</div>
+                <div class="tf-hp-bar"><div class="tf-hp-fill" id="tfHpFill-${side}" style="width:${hpPct}%"></div></div>
+                <div class="tf-hp-text" id="tfHpText-${side}">${Math.floor(fighter.hp)} / ${fighter.maxHp}</div>
+                <div class="tf-fervor-bar"><div class="tf-fervor-fill" id="tfFervorFill-${side}" style="width:${fervorPct}%"></div></div>
+                <div style="font-size:0.75rem;color:var(--gold);" id="tfFervorText-${side}">🔥${fighter.fervor || 0}/10</div>
+                <div class="tf-stats">
+                    <span>❤️${fighter.hp}</span>
+                    <span>🛡️${Math.floor(fighter.def)}</span>
+                    <span>⚔️${Math.floor(fighter.atq)}</span>
+                    <span>💨${fighter.vel}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    arena.innerHTML = renderBox(f1, '1') + renderBox(f2, '2');
+
+    const btn = document.getElementById('btnTournamentNextTurn');
+    if (btn) btn.style.display = 'block';
+
+    const logEl = document.getElementById('tournamentLogContentMatch');
+    if (logEl) logEl.innerHTML = `<div class="empty-state-msg" style="color:#94a3b8;">🏆 The match begins...</div>`;
+    resetTurnGroups('tournamentLogContentMatch');
+}
+
+export function updateTournamentMatchUI(f1, f2) {
+    ['1', '2'].forEach(side => {
+        const f = side === '1' ? f1 : f2;
+        if (!f) return;
+        const hpFill = document.getElementById(`tfHpFill-${side}`);
+        const hpText = document.getElementById(`tfHpText-${side}`);
+        const fervorFill = document.getElementById(`tfFervorFill-${side}`);
+        const fervorText = document.getElementById(`tfFervorText-${side}`);
+        if (hpFill) hpFill.style.width = `${Math.min(100, (f.hp / f.maxHp) * 100)}%`;
+        if (hpText) hpText.innerText = `${Math.floor(f.hp)} / ${f.maxHp}`;
+        if (fervorFill) fervorFill.style.width = `${Math.min(100, ((f.fervor || 0) / 10) * 100)}%`;
+        if (fervorText) fervorText.innerText = `🔥${f.fervor || 0}/10`;
+    });
+}
+
+export function showTournamentChampion(winner) {
+    const overlay = document.getElementById('tournamentChampionOverlay');
+    const card = document.getElementById('tournamentChampionCard');
+    if (!overlay || !card) return;
+
+    card.innerHTML = `
+        <span class="tc-crown">🏆</span>
+        <div class="tc-name">${esc(winner.name)}</div>
+        <div class="tc-class">${winner.cardClass || ''} · ${winner.element || ''}</div>
+        <div class="tc-stats">
+            <div class="tc-stat">❤️ ${winner.hp}</div>
+            <div class="tc-stat">🛡️ ${Math.floor(winner.def)}</div>
+            <div class="tc-stat">⚔️ ${Math.floor(winner.atq)}</div>
+            <div class="tc-stat">💨 ${winner.vel}</div>
+        </div>
+        <div class="tc-msg">The champion of the arena!</div>
+        <button id="btnChampionClose" class="btn-forge" style="margin-top:20px;" onclick="document.getElementById('tournamentChampionOverlay').style.display='none'">🏆 CHAMPION</button>
+    `;
+    overlay.style.display = 'flex';
+}
+
+export function toggleTournamentView(view) {
+    ['tournamentSetupView', 'tournamentBracketView', 'tournamentMatchView'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = id === view ? 'block' : 'none';
+    });
+}
+
+export function addTournamentLog(msg, type = 'system') {
+    const el = document.getElementById('tournamentLogContent');
+    if (!el) return;
+    const div = document.createElement('div');
+    div.className = `log-entry ${type}`;
+    div.innerHTML = esc(msg);
+    el.appendChild(div);
+    if (_shouldAutoScroll(el)) el.scrollTop = el.scrollHeight;
 }

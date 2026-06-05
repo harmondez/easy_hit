@@ -58,6 +58,12 @@
             <button type="button" class="tab-item" id="tab-adventure">
                 <span class="icon">🗺️</span> Adventure
             </button>
+            <button type="button" class="tab-item" id="tab-gallery">
+                <span class="icon">🖼️</span> Gallery
+            </button>
+            <button type="button" class="tab-item" id="tab-tournament">
+                <span class="icon">🏆</span> Tournament
+            </button>
             <button type="button" class="tab-item locked" id="tab-inventory">
                 <span class="icon">🎒</span> Inventory
             </button>
@@ -281,69 +287,73 @@
                 <h2>Battle Coliseum</h2>
                 <p>Select two heroes, enter the arena, and let the steel do the talking.</p>
             </div>
-            <div id="coliseumTurnBar" class="turn-bar" style="display:none;"></div>
-            <div class="arena-setup">
-                <div class="fighter-select" id="boxF1">
-                    <label class="input-label">CHALLENGER 1</label>
-                    <div class="fighter-inputs">
-                        <input type="text" id="searchF1" placeholder="Search hero..." class="input-field search-mini">
-                        <select id="selectF1" class="input-field"></select>
+            <div class="combat-layout">
+                <div class="combat-main">
+                    <div id="coliseumTurnBar" class="turn-bar" style="display:none;"></div>
+                    <div class="arena-setup">
+                        <div class="fighter-select" id="boxF1">
+                            <label class="input-label">CHALLENGER 1</label>
+                            <div class="fighter-inputs">
+                                <input type="text" id="searchF1" placeholder="Search hero..." class="input-field search-mini">
+                                <select id="selectF1" class="input-field"></select>
+                            </div>
+                            <div id="miniPreviewF1" class="mini-card-slot">
+                                <div class="hp-bar-container"><div id="hp-bar-1" class="hp-bar-fill"></div></div>
+                                <img id="img-f1" class="arena-fighter-img" src="" alt="">
+                                <div class="slot-placeholder">AWAITING HERO...</div>
+                                <div class="arena-fighter-stats" id="statsF1" style="display:none;">
+                                    <span class="stat-name" id="statNameF1"></span>
+                                    <span class="stat-hp">❤️ <b id="statHP-1">0</b></span>
+                                    <span class="stat-atq">⚔️ <b id="statATQ-1">0</b></span>
+                                    <span class="stat-def">🛡️ <b id="statDEF-1">0</b></span>
+                                    <span class="stat-vel">💨 <b id="statVEL-1">0</b></span>
+                                </div>
+                                <div class="arena-fervor-bar" id="fervorBar-1">
+                                    <div class="fervor-fill" id="fervorFill-1" style="width:0%"></div>
+                                    <span class="fervor-text" id="fervorText-1">🔥 0/10</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="vs-badge-container">
+                            <div class="vs-badge">VS</div>
+                        </div>
+                        <div class="fighter-select" id="boxF2">
+                            <label class="input-label">CHALLENGER 2</label>
+                            <div class="fighter-inputs">
+                                <input type="text" id="searchF2" placeholder="Search hero..." class="input-field search-mini">
+                                <select id="selectF2" class="input-field"></select>
+                            </div>
+                            <div id="miniPreviewF2" class="mini-card-slot">
+                                <div class="hp-bar-container"><div id="hp-bar-2" class="hp-bar-fill"></div></div>
+                                <img id="img-f2" class="arena-fighter-img" src="" alt="">
+                                <div class="slot-placeholder">AWAITING HERO...</div>
+                                <div class="arena-fighter-stats" id="statsF2" style="display:none;">
+                                    <span class="stat-name" id="statNameF2"></span>
+                                    <span class="stat-hp">❤️ <b id="statHP-2">0</b></span>
+                                    <span class="stat-atq">⚔️ <b id="statATQ-2">0</b></span>
+                                    <span class="stat-def">🛡️ <b id="statDEF-2">0</b></span>
+                                    <span class="stat-vel">💨 <b id="statVEL-2">0</b></span>
+                                </div>
+                                <div class="arena-fervor-bar" id="fervorBar-2">
+                                    <div class="fervor-fill" id="fervorFill-2" style="width:0%"></div>
+                                    <span class="fervor-text" id="fervorText-2">🔥 0/10</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div id="miniPreviewF1" class="mini-card-slot">
-                        <div class="hp-bar-container"><div id="hp-bar-1" class="hp-bar-fill"></div></div>
-                        <img id="img-f1" class="arena-fighter-img" src="" alt="">
-                        <div class="slot-placeholder">AWAITING HERO...</div>
-                        <div class="arena-fighter-stats" id="statsF1" style="display:none;">
-                            <span class="stat-name" id="statNameF1"></span>
-                            <span class="stat-hp">❤️ <b id="statHP-1">0</b></span>
-                            <span class="stat-atq">⚔️ <b id="statATQ-1">0</b></span>
-                            <span class="stat-def">🛡️ <b id="statDEF-1">0</b></span>
-                            <span class="stat-vel">💨 <b id="statVEL-1">0</b></span>
-                        </div>
-                        <div class="arena-fervor-bar" id="fervorBar-1">
-                            <div class="fervor-fill" id="fervorFill-1" style="width:0%"></div>
-                            <span class="fervor-text" id="fervorText-1">🔥 0/10</span>
-                        </div>
+                    <div class="arena-actions">
+                        <button id="btnInitCombat" class="btn-forge">START FIGHT</button>
+                        <button id="btnNextRound" class="btn-forge" style="display: none;">NEXT ROUND</button>
                     </div>
                 </div>
-                <div class="vs-badge-container">
-                    <div class="vs-badge">VS</div>
-                </div>
-                <div class="fighter-select" id="boxF2">
-                    <label class="input-label">CHALLENGER 2</label>
-                    <div class="fighter-inputs">
-                        <input type="text" id="searchF2" placeholder="Search hero..." class="input-field search-mini">
-                        <select id="selectF2" class="input-field"></select>
+                <div class="combat-console" id="combatLog">
+                    <div class="console-header">
+                        <span>BATTLE LOG</span>
+                        <span id="consoleStatus" class="console-status">READY</span>
                     </div>
-                    <div id="miniPreviewF2" class="mini-card-slot">
-                        <div class="hp-bar-container"><div id="hp-bar-2" class="hp-bar-fill"></div></div>
-                        <img id="img-f2" class="arena-fighter-img" src="" alt="">
-                        <div class="slot-placeholder">AWAITING HERO...</div>
-                        <div class="arena-fighter-stats" id="statsF2" style="display:none;">
-                            <span class="stat-name" id="statNameF2"></span>
-                            <span class="stat-hp">❤️ <b id="statHP-2">0</b></span>
-                            <span class="stat-atq">⚔️ <b id="statATQ-2">0</b></span>
-                            <span class="stat-def">🛡️ <b id="statDEF-2">0</b></span>
-                            <span class="stat-vel">💨 <b id="statVEL-2">0</b></span>
-                        </div>
-                        <div class="arena-fervor-bar" id="fervorBar-2">
-                            <div class="fervor-fill" id="fervorFill-2" style="width:0%"></div>
-                            <span class="fervor-text" id="fervorText-2">🔥 0/10</span>
-                        </div>
+                    <div id="logContent" class="log-messages">
+                        The arena awaits the contenders...
                     </div>
-                </div>
-            </div>
-            <div class="arena-actions">
-                <button id="btnInitCombat" class="btn-forge">START FIGHT</button>
-                <button id="btnNextRound" class="btn-forge" style="display: none;">NEXT ROUND</button>
-            </div>
-            <div class="combat-console" id="combatLog">
-                <div class="console-header">
-                    <span>BATTLE LOG</span>
-                    <span id="consoleStatus" class="console-status">READY</span>
-                </div>
-                <div id="logContent" class="log-messages">
-                    The arena awaits the contenders...
                 </div>
             </div>
         </section>
@@ -413,6 +423,82 @@
                             <!-- Generado dinámicamente -->
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== 🖼️ GALERÍA OFICIAL ========== -->
+        <section class="section-container full-width" id="section-gallery" style="display: none;">
+            <div class="section-header">
+                <h2>🖼️ Official Gallery</h2>
+                <p>Pre-forged legendary heroes — ready for battle in Coliseum & Adventure.</p>
+            </div>
+            <div class="gallery-grid" id="galleryGrid">
+                <!-- Renderizado dinámico por ui.js -->
+            </div>
+        </section>
+
+        <!-- ========== 🏆 TORNEO ========== -->
+        <section class="section-container full-width" id="section-tournament" style="display: none;">
+            <div class="section-header">
+                <h2>🏆 Tournament Arena</h2>
+                <p>Select 16 fighters, random draw, single elimination — may the strongest prevail.</p>
+            </div>
+
+            <!-- View 1: Setup (seleccionar 16) -->
+            <div id="tournamentSetupView" class="tournament-view">
+                <div class="tournament-setup-grid" id="tournamentSlotGrid">
+                    <!-- 16 slots generados dinámicamente -->
+                </div>
+                <div class="tournament-setup-actions">
+                    <button id="btnStartDraw" class="btn-forge" disabled>🎲 START DRAW</button>
+                    <button id="btnResetTournamentSetup" class="btn-secondary">RESET</button>
+                </div>
+            </div>
+
+            <!-- View 2: Bracket (árbol + combates) -->
+            <div id="tournamentBracketView" class="tournament-view" style="display:none;">
+                <div class="tournament-rounds-container" id="tournamentRoundsContainer">
+                    <!-- rondas renderizadas dinámicamente -->
+                </div>
+                <div class="tournament-bracket-actions">
+                    <button id="btnNextMatch" class="btn-forge">⚔️ NEXT MATCH</button>
+                    <button id="btnBackToSetup" class="btn-secondary">← BACK TO SETUP</button>
+                </div>
+                <div class="tournament-log" id="tournamentLog">
+                    <div class="tournament-log-title">📋 Tournament Log</div>
+                    <div class="tournament-log-content" id="tournamentLogContent"></div>
+                </div>
+            </div>
+
+            <!-- View 3: Match Combat (reutiliza container para coliseo-style) -->
+            <div id="tournamentMatchView" class="tournament-view" style="display:none;">
+                <div class="combat-layout">
+                    <div class="combat-main">
+                        <div class="tournament-match-header" id="tournamentMatchHeader">
+                            <span id="tournamentMatchLabel">Match 1 · Round 1</span>
+                            <button id="btnForfeitMatch" class="btn-secondary" style="padding:4px 12px;font-size:0.8rem;">FORFEIT</button>
+                        </div>
+                        <div class="tournament-turn-bar" id="tournamentTurnBar" style="display:none;"></div>
+                        <div class="tournament-match-arena" id="tournamentMatchArena">
+                            <!-- Fighter boxes generados dinámicamente -->
+                        </div>
+                        <button id="btnTournamentNextTurn" class="btn-forge" style="display:none;">NEXT TURN</button>
+                    </div>
+                    <div class="combat-console" id="tournamentLogConsole">
+                        <div class="console-header">
+                            <span>MATCH LOG</span>
+                            <span class="console-status">⚔️</span>
+                        </div>
+                        <div class="log-messages" id="tournamentLogContentMatch"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Champion Overlay -->
+            <div id="tournamentChampionOverlay" class="tournament-overlay" style="display:none;">
+                <div class="tournament-champion-card" id="tournamentChampionCard">
+                    <!-- renderizado dinámico -->
                 </div>
             </div>
         </section>

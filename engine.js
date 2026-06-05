@@ -1,4 +1,4 @@
-import { logConsole, setColiseumButtonMode } from './ui.js';
+import * as narrate from './narrator.js';
 
 // =============================================
 // ⚙️ CONSTANTES DEL SISTEMA
@@ -64,6 +64,7 @@ function getUltimateForCard(card) {
 // 🧮 CÁLCULO DE DAÑO (núcleo unificado)
 // =============================================
 function calcularDetalleDaño(atk, def) {
+    if (typeof atk.atq !== 'number' || isNaN(atk.atq)) atk.atq = 0;
     let rawDmg = atk.atq;
     let hpDamage = 0;
     let defDamage = 0;
@@ -71,14 +72,14 @@ function calcularDetalleDaño(atk, def) {
     let ultimateUsed = false;
 
     const ult = getUltimateForCard(atk);
-    if (atk.fervor >= MAX_FERVOR && ult) {
+    if (atk.fervor >= MAX_FERVOR && !atk.ultimateCooldown && ult) {
         ultimateUsed = true;
         atk.fervor = 0;
         atk.ultimateCooldown = ult.cooldown || 3;
 
         if (ult.multiplier) {
             rawDmg = Math.floor(atk.atq * ult.multiplier);
-            logConsole(`🔥 ${atk.name} [${ult.name}]: ¡Daño potenciado a ${rawDmg}!`, 'passive');
+            narrate.narrateUltimateMultiplier(atk.name, ult.name, rawDmg);
         }
         if (ult.piercing) {
             piercing = rawDmg;
@@ -88,7 +89,7 @@ function calcularDetalleDaño(atk, def) {
         if (ult.healPct) {
             const heal = Math.floor(atk.maxHp * ult.healPct);
             atk.hp = Math.min(atk.maxHp, atk.hp + heal);
-            logConsole(`💚 ${atk.name} [${ult.name}]: Recupera ${heal} HP.`, 'passive');
+            narrate.narrateUltimateHeal(atk.name, ult.name, heal);
         }
         if (ult.stealPct) {
             const stolenAtq = Math.floor(def.atq * ult.stealPct);
@@ -96,23 +97,23 @@ function calcularDetalleDaño(atk, def) {
             atk.atq += stolenAtq;
             def.atq = Math.max(1, def.atq - stolenAtq);
             def.def = Math.max(0, def.def - stolenDef);
-            logConsole(`👻 ${atk.name} [${ult.name}]: Roba ${stolenAtq} ATQ y ${stolenDef} DEF.`, 'passive');
+            narrate.narrateUltimateSteal(atk.name, ult.name, stolenAtq, stolenDef);
         }
         if (ult.shieldPct) {
             const shield = Math.floor(atk.maxHp * ult.shieldPct);
             atk.def += shield;
-            logConsole(`🛡️ ${atk.name} [${ult.name}]: +${shield} escudo.`, 'passive');
+            narrate.narrateUltimateShield(atk.name, ult.name, shield);
         }
         if (ult.poisonTurns) {
             def._poisonApplied = ult.poisonTurns;
-            logConsole(`☠️ ${def.name} [${ult.name}]: Envenenado por ${ult.poisonTurns} turnos.`, 'passive');
+            narrate.narrateUltimatePoison(def.name, ult.name, ult.poisonTurns);
         }
     }
 
     if (!ultimateUsed) {
         if (atk.passiveId === 'anti_armor' && def.def > 0) {
             rawDmg = Math.floor(rawDmg * 1.5);
-            logConsole(`🎯 ${atk.name} [Anti-Armor]: Daño sube a ${rawDmg}!`, 'passive');
+            narrate.narrateAntiArmor(atk.name, rawDmg);
         }
         if (atk.passiveId === 'armor_piercing' && def.def > 0) {
             piercing = Math.floor(rawDmg * 0.3);
@@ -124,48 +125,45 @@ function calcularDetalleDaño(atk, def) {
     let effectiveDef = def.def;
     if (atk.passiveId === 'nem_dragon_slayer' && def.cardClass === 'Dragon') {
         effectiveDef = Math.floor(effectiveDef * 0.5);
-        logConsole(`🐉 ${atk.name} [Dragon Slayer]: Ignora 50% DEF de ${def.name}!`, 'passive');
+        narrate.narrateDragonSlayer(atk.name, def.name);
     }
 
     if (def.passiveId === 'nem_element_ward' && atk.element === 'Rayo') {
         let reduced = Math.floor(rawDmg * 0.5);
         rawDmg -= reduced;
-        logConsole(`⚡ ${def.name} [Lightning Rod]: Reduce ${reduced} ATK de ${atk.name}!`, 'passive');
+        narrate.narrateLightningRod(def.name, reduced, atk.name);
     }
 
-    if (def.passiveId === 'fen_revive' && def._revived === undefined) {
-        let incomingHpDmg = 0;
+    if (def.passiveId === 'fen_revive' && !def._revived) {
+        let incomingHpDmg = hpDamage;
         if (effectiveDef > 0) {
             let splitDmg = Math.floor(rawDmg / 2);
             let actualDefDmg = Math.min(effectiveDef, splitDmg);
-            let excessDefDmg = splitDmg - actualDefDmg;
-            incomingHpDmg = splitDmg + excessDefDmg;
-            defDamage += actualDefDmg;
+            incomingHpDmg += rawDmg - actualDefDmg;
         } else {
-            incomingHpDmg = rawDmg;
+            incomingHpDmg += rawDmg;
         }
-        incomingHpDmg += hpDamage;
         if ((def.hp - incomingHpDmg) <= 0) {
             def._revived = true;
             def.hp = Math.floor((def.maxHp || def.hp) * 0.3);
-            logConsole(`✨ ${def.name} [Graceful Strike]: Absorbe el golpe letal y renace con ${def.hp} HP!`, 'passive');
+            narrate.narrateRevive(def.name, def.hp);
             return { hpDamage: 0, defDamage: 0, piercing: 0, reviveCounter: true, blocked: false, ultimateUsed };
         }
     }
 
-    if (def.passiveId === 'gen_block_heal' && def._blockUsed === undefined) {
+    if (def.passiveId === 'gen_block_heal' && !def._blockUsed) {
         def._blockUsed = true;
         let healAmt = Math.floor(rawDmg * 0.5);
         def.hp = Math.min(def.maxHp || def.hp, def.hp + healAmt);
-        logConsole(`🛡️ ${def.name} [Sacred Veil]: Bloquea el ataque y recupera ${healAmt} HP!`, 'passive');
+        narrate.narrateBlockHeal(def.name, healAmt);
         return { hpDamage: 0, defDamage: 0, piercing: 0, blocked: true, reviveCounter: false, ultimateUsed };
     }
 
-    if (def.passiveId === 'orc_warlord' && def._blockUsed === undefined) {
+    if (def.passiveId === 'orc_warlord' && !def._blockUsed) {
         def._blockUsed = true;
         let healAmt = Math.floor(rawDmg * 0.5);
         def.hp = Math.min(def.maxHp, def.hp + healAmt);
-        logConsole(`🛡️ ${def.name} [Warlord's Bulwark]: Bloquea el ataque y recupera ${healAmt} HP!`, 'passive');
+        narrate.narrateWarlordBlock(def.name, healAmt);
         return { hpDamage: 0, defDamage: 0, piercing: 0, blocked: true, reviveCounter: false, ultimateUsed };
     }
 
@@ -191,37 +189,38 @@ function calcularDetalleDaño(atk, def) {
 function processPostDamagePassives(receiver, attacker, dmg) {
     if (!receiver || !attacker || receiver.hp <= 0) return;
     if (dmg.hpDamage <= 0 && dmg.defDamage <= 0) return;
+    if (_passiveDepth > MAX_PASSIVE_DEPTH) return;
 
     const totalDmg = dmg.hpDamage + dmg.defDamage;
 
-    if (receiver.passiveId === 'gen_reflect_full' && receiver._reflected === undefined) {
+    if (receiver.passiveId === 'gen_reflect_full' && !receiver._reflected) {
         receiver._reflected = true;
         let reflectedDmg = Math.floor(totalDmg);
-        attacker.hp -= reflectedDmg;
-        logConsole(`🪞 ${receiver.name} [Broken Mirror]: Refleja ${reflectedDmg} a ${attacker.name}!`, 'passive');
+        attacker.hp = Math.max(0, attacker.hp - reflectedDmg);
+        narrate.narrateReflectFull(receiver.name, reflectedDmg, attacker.name);
     }
 
     if (receiver.passiveId === 'abs_reflect') {
         let reflected = Math.floor(totalDmg * 0.2);
         if (reflected > 0) {
-            attacker.hp -= reflected;
-            logConsole(`🌵 ${receiver.name} [Thorn Armor]: Refleja ${reflected} a ${attacker.name}!`, 'passive');
+            attacker.hp = Math.max(0, attacker.hp - reflected);
+            narrate.narrateThornArmor(receiver.name, reflected, attacker.name);
         }
     }
 
     if (receiver.passiveId === 'abs_def_convert') {
         let converted = Math.floor(totalDmg * 0.5);
         if (converted > 0) {
-            receiver.def += converted;
-            logConsole(`🛡️ ${receiver.name} [Iron Skin]: Convierte ${converted} en DEF!`, 'passive');
+            receiver.def = Math.min(receiver.maxHp || 9999, (receiver.def || 0) + converted);
+            narrate.narrateIronSkin(receiver.name, converted);
         }
     }
 
     if (receiver.passiveId === 'abs_hp_convert') {
         let healed = Math.floor(totalDmg * 0.3);
         if (healed > 0) {
-            receiver.hp = Math.min(receiver.maxHp || receiver.hp + healed * 2, receiver.hp + healed);
-            logConsole(`🧛 ${receiver.name} [Leech]: Absorbe ${healed} HP del impacto!`, 'passive');
+            receiver.hp = Math.min(receiver.maxHp || receiver.hp, receiver.hp + healed);
+            narrate.narrateLeechAbsorb(receiver.name, healed);
         }
     }
 }
@@ -229,15 +228,22 @@ function processPostDamagePassives(receiver, attacker, dmg) {
 // =============================================
 // ⚔️ PROCESAR ATAQUE (unificado, muta el defensor)
 // =============================================
+let _passiveDepth = 0;
+const MAX_PASSIVE_DEPTH = 20;
+
 export function procesarAtaque(atk, def, atkLabel, defLabel, skipPassives) {
-    if (!atk || !def || atk.hp <= 0 || def.hp <= 0) return { defDamage: 0, hpDamage: 0, ultimateUsed: false };
+    if (!atk || !def || atk.hp <= 0 || def.hp <= 0) return { defDamage: 0, hpDamage: 0, ultimateUsed: false, blocked: false };
+    if (_passiveDepth > MAX_PASSIVE_DEPTH) return { defDamage: 0, hpDamage: 0, ultimateUsed: false, blocked: false };
 
     const aName = atkLabel || atk.name;
     const dName = defLabel || def.name;
-    logConsole(`⚔️ ${aName} ataca a ${dName}!`, 'attack');
+    narrate.narrateAttack(aName, dName);
 
     if (!skipPassives) {
-        applyRoundStartPassives(atk, def);
+        _passiveDepth++;
+        if (applyRoundStartPassives(atk, def)) {
+            return { defDamage: 0, hpDamage: 0, ultimateUsed: false };
+        }
     }
 
     const dmg = calcularDetalleDaño(atk, def);
@@ -246,23 +252,30 @@ export function procesarAtaque(atk, def, atkLabel, defLabel, skipPassives) {
     const revived = dmg.reviveCounter || false;
 
     if (!blocked && !revived) {
-        if (dmg.piercing > 0) logConsole(`💉 ${aName} [Armor Piercing]: ${dmg.piercing} directo al HP!`, 'passive');
+        if (dmg.piercing > 0) narrate.narrateArmorPiercing(aName, dmg.piercing);
         def.def = Math.max(0, def.def - dmg.defDamage);
-        def.hp -= dmg.hpDamage;
+        def.hp = Math.max(0, def.hp - dmg.hpDamage);
         if (dmg.hpDamage > 0 || dmg.defDamage > 0) {
             def._wasHit = true;
-            logConsole(`💥 ${dName}: -${dmg.hpDamage} HP / -${dmg.defDamage} DEF.`, 'damage');
+            narrate.narrateDamageSummary(dName, dmg.hpDamage, dmg.defDamage);
         }
     }
 
     processPostDamagePassives(def, atk, dmg);
+    if (!skipPassives) _passiveDepth--;
 
     if (atk.fervor < MAX_FERVOR) {
         atk.fervor = Math.min(MAX_FERVOR, atk.fervor + FERVOR_PER_ATTACK);
     }
 
     if (dmg.ultimateUsed) {
-        logConsole(`🔥¡${aName} desata ${ULTIMATE_DB[atk.ultimateId]?.name || 'ULTIMATE'}!`, 'victory');
+        narrate.narrateUltimateActivation(aName, ULTIMATE_DB[atk.ultimateId]?.name || 'ULTIMATE');
+    }
+
+    if (def.hp <= 0 && def.passiveId === 'fen_antimatter') {
+        const detonateDmg = Math.floor((def.maxHp || 1000) * 0.3);
+        atk.hp = Math.max(0, atk.hp - detonateDmg);
+        narrate.narrateAntimatterDetonation(def.name, atk.name, detonateDmg);
     }
 
     return { defDamage: dmg.defDamage, hpDamage: dmg.hpDamage, ultimateUsed: dmg.ultimateUsed };
@@ -276,7 +289,7 @@ export function gainFervor(fighter, amount) {
     const prev = fighter.fervor || 0;
     fighter.fervor = Math.min(MAX_FERVOR, prev + amount);
     if (fighter.fervor === MAX_FERVOR && prev < MAX_FERVOR) {
-        logConsole(`🔥 ${fighter.name}: ¡FERVOR AL MÁXIMO!`, 'victory');
+        narrate.narrateFervorMax(fighter.name);
     }
 }
 
@@ -289,12 +302,16 @@ export function initializeCard(card) {
     c.maxHp = c.maxHp || c.hp;
     c.fervor = 0;
     c.ultimateCooldown = 0;
-    c._revived = undefined;
-    c._blockUsed = undefined;
-    c._reflected = undefined;
-    c._stolen = undefined;
+    c._revived = false;
+    c._blockUsed = false;
+    c._reflected = false;
+    c._stolen = false;
     c._wasHit = false;
     c._poisonApplied = 0;
+    c._berserked = false;
+    c._lastStand = false;
+    c._fury = false;
+    c._xenophobia = false;
     return c;
 }
 
@@ -316,7 +333,7 @@ export function buildTurnOrder(party, squad) {
         }
     });
 
-    entries.sort((a, b) => b.vel - a.vel || (a.isAlly ? -1 : 1));
+    entries.sort((a, b) => b.vel - a.vel || (a.isAlly === b.isAlly ? a.slotIndex - b.slotIndex : a.isAlly ? -1 : 1));
     return entries;
 }
 
@@ -330,18 +347,20 @@ export function resolveCombatTurn(turnEntry, allEntries) {
 
     const actor = turnEntry.actor;
 
+    if (actor.ultimateCooldown > 0) actor.ultimateCooldown--;
+
     gainFervor(actor, FERVOR_PER_TURN);
+
+    if (actor._poisonApplied > 0) {
+        const poisonDmg = Math.floor(actor.maxHp * 0.05);
+        actor.hp = Math.max(0, actor.hp - poisonDmg);
+        narrate.narratePoisonDamage(actor.name, poisonDmg);
+        actor._poisonApplied--;
+    }
 
     if (actor._wasHit) {
         gainFervor(actor, FERVOR_PER_HIT);
         actor._wasHit = false;
-    }
-
-    if (actor._poisonApplied > 0) {
-        const poisonDmg = Math.floor(actor.maxHp * 0.05);
-        actor.hp -= poisonDmg;
-        logConsole(`☠️ ${actor.name} sufre ${poisonDmg} de daño por veneno.`, 'passive');
-        actor._poisonApplied--;
     }
 
     const target = findTarget(turnEntry, allEntries);
@@ -353,7 +372,7 @@ export function resolveCombatTurn(turnEntry, allEntries) {
     const result = procesarAtaque(actor, target.actor, actLabel, defLabel);
 
     if (target.actor && target.actor.hp <= 0) {
-        logConsole(`💀 ${target.actor.name} ha caído!`, 'victory');
+        narrate.narrateDeath(target.actor.name);
         return { acted: true, targetKilled: true, ultimateUsed: result.ultimateUsed, actor, target: target.actor, hpDamage: result.hpDamage, defDamage: result.defDamage };
     }
 
@@ -361,13 +380,12 @@ export function resolveCombatTurn(turnEntry, allEntries) {
 }
 
 function findTarget(turnEntry, allEntries) {
-    const actor = turnEntry.actor;
     const enemies = allEntries.filter(e =>
         e.actor && e.actor.hp > 0 && e.isAlly !== turnEntry.isAlly
     );
     if (enemies.length === 0) return null;
 
-    const bossUltraAggro = actor.passiveId === 'orc_warlord';
+    const bossUltraAggro = turnEntry.actor.passiveId === 'orc_warlord';
     if (bossUltraAggro) {
         const lowestHp = enemies.reduce((min, e) => e.actor.hp < min.actor.hp ? e : min, enemies[0]);
         return lowestHp;
@@ -381,16 +399,17 @@ function findTarget(turnEntry, allEntries) {
 // =============================================
 export function verifyVictory(c1, c2) {
     if (c1.hp <= 0 || c2.hp <= 0) {
+        let draw = false;
         if (c1.hp === c2.hp) {
-            logConsole("⚖️ ¡EMPATE ABSOLUTO!", "victory");
+            narrate.narrateDraw();
+            draw = true;
         } else {
             const winner = c1.hp > c2.hp ? c1 : c2;
-            logConsole(`🏆 ${winner.name} VICTORIOSO (${Math.floor(winner.hp)} HP)!`, "victory");
+            narrate.narrateVictory(winner.name, Math.floor(winner.hp));
         }
-        setColiseumButtonMode('finish');
-        return true;
+        return { victory: true, winner: c1.hp > c2.hp ? c1 : c2, draw };
     }
-    return false;
+    return { victory: false, winner: null, draw: false };
 }
 
 export function verifyPartyVictory(party, squad) {
@@ -408,68 +427,70 @@ export function applyRoundStartPassives(f, r) {
 
     switch (f.passiveId) {
         case 'gen_block_heal':
-            if (f._blockUsed === undefined) {
-                logConsole(`🛡️ ${f.name} [Sacred Veil]: Preparado para bloquear.`, 'passive');
+            if (!f._blockUsed) {
+                narrate.narrateSacredVeilReady(f.name);
             }
             break;
 
         case 'gen_reflect_full':
-            if (f._reflected === undefined) {
-                logConsole(`🪞 ${f.name} [Broken Mirror]: Escudo reflectante activo.`, 'passive');
+            if (!f._reflected) {
+                narrate.narrateBrokenMirrorReady(f.name);
             }
             break;
 
         case 'gen_steal_stats':
-            if (f._stolen === undefined) {
+            if (!f._stolen) {
                 f._stolen = true;
-                let stolenAtq = Math.floor(r.atq * 0.4);
-                let stolenDef = Math.floor(r.def * 0.4);
+                let stolenAtq = Math.floor((r.atq || 0) * 0.4);
+                let stolenDef = Math.floor((r.def || 0) * 0.4);
                 f.atq += stolenAtq;
-                r.atq = Math.max(1, r.atq - stolenAtq);
-                r.def = Math.max(0, r.def - stolenDef);
-                logConsole(`👻 ${f.name} [Soul Thief]: Roba ${stolenAtq} ATQ y ${stolenDef} DEF de ${r.name}!`, 'passive');
+                r.atq = Math.max(1, (r.atq || 0) - stolenAtq);
+                r.def = Math.max(0, (r.def || 0) - stolenDef);
+                narrate.narrateSoulThief(f.name, stolenAtq, stolenDef, r.name);
             }
             break;
 
         case 'nem_xenophobia':
+            if (f._xenophobia) break;
             if (r.cardClass !== 'Human') {
+                f._xenophobia = true;
                 let atkBoost = Math.floor(f.atq * 1.0);
                 let defBoost = Math.floor(f.def * 1.0);
                 f.atq += atkBoost;
                 f.def += defBoost;
-                logConsole(`👁️ ${f.name} [Xenophobia]: +${atkBoost} ATQ y +${defBoost} DEF contra no-humano!`, 'passive');
+                narrate.narrateXenophobia(f.name, atkBoost, defBoost);
             }
             break;
 
         case 'nem_dragon_slayer':
-            logConsole(`🐉 ${f.name} [Dragon Slayer]: Preparado para dragones.`, 'passive');
+            narrate.narrateDragonSlayerReady(f.name);
             break;
 
         case 'nem_element_ward':
-            logConsole(`⚡ ${f.name} [Lightning Rod]: Protección elemental activa.`, 'passive');
+            narrate.narrateLightningRodReady(f.name);
             break;
 
         case 'prog_scale_stats':
-            f.atq = Math.floor(f.atq * 1.1);
-            f.def = Math.floor(f.def * 1.1);
-            logConsole(`📈 ${f.name} [Growth]: Stats +10%.`, 'passive');
+            f.atq = Math.min(9999, Math.floor((f.atq || 0) * 1.1));
+            f.def = Math.min(9999, Math.floor((f.def || 0) * 1.1));
+            narrate.narrateGrowth(f.name);
             break;
 
         case 'prog_venom':
             let venomDmg = Math.floor((f.maxHp || f.hp || 1) * 0.05);
             r.hp = Math.max(0, r.hp - venomDmg);
-            logConsole(`☠️ ${f.name} [Venom]: ${r.name} pierde ${venomDmg} HP.`, 'passive');
+            narrate.narrateVenom(f.name, r.name, venomDmg);
             if (r.hp <= 0) return true;
             break;
 
         case 'prog_drain_def':
-            let drain = Math.floor(r.def * 0.15);
-            r.def = Math.max(0, r.def - drain);
-            logConsole(`⚙️ ${f.name} [Rust]: Corroe ${drain} DEF de ${r.name}.`, 'passive');
+            let drain = Math.floor((r.def || 0) * 0.15);
+            r.def = Math.max(0, (r.def || 0) - drain);
+            narrate.narrateRust(f.name, drain, r.name);
             break;
 
         case 'double_strike':
-            logConsole(`⚡ ${f.name} [Double Strike]: Ataque extra!`, 'passive');
+            narrate.narrateDoubleStrike(f.name);
             procesarAtaque(f, r, f.name + ' [Extra]', r.name, true);
             if (r.hp <= 0) return true;
             break;
@@ -477,33 +498,41 @@ export function applyRoundStartPassives(f, r) {
         case 'life_leech': {
             const { hpDamage } = procesarAtaque(f, r, f.name + ' [Leech]', r.name, true);
             let steal = Math.floor(hpDamage * 0.5);
-            f.hp = Math.min(f.maxHp || f.hp * 2, f.hp + steal);
-            logConsole(`🧛 ${f.name} [Leech]: Drena ${steal} HP.`, 'passive');
+            f.hp = Math.min(f.maxHp || f.hp, f.hp + steal);
+            narrate.narrateLeechDrain(f.name, steal);
             if (r.hp <= 0) return true;
             break;
         }
 
         case 'shield_recharge':
             let regen = Math.floor((f.maxHp || f.hp || 1) * 0.1);
-            f.def += regen;
-            logConsole(`🛡️ ${f.name} [Recharge]: Regenera ${regen} de Escudo.`, 'passive');
+            f.def = Math.min(f.maxHp || 9999, f.def + regen);
+            narrate.narrateShieldRecharge(f.name, regen);
+            break;
+
+        case 'fen_antimatter':
+            narrate.narrateAntimatterReady(f.name);
             break;
 
         case 'fen_revive':
-            logConsole(`✨ ${f.name} [Graceful Strike]: Esencia vital protegida.`, 'passive');
+            narrate.narrateGracefulStrikeReady(f.name);
             break;
 
         case 'fen_berserker':
+            if (f._berserked) break;
             if (f.hp <= Math.floor((f.maxHp || f.hp || 1) * 0.3)) {
+                f._berserked = true;
                 f.atq = Math.floor(f.atq * 3);
-                logConsole(`🔥 ${f.name} [Berserker]: ATK x3!`, 'passive');
+                narrate.narrateBerserker(f.name);
             }
             break;
 
         case 'fen_last_stand':
+            if (f._lastStand) break;
             if (f.hp <= Math.floor((f.maxHp || f.hp || 1) * 0.2)) {
+                f._lastStand = true;
                 f.def = Math.floor(f.def * 4);
-                logConsole(`🏛️ ${f.name} [Last Stand]: DEF x4!`, 'passive');
+                narrate.narrateLastStand(f.name);
             }
             break;
 
@@ -511,11 +540,12 @@ export function applyRoundStartPassives(f, r) {
             if (f.hp > 0 && f.hp < f.maxHp) {
                 let regen = Math.floor(f.maxHp * 0.02);
                 f.hp = Math.min(f.maxHp, f.hp + regen);
-                logConsole(`🩸 ${f.name} [Warlord's Vitality]: Regenera ${regen} HP!`, 'passive');
+                narrate.narrateWarlordRegen(f.name, regen);
             }
-            if (f.hp <= Math.floor((f.maxHp || f.hp || 1) * 0.3)) {
+            if (!f._fury && f.hp <= Math.floor((f.maxHp || f.hp || 1) * 0.3)) {
+                f._fury = true;
                 f.atq = Math.floor(f.atq * 3);
-                logConsole(`🔥 ${f.name} [Berserker Fury]: ATK x3!`, 'passive');
+                narrate.narrateBerserkerFury(f.name);
             }
             break;
     }
@@ -545,8 +575,12 @@ export function validateCardStats(card) {
 }
 
 export function saveCard(card) {
-    if (!card.id || !card.name || !card.hp) {
+    if (!card.id || !card.name || typeof card.hp !== 'number') {
         console.error("Intento de guardar carta corrupta abortado.");
+        return false;
+    }
+    if (typeof card.atq !== 'number' || typeof card.def !== 'number') {
+        console.error("Carta corrupta: atq y def deben ser números.");
         return false;
     }
 
@@ -591,12 +625,315 @@ export function importCards(importedArray) {
     return true;
 }
 
-export function syncStorage() {
+function syncStorage() {
     try {
         localStorage.setItem('easyHitLibrary', JSON.stringify(cards));
     } catch (e) {
         console.error("Vanguard Critico: El almacenamiento está lleno.");
     }
+}
+
+// =============================================
+// 🏛️ GALERÍA OFICIAL — Héroes de prueba
+// =============================================
+export const OFFICIAL_CARDS = [
+    {
+        id: 'hero_ignis',
+        name: 'Ignis',
+        element: 'Fuego',
+        cardClass: 'Viking',
+        hp: 2000, def: 1200, atq: 1800, vel: 100,
+        maxHp: 2000,
+        passiveId: 'fen_berserker',
+        ultimateId: 'cataclysm_nova',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Ignis+🔥',
+        _official: true,
+        description: 'Un coloso de magma cuya furia crece cuando su vida peligra.'
+    },
+    {
+        id: 'hero_maren',
+        name: 'Maren',
+        element: 'Agua',
+        cardClass: 'Human',
+        hp: 2500, def: 1600, atq: 1100, vel: 80,
+        maxHp: 2500,
+        passiveId: 'shield_recharge',
+        ultimateId: 'tidal_reckoning',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Maren+💧',
+        _official: true,
+        description: 'Guardiana de las mareas. Su escudo se regenera mientras protege.'
+    },
+    {
+        id: 'hero_zephyros',
+        name: 'Zephyros',
+        element: 'Rayo',
+        cardClass: 'Spectre',
+        hp: 1700, def: 900, atq: 1900, vel: 200,
+        maxHp: 1700,
+        passiveId: 'double_strike',
+        ultimateId: 'storm_judgment',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Zephyros+⚡',
+        _official: true,
+        description: 'Espectro de la tormenta. Ataca con la velocidad del rayo.'
+    },
+    {
+        id: 'hero_sylva',
+        name: 'Sylva',
+        element: 'Naturaleza',
+        cardClass: 'Beast',
+        hp: 2300, def: 1400, atq: 1300, vel: 120,
+        maxHp: 2300,
+        passiveId: 'prog_venom',
+        ultimateId: 'verdant_wrath',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Sylva+🌿',
+        _official: true,
+        description: 'Bestia del bosque que envenena a sus presas lentamente.'
+    },
+    {
+        id: 'hero_vorath',
+        name: 'Vorath',
+        element: 'Oscuridad',
+        cardClass: 'Dragon',
+        hp: 1800, def: 1300, atq: 1600, vel: 150,
+        maxHp: 1800,
+        passiveId: 'gen_steal_stats',
+        ultimateId: 'void_rend',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Vorath+🌑',
+        _official: true,
+        description: 'Abismo devorador. Roba poder de sus enemigos con cada golpe.'
+    },
+    {
+        id: 'hero_cinder',
+        name: 'Cinder',
+        element: 'Fuego',
+        cardClass: 'Pirate',
+        hp: 2200, def: 1300, atq: 1500, vel: 110,
+        maxHp: 2200,
+        passiveId: 'gen_block_heal',
+        ultimateId: 'radiance_purge',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Cinder+🔥',
+        _official: true,
+        description: 'Pirata ígneo que purifica con llamas divinas y se protege del primer golpe.'
+    },
+    {
+        id: 'hero_tsunami',
+        name: 'Tsunami',
+        element: 'Agua',
+        cardClass: 'Alien',
+        hp: 2000, def: 1400, atq: 1500, vel: 120,
+        maxHp: 2000,
+        passiveId: 'nem_element_ward',
+        ultimateId: 'storm_judgment',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Tsunami+💧',
+        _official: true,
+        description: 'Ente acuático de otro mundo. Resiste tormentas eléctricas con su escudo alienígena.'
+    },
+    {
+        id: 'hero_volt',
+        name: 'Volt',
+        element: 'Rayo',
+        cardClass: 'Robot',
+        hp: 1800, def: 1600, atq: 1500, vel: 130,
+        maxHp: 1800,
+        passiveId: 'abs_def_convert',
+        ultimateId: 'void_rend',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Volt+⚡',
+        _official: true,
+        description: 'Autómata de plasma. Convierte el daño recibido en armadura.'
+    },
+    {
+        id: 'hero_thorn',
+        name: 'Thorn',
+        element: 'Naturaleza',
+        cardClass: 'Monster',
+        hp: 1900, def: 1200, atq: 1700, vel: 140,
+        maxHp: 1900,
+        passiveId: 'gen_reflect_full',
+        ultimateId: 'verdant_wrath',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Thorn+🌿',
+        _official: true,
+        description: 'Monstruo de espinas. El primer golpe que recibe se refleja por completo.'
+    },
+    {
+        id: 'hero_shadow',
+        name: 'Shadow',
+        element: 'Oscuridad',
+        cardClass: 'Spectre',
+        hp: 1600, def: 1000, atq: 2000, vel: 180,
+        maxHp: 1600,
+        passiveId: 'nem_xenophobia',
+        ultimateId: 'void_rend',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Shadow+🌑',
+        _official: true,
+        description: 'Espectro de las sombras. Duplica su fuerza contra enemigos no humanos.'
+    },
+    {
+        id: 'hero_lumina',
+        name: 'Lumina',
+        element: 'Luz',
+        cardClass: 'Human',
+        hp: 2400, def: 1500, atq: 1000, vel: 90,
+        maxHp: 2400,
+        passiveId: 'fen_last_stand',
+        ultimateId: 'radiance_purge',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Lumina+☀️',
+        _official: true,
+        description: 'Sacerdosa de luz. Cuando su vida peligra, su fe la vuelve impenetrable.'
+    },
+    {
+        id: 'hero_titan',
+        name: 'Titan',
+        element: 'Fuego',
+        cardClass: 'Robot',
+        hp: 2200, def: 1800, atq: 1200, vel: 70,
+        maxHp: 2200,
+        passiveId: 'abs_hp_convert',
+        ultimateId: 'cataclysm_nova',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Titan+🔥',
+        _official: true,
+        description: 'Coloso robótico de magma. Absorbe el daño como combustible.'
+    },
+    {
+        id: 'hero_glacius',
+        name: 'Glacius',
+        element: 'Agua',
+        cardClass: 'Dragon',
+        hp: 2600, def: 1400, atq: 1100, vel: 100,
+        maxHp: 2600,
+        passiveId: 'prog_drain_def',
+        ultimateId: 'tidal_reckoning',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Glacius+💧',
+        _official: true,
+        description: 'Dragón de hielo. Corroe la armadura enemiga cada turno.'
+    },
+    {
+        id: 'hero_zerker',
+        name: 'Zerker',
+        element: 'Rayo',
+        cardClass: 'Viking',
+        hp: 1900, def: 1100, atq: 1800, vel: 150,
+        maxHp: 1900,
+        passiveId: 'life_leech',
+        ultimateId: 'storm_judgment',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Zerker+⚡',
+        _official: true,
+        description: 'Vikingo de la tormenta. Drena vida de cada golpe que asesta.'
+    },
+    {
+        id: 'hero_verdant',
+        name: 'Verdant',
+        element: 'Naturaleza',
+        cardClass: 'Alien',
+        hp: 1800, def: 1200, atq: 1700, vel: 150,
+        maxHp: 1800,
+        passiveId: 'prog_scale_stats',
+        ultimateId: 'verdant_wrath',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Verdant+🌿',
+        _official: true,
+        description: 'Ente alienígena del bosque. Crece en poder cada ronda.'
+    },
+    {
+        id: 'hero_nyx',
+        name: 'Nyx',
+        element: 'Oscuridad',
+        cardClass: 'Monster',
+        hp: 1700, def: 1300, atq: 1800, vel: 140,
+        maxHp: 1700,
+        passiveId: 'abs_reflect',
+        ultimateId: 'cataclysm_nova',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Nyx+🌑',
+        _official: true,
+        description: 'Monstruo de la noche. Refleja parte del daño que recibe.'
+    },
+    {
+        id: 'hero_forge',
+        name: 'Forge',
+        element: 'Fuego',
+        cardClass: 'Robot',
+        hp: 1900, def: 1100, atq: 1900, vel: 100,
+        maxHp: 1900,
+        passiveId: 'anti_armor',
+        ultimateId: 'void_rend',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Forge+🔥',
+        _official: true,
+        description: 'Autómata de guerra que funde armaduras enemigas. Su poder crece contra objetivos protegidos.'
+    },
+    {
+        id: 'hero_shrapnel',
+        name: 'Shrapnel',
+        element: 'Rayo',
+        cardClass: 'Spectre',
+        hp: 1800, def: 1200, atq: 1700, vel: 160,
+        maxHp: 1800,
+        passiveId: 'armor_piercing',
+        ultimateId: 'storm_judgment',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Shrapnel+⚡',
+        _official: true,
+        description: 'Espectro de metralla eléctrica. Sus ataques perforan cualquier defensa.'
+    },
+    {
+        id: 'hero_siegfried',
+        name: 'Siegfried',
+        element: 'Luz',
+        cardClass: 'Human',
+        hp: 2200, def: 1500, atq: 1600, vel: 90,
+        maxHp: 2200,
+        passiveId: 'nem_dragon_slayer',
+        ultimateId: 'cataclysm_nova',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Siegfried+☀️',
+        _official: true,
+        description: 'Legendario cazador de dragones bañado en luz. Sus golpes atraviesan las escamas más duras.'
+    }
+];
+
+export let gallery = [];
+
+function loadGallery() {
+    try {
+        gallery = OFFICIAL_CARDS.map(c => ({ ...c }));
+        if (typeof localStorage !== 'undefined') {
+            syncGallery();
+        }
+    } catch (e) {
+        gallery = OFFICIAL_CARDS.map(c => ({ ...c }));
+    }
+}
+loadGallery();
+
+function syncGallery() {
+    try {
+        localStorage.setItem('easyHitGallery', JSON.stringify(gallery));
+    } catch (e) {
+        console.error("Vanguard Critico: No se pudo guardar la galería.");
+    }
+}
+
+function resetGallery() {
+    gallery = OFFICIAL_CARDS.map(c => ({ ...c }));
+    syncGallery();
+}
+
+export function getAllPlayableCards() {
+    return [...cards, ...gallery];
 }
 
 // =============================================
@@ -646,6 +983,7 @@ const ENEMY_SQUAD_ROSTER = {
 };
 
 export function getSquadForStage(stageId) {
+    if (!stageId || !/^\d+-\d+$/.test(stageId)) return [];
     if (stageId === '1-5') {
         const boss = JSON.parse(JSON.stringify(ENEMY_ROSTER.orc_boss));
         boss._uid = 'orc_boss';
@@ -663,4 +1001,83 @@ export function getSquadForStage(stageId) {
         return clone;
     });
     return squad;
+}
+
+// =============================================
+// 🏆 TORNEO — LÓGICA DE BRACKET
+// =============================================
+export function generateBracket(contestants) {
+    if (!contestants || contestants.length !== 16) return null;
+
+    const shuffled = [...contestants];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    // Deep clone pool for stat reset between rounds
+    const pool = shuffled.map(c => JSON.parse(JSON.stringify(c)));
+
+    const rounds = [];
+    rounds._pool = pool;
+
+    for (let r = 0; r < 4; r++) {
+        const numMatches = 8 / Math.pow(2, r);
+        const matches = [];
+        for (let m = 0; m < numMatches; m++) {
+            matches.push({ f1: null, f2: null, winner: null, completed: false });
+        }
+        rounds.push(matches);
+    }
+
+    for (let i = 0; i < 8; i++) {
+        rounds[0][i].f1 = pool[i * 2];
+        rounds[0][i].f2 = pool[i * 2 + 1];
+    }
+
+    return rounds;
+}
+
+export function getNextMatch(bracket) {
+    if (!bracket) return null;
+    for (let r = 0; r < bracket.length; r++) {
+        for (let m = 0; m < bracket[r].length; m++) {
+            const match = bracket[r][m];
+            if (!match.completed && match.f1 && match.f2) {
+                return { round: r, match: m, ...match };
+            }
+        }
+    }
+    return null;
+}
+
+export function advanceBracket(bracket, round, matchIndex, winnerCard) {
+    if (!bracket || !bracket[round] || !bracket[round][matchIndex]) return false;
+    const match = bracket[round][matchIndex];
+    match.winner = winnerCard;
+    match.completed = true;
+
+    const isLastRound = round >= bracket.length - 1;
+    if (isLastRound) return true;
+
+    const nextMatchIndex = Math.floor(matchIndex / 2);
+    const nextRound = bracket[round + 1];
+    if (!nextRound || nextMatchIndex >= nextRound.length) return false;
+    const nextMatch = nextRound[nextMatchIndex];
+    // Use original stats from pool (before passive boosts) for fair tournament
+    const originalCard = bracket._pool?.find(c => c.id === winnerCard.id);
+    const nextCard = originalCard ? JSON.parse(JSON.stringify(originalCard)) : winnerCard;
+    if (matchIndex % 2 === 0) {
+        nextMatch.f1 = nextCard;
+    } else {
+        nextMatch.f2 = nextCard;
+    }
+    const isRoundComplete = bracket[round].every(m => m.completed);
+    return isRoundComplete;
+}
+
+export function isTournamentOver(bracket) {
+    if (!bracket) return false;
+    const lastMatch = bracket[3] && bracket[3][0];
+    return lastMatch && lastMatch.completed;
 }

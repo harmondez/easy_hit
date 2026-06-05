@@ -1,5 +1,6 @@
 import * as UI from './ui.js';
 import * as Engine from './engine.js';
+import * as Narrator from './narrator.js';
 
 // Expose for debugging / browser tests
 window.Engine = Engine;
@@ -30,6 +31,15 @@ const gameState = {
     inventory: [],
     codex: [],
     raidAttempts: 0,
+    tournament: {
+        bracket: null,
+        currentRound: 0,
+        currentMatch: 0,
+        matchF1: null,
+        matchF2: null,
+        tournamentCombat: null,
+        status: 'idle'
+    },
     adventure: {
         currentStage: null,
         selectedTeam: [],
@@ -69,8 +79,8 @@ function safeGsap(callback) {
 // =============================================
 // 🔀 TRANSITION STATE MACHINE
 // =============================================
-const SECTION_WHITELIST = ['library', 'creator', 'coliseo', 'adventure', 'inventory', 'shop'];
-const ACTIVE_SECTIONS = ['library', 'creator', 'coliseo', 'adventure'];
+const SECTION_WHITELIST = ['library', 'creator', 'coliseo', 'adventure', 'gallery', 'tournament', 'inventory', 'shop'];
+const ACTIVE_SECTIONS = ['library', 'creator', 'coliseo', 'adventure', 'gallery', 'tournament'];
 const LOCKED_SECTIONS = ['inventory', 'shop'];
 
 const onSectionEnter = {
@@ -80,6 +90,7 @@ const onSectionEnter = {
     adventure: () => {
         UI.cleanAdventureOverlays();
         UI.initTeamSlots();
+        gameState.adventureCombat = null;
         gameState.adventure.inCombat = false;
         gameState.adventure.currentStage = null;
         gameState.adventure.selectedTeam = [];
@@ -88,6 +99,19 @@ const onSectionEnter = {
         UI.renderCodex();
         UI.renderMapNodes(gameState.adventure);
     },
+    gallery: () => {},
+    tournament: () => {
+        const t = gameState.tournament;
+        t.bracket = null;
+        t.currentRound = 0;
+        t.currentMatch = 0;
+        t.matchF1 = null;
+        t.matchF2 = null;
+        t.tournamentCombat = null;
+        t.status = 'idle';
+        UI.toggleTournamentView('tournamentSetupView');
+        UI.resetTournamentSlots();
+    },
     inventory: () => {},
     shop: () => {}
 };
@@ -95,8 +119,28 @@ const onSectionEnter = {
 const onSectionExit = {
     library: () => {},
     creator: () => {},
-    coliseo: () => {},
-    adventure: () => {},
+    coliseo: () => {
+        gameState.coliseumCombat = null;
+        gameState.fighter1 = null;
+        gameState.fighter2 = null;
+        gameState.round = 0;
+        Narrator.resetLogContainer();
+    },
+    adventure: () => {
+        const adv = gameState.adventure;
+        adv.inCombat = false;
+        adv.currentStage = null;
+        adv.selectedTeam = [];
+        adv.activeSquad = [];
+        adv.turnCount = 0;
+        gameState.adventureCombat = null;
+        Narrator.resetLogContainer();
+    },
+    gallery: () => {},
+    tournament: () => {
+        const overlay = document.getElementById('tournamentChampionOverlay');
+        if (overlay) overlay.style.display = 'none';
+    },
     inventory: () => {},
     shop: () => {}
 };
@@ -197,6 +241,9 @@ function updateHUD() {
 // 📌 INIT EVENTS
 // =============================================
 function initEvents() {
+    if (window._easyHitEventsInitialized) return;
+    window._easyHitEventsInitialized = true;
+
     // --- 🚀 NAVEGACIÓN (activas + bloqueadas) ---
     ACTIVE_SECTIONS.forEach(section => {
         safeListener(`tab-${section}`, 'click', () => {
@@ -284,7 +331,7 @@ function initEvents() {
     // --- 🏛️ COLISEO: PREPARACIÓN DE BATALLA ---
     ['1', '2'].forEach(num => {
         safeListener(`selectF${num}`, 'change', (e) => {
-            const card = Engine.cards.find(c => c.id === e.target.value);
+            const card = Engine.getAllPlayableCards().find(c => c.id === e.target.value);
 
             if (num === '1') gameState.fighter1 = card ? JSON.parse(JSON.stringify(card)) : null;
             if (num === '2') gameState.fighter2 = card ? JSON.parse(JSON.stringify(card)) : null;
@@ -315,6 +362,7 @@ function initEvents() {
         };
         gameState.round = 0;
 
+        UI.resetTurnGroups('logContent');
         UI.logConsole(`🔥 ¡QUE COMIENCE EL COMBATE POR INICIATIVA! 🔥`, 'system');
         UI.logConsole(`📋 Orden: ${turnQueue.map(e => e.actor.name + (e.isAlly ? ' (Tú)' : ' (Enemy)')).join(' → ')}`, 'system');
 
@@ -352,7 +400,8 @@ function initEvents() {
             UI.refreshFighterStats(cc.activeF1, 1);
             UI.refreshFighterStats(cc.activeF2, 2);
             UI.renderTurnBar(cc.turnQueue, cc.currentIndex);
-            if (!Engine.verifyVictory(cc.activeF1, cc.activeF2)) processColiseumTurn();
+            const v = Engine.verifyVictory(cc.activeF1, cc.activeF2);
+            if (!v.victory) processColiseumTurn();
             return;
         }
 
@@ -394,11 +443,9 @@ function initEvents() {
         UI.clearActiveHighlight();
         UI.renderTurnBar(cc.turnQueue, cc.currentIndex);
 
-        if (!Engine.verifyVictory(cc.activeF1, cc.activeF2)) {
-            const alive = cc.turnQueue.filter(e => e.actor && e.actor.hp > 0);
-            if (alive.length <= 1) {
-                Engine.verifyVictory(cc.activeF1, cc.activeF2);
-            }
+        const v = Engine.verifyVictory(cc.activeF1, cc.activeF2);
+        if (v.victory) {
+            UI.setColiseumButtonMode('finish');
         }
     }
 
@@ -477,6 +524,216 @@ function initEvents() {
     });
 
     // =============================================
+    // 🏆 TORNEO — EVENTOS
+    // =============================================
+    function _resetTournament() {
+        const t = gameState.tournament;
+        t.bracket = null;
+        t.currentRound = 0;
+        t.currentMatch = 0;
+        t.matchF1 = null;
+        t.matchF2 = null;
+        t.tournamentCombat = null;
+        t.status = 'idle';
+        UI.resetTournamentSlots();
+    }
+
+    function _processTournamentTurn() {
+        const t = gameState.tournament;
+        const tc = t.tournamentCombat;
+        if (!tc) return;
+
+        if (tc.turnQueue.length === 0) return;
+
+        const entry = tc.turnQueue[tc.currentIndex];
+
+        if (!entry.actor || entry.actor.hp <= 0) {
+            tc.turnQueue.splice(tc.currentIndex, 1);
+            if (tc.currentIndex >= tc.turnQueue.length) tc.currentIndex = 0;
+            UI.updateTournamentMatchUI(t.matchF1, t.matchF2);
+            const v = Engine.verifyVictory(t.matchF1, t.matchF2);
+            if (!v.victory) _processTournamentTurn();
+            return;
+        }
+
+        tc.turnNumber++;
+        Narrator.setLogContainer('tournamentLogContentMatch');
+        UI.setActiveHighlight(true, entry.isAlly, entry.slotIndex);
+        UI.renderTurnBar(tc.turnQueue, tc.currentIndex, 'tournamentTurnBar');
+        UI.logConsole(`🎯 Turno de ${entry.actor.name}`, 'round-header', tc.turnNumber, 'tournamentLogContentMatch');
+
+        const result = Engine.resolveCombatTurn(entry, tc.turnQueue);
+
+        // Damage floats
+        const isF1 = entry.isAlly;
+        const dmgTargetSel = result.target === t.matchF1 ? '#tBox-1' : '#tBox-2';
+        if (result.hpDamage > 0) UI.spawnDmgFloat(dmgTargetSel, 'hp', result.hpDamage);
+        if (result.defDamage > 0) UI.spawnDmgFloat(dmgTargetSel, 'def', result.defDamage);
+
+        if (result.ultimateUsed) {
+            const ult = Engine.ULTIMATE_DB[entry.actor.ultimateId];
+            if (ult) UI.playUltimateAnimation(entry.actor.name, ult.name);
+        }
+
+        if (result.targetKilled && result.target) {
+            UI.playDeathAnimation(dmgTargetSel);
+        }
+
+        UI.updateTournamentMatchUI(t.matchF1, t.matchF2);
+
+        tc.currentIndex++;
+        if (tc.currentIndex >= tc.turnQueue.length) tc.currentIndex = 0;
+
+        UI.clearActiveHighlight();
+        UI.renderTurnBar(tc.turnQueue, tc.currentIndex, 'tournamentTurnBar');
+
+        const v = Engine.verifyVictory(t.matchF1, t.matchF2);
+        if (!v.victory) {
+            return;
+        }
+    }
+
+    safeListener('btnStartDraw', 'click', () => {
+        const contestants = UI.getTournamentContestants();
+        if (contestants.length !== 16) return;
+
+        const bracket = Engine.generateBracket(contestants);
+        if (!bracket) return;
+
+        const t = gameState.tournament;
+        t.bracket = bracket;
+        t.currentRound = 0;
+        t.currentMatch = 0;
+        t.status = 'bracket';
+
+        UI.toggleTournamentView('tournamentBracketView');
+        UI.renderTournamentBracket(bracket);
+        UI.addTournamentLog('🎲 Draw completed! 8 matches generated.', 'system');
+    });
+
+    safeListener('btnResetTournamentSetup', 'click', () => {
+        _resetTournament();
+        UI.renderTournamentSetup();
+    });
+
+    safeListener('btnBackToSetup', 'click', () => {
+        _resetTournament();
+        UI.toggleTournamentView('tournamentSetupView');
+        UI.renderTournamentSetup();
+    });
+
+    safeListener('btnNextMatch', 'click', () => {
+        const t = gameState.tournament;
+        if (!t.bracket) return;
+
+        const next = Engine.getNextMatch(t.bracket);
+        if (!next) {
+            if (Engine.isTournamentOver(t.bracket)) {
+                const champ = t.bracket[3][0].winner;
+                if (champ) UI.showTournamentChampion(champ);
+            }
+            return;
+        }
+
+        t.currentRound = next.round;
+        t.currentMatch = next.match;
+
+        const f1 = Engine.initializeCard(next.f1);
+        const f2 = Engine.initializeCard(next.f2);
+        t.matchF1 = f1;
+        t.matchF2 = f2;
+
+        const turnQueue = Engine.buildTurnOrder([f1], [f2]);
+        t.tournamentCombat = {
+            turnQueue,
+            currentIndex: 0,
+            turnNumber: 0,
+            activeF1: f1,
+            activeF2: f2
+        };
+        t.status = 'match';
+
+        UI.toggleTournamentView('tournamentMatchView');
+        UI.renderTournamentMatch(f1, f2, next.round, next.match);
+        UI.renderTurnBar(turnQueue, 0, 'tournamentTurnBar');
+        UI.addTournamentLog(`⚔️ Match ${next.match+1} Round ${next.round+1}: ${f1.name} vs ${f2.name}`, 'system');
+    });
+
+    safeListener('btnTournamentNextTurn', 'click', () => {
+        const t = gameState.tournament;
+        if (!t.tournamentCombat || t.status !== 'match') return;
+
+        _processTournamentTurn();
+
+        const f1 = t.matchF1;
+        const f2 = t.matchF2;
+
+        if (f1.hp <= 0 || f2.hp <= 0) {
+            const winner = f1.hp > 0 ? f1 : f2;
+            const loser = f1.hp <= 0 ? f1 : f2;
+
+            UI.addTournamentLog(`🏆 ${winner.name} defeats ${loser.name}!`, 'victory');
+
+            Engine.advanceBracket(t.bracket, t.currentRound, t.currentMatch, winner);
+            UI.renderTournamentBracket(t.bracket);
+
+            t.tournamentCombat = null;
+            t.matchF1 = null;
+            t.matchF2 = null;
+            t.status = 'bracket';
+
+            if (Engine.isTournamentOver(t.bracket)) {
+                const champ = t.bracket[3][0].winner;
+                if (champ) {
+                    UI.addTournamentLog(`🏆🏆🏆 CHAMPION: ${champ.name}!!!`, 'victory');
+                    UI.toggleTournamentView('tournamentBracketView');
+                    UI.showTournamentChampion(champ);
+                }
+                const btn = document.getElementById('btnTournamentNextTurn');
+                if (btn) btn.style.display = 'none';
+                return;
+            }
+
+            UI.toggleTournamentView('tournamentBracketView');
+            const btn = document.getElementById('btnTournamentNextTurn');
+            if (btn) btn.style.display = 'none';
+        }
+
+        UI.updateTournamentMatchUI(f1, f2);
+    });
+
+    safeListener('btnForfeitMatch', 'click', () => {
+        const t = gameState.tournament;
+        if (!t.matchF1 || !t.matchF2 || t.status !== 'match') return;
+
+        const loser = t.matchF1.hp <= 0 ? t.matchF1 : t.matchF2;
+        const winner = loser === t.matchF1 ? t.matchF2 : t.matchF1;
+
+        UI.logConsole(`🚩 ${winner.name} wins by forfeit!`, 'victory', null, 'tournamentLogContentMatch');
+        UI.addTournamentLog(`🚩 ${winner.name} advances (forfeit)`, 'system');
+
+        Engine.advanceBracket(t.bracket, t.currentRound, t.currentMatch, winner);
+        UI.renderTournamentBracket(t.bracket);
+
+        t.tournamentCombat = null;
+        t.matchF1 = null;
+        t.matchF2 = null;
+        t.status = 'bracket';
+
+        if (Engine.isTournamentOver(t.bracket)) {
+            const champ = t.bracket[3][0].winner;
+            if (champ) {
+                UI.addTournamentLog(`🏆🏆🏆 CHAMPION: ${champ.name}!!!`, 'victory');
+                UI.showTournamentChampion(champ);
+            }
+        } else {
+            UI.toggleTournamentView('tournamentBracketView');
+        }
+        const btn = document.getElementById('btnTournamentNextTurn');
+        if (btn) btn.style.display = 'none';
+    });
+
+    // =============================================
     // 🌍 DELEGACIÓN GLOBAL (Adventure dinámico)
     // =============================================
     document.addEventListener('click', (e) => {
@@ -506,7 +763,7 @@ function initEvents() {
         const pickerItem = e.target.closest('.card-picker-item:not(.disabled)');
         if (pickerItem && pickerItem.dataset.cardId) {
             const cardId = pickerItem.dataset.cardId;
-            const card = Engine.cards.find(c => c.id === cardId);
+            const card = Engine.getAllPlayableCards().find(c => c.id === cardId);
             if (card) {
                 const modal = document.getElementById('cardPickerModal');
                 const slotIndex = modal ? parseInt(modal.dataset.targetSlot) : -1;
@@ -558,6 +815,7 @@ function initEvents() {
 
                 const squadSize = initializedSquad.length;
                 const stageLabel = adv.currentStage === '1-5' ? 'BOSS' : `${squadSize}v5`;
+                UI.resetTurnGroups('pveLogContent');
                 UI.pveLogConsole(`🔥 ¡QUE COMIENCE EL COMBATE EN ${adv.currentStage} (${stageLabel})! 🔥`, 'system');
                 UI.pveLogConsole(`📋 Orden: ${turnQueue.map(e => e.actor.name + (e.isAlly ? ' (Tú)' : ' (Enemy)')).join(' → ')}`, 'system');
                 UI.renderPvEArena(initializedParty, initializedSquad, adv.turnCount);
@@ -580,20 +838,8 @@ function initEvents() {
 
             const ac = gameState.adventureCombat;
 
-            if (ac.turnQueue.length === 0) {
-                adv.inCombat = false;
-                return;
-            }
-
-            const entry = ac.turnQueue[ac.currentIndex];
-
-            if (!entry.actor || entry.actor.hp <= 0) {
-                ac.turnQueue.splice(ac.currentIndex, 1);
-                if (ac.currentIndex >= ac.turnQueue.length) ac.currentIndex = 0;
-                UI.updatePvEArena(ac.party, ac.squad, adv.turnCount);
-                UI.renderTurnBar(ac.turnQueue, ac.currentIndex, 'pveTurnBar');
-                const v = Engine.verifyPartyVictory(ac.party, ac.squad);
-                if (v.victory) {
+            function handlePvEOutcome(result) {
+                if (result.victory) {
                     adv.inCombat = false;
                     gameState.adventureCombat = null;
                     adv.stageProgress[adv.currentStage] = 'completed';
@@ -606,17 +852,36 @@ function initEvents() {
                         }
                     }
                     UI.pveLogConsole(`🏆 ¡VICTORIA!`, 'victory');
-                    setTimeout(() => {
-                        UI.showRewardModal(adv.currentStage);
-                    }, 400);
-                } else if (v.defeat) {
+                    setTimeout(() => { UI.showRewardModal(adv.currentStage); }, 400);
+                    return true;
+                } else if (result.defeat) {
                     adv.inCombat = false;
                     gameState.adventureCombat = null;
                     UI.pveLogConsole(`💀 DERROTA — Todos los héroes han caído.`, 'victory');
                     setTimeout(() => { UI.showPvEResult('defeat'); }, 500);
+                    return true;
                 }
+                return false;
+            }
+
+            // Skip all dead entries before processing a turn
+            while (ac.turnQueue.length > 0) {
+                const currentEntry = ac.turnQueue[ac.currentIndex];
+                if (currentEntry.actor && currentEntry.actor.hp > 0) break;
+                ac.turnQueue.splice(ac.currentIndex, 1);
+                if (ac.currentIndex >= ac.turnQueue.length) ac.currentIndex = 0;
+            }
+
+            if (ac.turnQueue.length === 0) {
+                adv.inCombat = false;
+                gameState.adventureCombat = null;
                 return;
             }
+
+            const v = Engine.verifyPartyVictory(ac.party, ac.squad);
+            if (handlePvEOutcome(v)) return;
+
+            const entry = ac.turnQueue[ac.currentIndex];
 
             adv.turnCount++;
             ac.turnNumber++;
@@ -624,6 +889,7 @@ function initEvents() {
             UI.setActiveHighlight(false, entry.isAlly, entry.slotIndex);
             UI.renderTurnBar(ac.turnQueue, ac.currentIndex, 'pveTurnBar');
             UI.pveLogConsole(`🎯 Turno de ${entry.actor.name}`, 'round-header', ac.turnNumber);
+            Narrator.setLogContainer('pveLogContent');
 
             const result = Engine.resolveCombatTurn(entry, ac.turnQueue);
 
@@ -661,28 +927,7 @@ function initEvents() {
             UI.renderTurnBar(ac.turnQueue, ac.currentIndex, 'pveTurnBar');
 
             const v = Engine.verifyPartyVictory(ac.party, ac.squad);
-            if (v.victory) {
-                UI.pveLogConsole(`🏆 ¡VICTORIA! Escuadrón enemigo derrotado.`, 'victory');
-                adv.inCombat = false;
-                gameState.adventureCombat = null;
-                adv.stageProgress[adv.currentStage] = 'completed';
-                const stages = ['1-1','1-2','1-3','1-4','1-5'];
-                const idx = stages.indexOf(adv.currentStage);
-                if (idx >= 0 && idx < stages.length - 1) {
-                    const next = stages[idx + 1];
-                    if (adv.stageProgress[next] === 'locked') {
-                        adv.stageProgress[next] = 'available';
-                    }
-                }
-                setTimeout(() => {
-                    UI.showRewardModal(adv.currentStage);
-                }, 400);
-            } else if (v.defeat) {
-                UI.pveLogConsole(`💀 DERROTA — Todos los héroes han caído.`, 'victory');
-                adv.inCombat = false;
-                gameState.adventureCombat = null;
-                setTimeout(() => { UI.showPvEResult('defeat'); }, 500);
-            }
+            handlePvEOutcome(v);
             return;
         }
 
