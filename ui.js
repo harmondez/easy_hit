@@ -408,7 +408,13 @@ window.handleDeleteCard = function(id) {
             alert("No puedes eliminar la única carta restante.");
             return;
         }
-        Engine.deleteCard(id);
+        try {
+            Engine.deleteCard(id);
+        } catch (e) {
+            console.error('Error deleting card:', e);
+            alert('Error al eliminar la carta.');
+            return;
+        }
         displayCards();
 
         const detailContainer = document.getElementById('libraryDetail');
@@ -984,6 +990,24 @@ export function playHitAnimation(selector, isAlly) {
     } catch (e) {}
 }
 
+export function animatePvEHit(attackerSelector, targetSelector) {
+    if (typeof gsap === 'undefined') return;
+    const attacker = document.querySelector(attackerSelector);
+    const target = document.querySelector(targetSelector);
+    if (!attacker || !target) return;
+    try {
+        gsap.timeline()
+            .to(attacker, { x: 20, duration: 0.1, ease: "power2.in" })
+            .to(target, {
+                x: 5, duration: 0.04,
+                boxShadow: "0 0 20px 6px rgba(239,68,68,0.8)",
+                yoyo: true, repeat: 2,
+                onComplete: () => { target.style.boxShadow = ''; }
+            }, "-=0.05")
+            .to(attacker, { x: 0, duration: 0.25, ease: "elastic.out(1,0.3)" }, "-=0.1");
+    } catch (e) {}
+}
+
 export function handleFileSelect(e) {
     const file = e.target.files[0];
 
@@ -1189,6 +1213,130 @@ export function renderMapNodes(adventureState) {
     }).join('');
 
     canvas.innerHTML = svg + nodesHtml;
+
+    const hasAvailable = Object.values(progress).some(s => s === 'available');
+    const hasCompleted = Object.values(progress).some(s => s === 'completed');
+    const hint = document.getElementById('adventureStartHint');
+    if (hasAvailable && !hasCompleted) {
+        if (!hint) {
+            const div = document.createElement('div');
+            div.id = 'adventureStartHint';
+            div.className = 'adventure-hint';
+            div.innerHTML = '👆 Click a glowing stage node to start your adventure!';
+            canvas.parentElement.insertBefore(div, canvas.nextSibling);
+        }
+    } else if (hint) {
+        hint.remove();
+    }
+}
+
+// =============================================
+// 📖 STORY PANELS — Visual Novel narrative
+// =============================================
+
+export const STORY_DATA = {
+    '1-1': {
+        title: 'The Awakening',
+        dialogues: [
+            { speaker: 'Narrator', text: 'El reino de Aetheria yace al borde del abismo. Desde las grietas de la Tierra Oscura, los Goblins emergen como una plaga imparable.', portrait: 'narrator' },
+            { speaker: '???', text: 'Despertad, elegidos. La llama de Aetheria parpadea... y necesito que la avivéis con vuestras espadas.', portrait: 'unknown' },
+            { speaker: 'Narrator', text: 'Cinco héroes se alzan entre las ruinas del Bastión Olvidado. Su primer desafío: abrirse paso por el Bosque de los Lamentos.', portrait: 'narrator' }
+        ]
+    },
+    '1-3': {
+        title: 'The Heart of the Woods',
+        dialogues: [
+            { speaker: 'Goblin Scout', text: 'Je... creísteis que éramos simples saboteadores. El Warlord ya sabe que venís... y os está tendiendo una trampa.', portrait: 'goblin' },
+            { speaker: 'Narrator', text: 'Las palabras del moribundo siembran el desasosiego. Si el Orc Warlord les espera, cada paso hacia el este es un paso hacia la boca del lobo.', portrait: 'narrator' }
+        ]
+    },
+    '1-5': {
+        title: "The Warlord's Lair",
+        dialogues: [
+            { speaker: 'Narrator', text: 'El aire se vuelve denso. El campamento enemigo se alza ante vosotros: banderas de guerra, huesos ensartados y un trono de roca viva.', portrait: 'narrator' },
+            { speaker: 'Orc Warlord', text: 'JA. Así que sois los "héroes" que masacraron a mis muchachos. Debo agradecéroslo... eliminasteis a los débiles por mí.', portrait: 'warlord' },
+            { speaker: 'Orc Warlord', text: 'Pero aquí termina vuestra marcha. Voy a destrozar vuestras cartas una por una y clavar vuestras cabezas en mi puerta.', portrait: 'warlord' }
+        ]
+    }
+};
+
+export function showStoryPanel(stageId, onComplete) {
+    const story = STORY_DATA[stageId];
+    if (!story || !story.dialogues || story.dialogues.length === 0) {
+        if (onComplete) onComplete();
+        return;
+    }
+    let dialogueIndex = 0;
+    const dialogues = story.dialogues;
+
+    const existing = document.querySelector('.story-panel-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'story-panel-overlay';
+
+    const box = document.createElement('div');
+    box.className = 'story-panel-box';
+
+    const portrait = document.createElement('div');
+    portrait.className = 'story-portrait story-portrait-default';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'story-dialog';
+
+    const speakerEl = document.createElement('div');
+    speakerEl.className = 'story-speaker';
+
+    const textEl = document.createElement('div');
+    textEl.className = 'story-text';
+
+    const hint = document.createElement('div');
+    hint.className = 'story-hint';
+    hint.textContent = dialogues.length > 1 ? 'Click to continue' : 'Click to close';
+
+    dialog.appendChild(speakerEl);
+    dialog.appendChild(textEl);
+    dialog.appendChild(hint);
+    box.appendChild(portrait);
+    box.appendChild(dialog);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    function renderDialogue(idx) {
+        const d = dialogues[idx];
+        if (!d) return;
+        speakerEl.textContent = esc(d.speaker);
+        textEl.textContent = esc(d.text);
+        portrait.className = 'story-portrait story-portrait-' + (d.portrait || 'default');
+        hint.textContent = idx < dialogues.length - 1 ? 'Click to continue' : 'Click to close';
+
+        if (typeof gsap !== 'undefined') {
+            gsap.fromTo(textEl, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+            gsap.fromTo(portrait, { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(1.2)' });
+        }
+    }
+
+    renderDialogue(0);
+
+    const advance = () => {
+        dialogueIndex++;
+        if (dialogueIndex >= dialogues.length) {
+            if (typeof gsap !== 'undefined') {
+                gsap.to(overlay, { opacity: 0, duration: 0.25, onComplete: () => { overlay.remove(); if (onComplete) onComplete(); } });
+            } else {
+                overlay.remove();
+                if (onComplete) onComplete();
+            }
+            return;
+        }
+        renderDialogue(dialogueIndex);
+    };
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay || e.target === box || e.target.closest('.story-panel-box')) {
+            advance();
+        }
+    });
 }
 
 // =============================================
@@ -1406,6 +1554,21 @@ export function openCardPicker(slotIndex) {
 
     document.body.appendChild(modal);
 
+    // Click handlers for picker items
+    modal.querySelectorAll('.card-picker-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const cardId = el.dataset.cardId;
+            const card = Engine.getAllPlayableCards().find(c => c.id === cardId);
+            if (card) {
+                const targetSlot = parseInt(modal.dataset.targetSlot);
+                if (targetSlot >= 0 && targetSlot < 5) {
+                    fillTeamSlot(targetSlot, card);
+                }
+            }
+            modal.remove();
+        });
+    });
+
     if (typeof gsap !== 'undefined') {
         try { gsap.from('.card-picker-panel', { scale: 0.95, opacity: 0, duration: 0.2, ease: "power2.out" }); } catch (e) {}
     }
@@ -1611,7 +1774,7 @@ export function updatePvEArena(party, squad, turnCount) {
     if (turnEl) turnEl.innerText = `⚔️ TURN ${turnCount}`;
 }
 
-export function showPvEResult(type) {
+export function showPvEResult(type, extra) {
     const existing = document.getElementById('pveResultOverlay');
     if (existing) existing.remove();
 
@@ -1620,11 +1783,22 @@ export function showPvEResult(type) {
     overlay.id = 'pveResultOverlay';
 
     if (type === 'victory') {
+        const party = (extra && extra.party) || [];
+        const alive = party.filter(m => m && m.hp > 0).length;
+        const stars = alive >= party.length ? 3 : alive >= Math.ceil(party.length / 2) ? 2 : 1;
+        const stageName = (extra && extra.stageName) || 'Stage';
+        const nextStage = (extra && extra.nextStage) || '';
+
         overlay.innerHTML = `
             <div class="pve-result-panel victory">
                 <div class="pve-result-icon">🏆</div>
                 <div class="pve-result-title victory">VICTORY!</div>
-                <div class="pve-result-desc">The enemy has been defeated!</div>
+                <div class="pve-result-stage">${esc(stageName)}</div>
+                <div class="pve-result-stars" style="font-size:2rem;margin:8px 0;letter-spacing:6px;">
+                    ${'⭐'.repeat(stars)}${'☆'.repeat(3 - stars)}
+                </div>
+                <div class="pve-result-desc">${alive}/${party.length} heroes standing</div>
+                ${nextStage ? `<div class="pve-result-next">Next: ${esc(nextStage)}</div>` : ''}
                 <div class="pve-result-actions">
                     <button id="btnPvEResultContinue" class="btn-forge">CONTINUE</button>
                 </div>
@@ -1647,7 +1821,10 @@ export function showPvEResult(type) {
     document.body.appendChild(overlay);
 
     if (typeof gsap !== 'undefined') {
-        try { gsap.from('.pve-result-panel', { scale: 0, duration: 0.4, ease: "back.out(2)" }); } catch (e) {}
+        try {
+            gsap.from('.pve-result-panel', { scale: 0, duration: 0.4, ease: "back.out(2)" });
+            gsap.from('.pve-result-stars', { opacity: 0, scale: 3, duration: 0.5, delay: 0.3, ease: "back.out(2)" });
+        } catch (e) {}
     }
 }
 
@@ -1671,7 +1848,7 @@ export function cleanAdventureOverlays() {
 // =============================================
 // 🎁 2F — REWARD MODAL
 // =============================================
-export function showRewardModal(stageId) {
+export function showRewardModal(stageId, loot) {
     if (!stageId || typeof stageId !== 'string') return;
     const modal = document.getElementById('rewardModal');
     if (!modal) return;
@@ -1686,25 +1863,26 @@ export function showRewardModal(stageId) {
     if (goldEl) goldEl.innerText = gold;
     if (xpEl) xpEl.innerText = xp;
 
-    // Random drop chance (30%)
-    const hasDrop = Math.random() < 0.3;
     if (dropArea) {
-        if (hasDrop) {
-            const pool = [
-                { name: 'Iron Ore', icon: '🪨', rarity: 'Common' },
-                { name: 'Silver Coin', icon: '🪙', rarity: 'Common' },
-                { name: 'Magic Dust', icon: '✨', rarity: 'Rare' },
-                { name: 'Dragon Scale', icon: '🐉', rarity: 'Epic' },
-                { name: 'Crown Shard', icon: '👑', rarity: 'Legendary' }
-            ];
-            const pick = pool[Math.floor(Math.random() * pool.length)];
-            dropArea.innerHTML = `
-                <div class="drop-item">
-                    <span class="drop-icon">${pick.icon}</span>
-                    <span class="drop-name">${pick.name}</span>
-                    <span class="drop-rarity rarity-${pick.rarity.toLowerCase()}">${pick.rarity}</span>
+        if (loot && loot.length > 0) {
+            dropArea.innerHTML = loot.map((item, i) => `
+                <div class="drop-item" data-drop-idx="${i}" style="opacity:0;transform:translateY(12px)">
+                    <span class="drop-icon">${esc(item.icon || '📦')}</span>
+                    <span class="drop-name">${esc(item.name || 'Unknown')}</span>
+                    <span class="drop-rarity rarity-${esc((item.rarity || 'common').toLowerCase())}">${esc(item.rarity || 'Common')}</span>
                 </div>
-            `;
+            `).join('');
+            if (typeof gsap !== 'undefined') {
+                gsap.to('.drop-item', {
+                    opacity: 1, y: 0, duration: 0.35, stagger: 0.15, ease: 'back.out(1.2)'
+                });
+                const mythicItems = dropArea.querySelectorAll('.rarity-mythic, .rarity-legendary');
+                if (mythicItems.length > 0 && typeof gsap !== 'undefined') {
+                    gsap.fromTo(mythicItems, { scale: 0.5 }, { scale: 1, duration: 0.5, stagger: 0.2, ease: 'elastic.out(1, 0.4)' });
+                }
+            } else {
+                dropArea.querySelectorAll('.drop-item').forEach(el => { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
+            }
         } else {
             dropArea.innerHTML = `<span style="color:var(--text-dim);font-size:0.85rem;">No item drops this time.</span>`;
         }
@@ -1718,10 +1896,81 @@ export function showRewardModal(stageId) {
         claimBtn.onclick = () => {
             modal.style.display = 'none';
             const sid = modal.dataset.stageId;
-            const evt = new CustomEvent('rewardsClaimed', { detail: { stageId: sid } });
+            const evt = new CustomEvent('rewardsClaimed', {
+                detail: { stageId: sid, gold, xp, loot: loot || [] }
+            });
             document.dispatchEvent(evt);
         };
     }
+}
+
+// =============================================
+// 💾 INVENTORY PERSISTENCE
+// =============================================
+
+export function saveInventory(items) {
+    try {
+        const clean = (items || []).map(item => {
+            const { weight, ...rest } = item;
+            return rest;
+        });
+        localStorage.setItem('inv', JSON.stringify(clean));
+    } catch (e) {
+        console.warn('saveInventory failed:', e);
+    }
+}
+
+export function loadInventory() {
+    try {
+        const raw = localStorage.getItem('inv');
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        console.warn('loadInventory failed:', e);
+        return [];
+    }
+}
+
+export function renderInventory(items) {
+    const grid = document.getElementById('inventoryGrid');
+    if (!grid) return;
+    const list = items || [];
+    if (list.length === 0) {
+        grid.innerHTML = `<div class="empty-state-msg" style="grid-column:1/-1;text-align:center;padding:40px;">
+            <span style="font-size:3rem;display:block;margin-bottom:10px;">🎒</span>
+            No items yet. Complete stages to earn loot!
+        </div>`;
+        return;
+    }
+    grid.innerHTML = list.map((item, i) => `
+        <div class="inv-item rarity-${esc((item.rarity || 'common').toLowerCase())}" data-idx="${i}">
+            <span class="inv-item-icon">${esc(item.icon || '📦')}</span>
+            <span class="inv-item-name">${esc(item.name || 'Unknown')}</span>
+            <span class="inv-item-rarity">${esc((item.rarity || 'Common').charAt(0).toUpperCase() + (item.rarity || 'Common').slice(1))}</span>
+        </div>
+    `).join('');
+}
+
+export function initInventoryFilters() {
+    if (window._invFiltersInit) return;
+    window._invFiltersInit = true;
+    document.addEventListener('click', (e) => {
+        const catEl = e.target.closest('.inventory-category');
+        if (!catEl) return;
+        const sidebar = catEl.closest('.inventory-sidebar');
+        if (!sidebar) return;
+        sidebar.querySelectorAll('.inventory-category').forEach(c => c.classList.remove('active'));
+        catEl.classList.add('active');
+        const cat = catEl.dataset.category;
+        const allItems = window.gameState ? window.gameState.inventory : [];
+        if (cat === 'all') {
+            renderInventory(allItems);
+        } else {
+            const filtered = allItems.filter(item => (item.type || 'material') === cat);
+            renderInventory(filtered);
+        }
+    });
 }
 
 // =============================================
@@ -1734,7 +1983,7 @@ export function renderTournamentSetup() {
     if (!grid) return;
 
     grid.innerHTML = Array.from({ length: 16 }, (_, i) => `
-        <div class="tournament-slot ${_tournamentSlots[i] ? 'filled' : ''}" data-slot="${i}" id="tslot-${i}" onclick="_openTournamentPicker(${i})">
+        <div class="tournament-slot ${_tournamentSlots[i] ? 'filled' : ''}" data-slot="${i}" data-slot-index="${i}">
             ${_tournamentSlots[i]
                 ? `<span class="slot-number">#${i+1}</span>
                    <img class="slot-img" src="${esc(_tournamentSlots[i].image || '')}" alt="">
@@ -1746,6 +1995,16 @@ export function renderTournamentSetup() {
             }
         </div>
     `).join('');
+
+    // Event delegation for tournament slot clicks
+    grid.onclick = null; // remove previous
+    grid.addEventListener('click', (e) => {
+        const slotEl = e.target.closest('.tournament-slot');
+        if (slotEl && slotEl.dataset.slotIndex !== undefined) {
+            const idx = parseInt(slotEl.dataset.slotIndex);
+            if (!isNaN(idx)) _openTournamentPicker(idx);
+        }
+    });
 
     const btn = document.getElementById('btnStartDraw');
     if (btn) btn.disabled = _tournamentSlots.filter(Boolean).length !== 16;
@@ -1919,7 +2178,7 @@ export function showTournamentChampion(winner) {
             <div class="tc-stat">💨 ${winner.vel}</div>
         </div>
         <div class="tc-msg">The champion of the arena!</div>
-        <button id="btnChampionClose" class="btn-forge" style="margin-top:20px;" onclick="document.getElementById('tournamentChampionOverlay').style.display='none'">🏆 CHAMPION</button>
+        <button id="btnChampionClose" class="btn-forge" style="margin-top:20px;" onclick="var el=document.getElementById('tournamentChampionOverlay');if(el)el.style.display='none'">🏆 CHAMPION</button>
     `;
     overlay.style.display = 'flex';
 }

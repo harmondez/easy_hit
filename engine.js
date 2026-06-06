@@ -241,8 +241,12 @@ export function procesarAtaque(atk, def, atkLabel, defLabel, skipPassives) {
 
     if (!skipPassives) {
         _passiveDepth++;
-        if (applyRoundStartPassives(atk, def)) {
-            return { defDamage: 0, hpDamage: 0, ultimateUsed: false };
+        try {
+            if (applyRoundStartPassives(atk, def)) {
+                return { defDamage: 0, hpDamage: 0, ultimateUsed: false };
+            }
+        } finally {
+            _passiveDepth--;
         }
     }
 
@@ -262,7 +266,6 @@ export function procesarAtaque(atk, def, atkLabel, defLabel, skipPassives) {
     }
 
     processPostDamagePassives(def, atk, dmg);
-    if (!skipPassives) _passiveDepth--;
 
     if (atk.fervor < MAX_FERVOR) {
         atk.fervor = Math.min(MAX_FERVOR, atk.fervor + FERVOR_PER_ATTACK);
@@ -356,6 +359,9 @@ export function resolveCombatTurn(turnEntry, allEntries) {
         actor.hp = Math.max(0, actor.hp - poisonDmg);
         narrate.narratePoisonDamage(actor.name, poisonDmg);
         actor._poisonApplied--;
+        if (actor.hp <= 0) {
+            return { acted: false, targetKilled: false, ultimateUsed: false, actor };
+        }
     }
 
     if (actor._wasHit) {
@@ -398,6 +404,7 @@ function findTarget(turnEntry, allEntries) {
 // 🏆 VERIFICAR VICTORIA
 // =============================================
 export function verifyVictory(c1, c2) {
+    if (!c1 || !c2) return { victory: false, winner: null, draw: false };
     if (c1.hp <= 0 || c2.hp <= 0) {
         let draw = false;
         if (c1.hp === c2.hp) {
@@ -584,14 +591,15 @@ export function saveCard(card) {
         return false;
     }
 
-    card.vel = Math.max(VEL_MIN, Math.min(VEL_MAX, card.vel || 100));
+    const clampedVel = Math.max(VEL_MIN, Math.min(VEL_MAX, card.vel || 100));
     card.ultimateLevel = card.ultimateLevel || 1;
 
-    if (!validateCardStats(card)) {
-        const total = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * VEL_WEIGHT);
+    if (!validateCardStats({ ...card, vel: clampedVel })) {
+        const total = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + (clampedVel * VEL_WEIGHT);
         console.error(`Carta '${card.name}' excede el límite de ${STAT_LIMIT} puntos (${total}).`);
         return false;
     }
+    card.vel = clampedVel;
 
     const index = cards.findIndex(c => c.id === card.id);
     if (index !== -1) {
@@ -607,8 +615,10 @@ export function saveCard(card) {
 }
 
 export function deleteCard(id) {
+    if (!id) return false;
     cards = cards.filter(c => c.id !== id);
     syncStorage();
+    return true;
 }
 
 export function importCards(importedArray) {
@@ -937,6 +947,66 @@ export function getAllPlayableCards() {
 }
 
 // =============================================
+// 🎲 LOOT SYSTEM — weightedRandomSelect + Loot Tables
+// =============================================
+
+export function weightedRandomSelect(pool) {
+    if (!pool || pool.length === 0) return null;
+    const totalWeight = pool.reduce((sum, item) => sum + (item.weight || 0), 0);
+    if (totalWeight <= 0) return null;
+    let roll = Math.random() * totalWeight;
+    for (const item of pool) {
+        roll -= (item.weight || 0);
+        if (roll <= 0) return item;
+    }
+    return pool[pool.length - 1];
+}
+
+export const LOOT_TABLES = {
+    normal: {
+        label: 'Stage Loot',
+        drops: [
+            { id: 'nothing', name: null, icon: null, rarity: null, type: null, weight: 30 },
+            { id: 'health_potion_s', name: 'Health Potion', icon: '❤️', rarity: 'common', type: 'consumable', weight: 20 },
+            { id: 'iron_ore', name: 'Iron Ore', icon: '🪨', rarity: 'common', type: 'material', weight: 15 },
+            { id: 'silver_coin', name: 'Silver Coin', icon: '🪙', rarity: 'common', type: 'currency', weight: 10 },
+            { id: 'bone_shard', name: 'Bone Shard', icon: '🦴', rarity: 'common', type: 'material', weight: 10 },
+            { id: 'wooden_charm', name: 'Wooden Charm', icon: '🍀', rarity: 'common', type: 'material', weight: 10 },
+            { id: 'magic_dust', name: 'Magic Dust', icon: '✨', rarity: 'rare', type: 'material', weight: 3 },
+            { id: 'crown_fragment', name: 'Crown Fragment', icon: '👑', rarity: 'mythic', type: 'material', weight: 2 }
+        ]
+    },
+    boss: {
+        label: 'Boss Loot',
+        drops: [
+            { id: 'nothing', name: null, icon: null, rarity: null, type: null, weight: 15 },
+            { id: 'dragon_scale', name: 'Dragon Scale', icon: '🐉', rarity: 'epic', type: 'material', weight: 25 },
+            { id: 'crown_shard', name: 'Crown Shard', icon: '👑', rarity: 'legendary', type: 'material', weight: 15 },
+            { id: 'warlord_essence', name: "Warlord's Essence", icon: '💀', rarity: 'legendary', type: 'material', weight: 10 },
+            { id: 'gold_potion', name: 'Gold Potion', icon: '🧪', rarity: 'rare', type: 'consumable', weight: 20 },
+            { id: 'phoenix_feather', name: 'Phoenix Feather', icon: '🪶', rarity: 'mythic', type: 'material', weight: 5 },
+            { id: 'rune_fragment', name: 'Rune Fragment', icon: '🔮', rarity: 'mythic', type: 'material', weight: 10 }
+        ]
+    }
+};
+
+export function generateLoot(stageId, squad) {
+    if (!stageId || !squad) return [];
+    const isBoss = stageId === '1-5';
+    const table = isBoss ? LOOT_TABLES.boss : LOOT_TABLES.normal;
+    const loot = [];
+    for (const enemy of squad) {
+        if (enemy && enemy.hp <= 0) {
+            const drop = weightedRandomSelect(table.drops);
+            if (drop && drop.id !== 'nothing' && drop.name) {
+                loot.push({ ...drop, weight: undefined });
+            }
+        }
+    }
+    return loot;
+}
+
+// =============================================
 // 👾 ENEMY ROSTER (Zona 1 — 5v5, con VEL)
 // =============================================
 const ENEMY_ROSTER = {
@@ -1065,6 +1135,7 @@ export function advanceBracket(bracket, round, matchIndex, winnerCard) {
     if (!nextRound || nextMatchIndex >= nextRound.length) return false;
     const nextMatch = nextRound[nextMatchIndex];
     // Use original stats from pool (before passive boosts) for fair tournament
+    if (!winnerCard) return false;
     const originalCard = bracket._pool?.find(c => c.id === winnerCard.id);
     const nextCard = originalCard ? JSON.parse(JSON.stringify(originalCard)) : winnerCard;
     if (matchIndex % 2 === 0) {

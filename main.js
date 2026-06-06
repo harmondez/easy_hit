@@ -56,6 +56,8 @@ const gameState = {
     }
 };
 
+window.gameState = gameState;
+
 console.log("🔥 Vanguard System: Conectando cables en tiempo real...");
 
 // =============================================
@@ -80,8 +82,8 @@ function safeGsap(callback) {
 // 🔀 TRANSITION STATE MACHINE
 // =============================================
 const SECTION_WHITELIST = ['library', 'creator', 'coliseo', 'adventure', 'gallery', 'tournament', 'inventory', 'shop'];
-const ACTIVE_SECTIONS = ['library', 'creator', 'coliseo', 'adventure', 'gallery', 'tournament'];
-const LOCKED_SECTIONS = ['inventory', 'shop'];
+const ACTIVE_SECTIONS = ['library', 'creator', 'coliseo', 'adventure', 'gallery', 'tournament', 'inventory'];
+const LOCKED_SECTIONS = ['shop'];
 
 const onSectionEnter = {
     library: () => { UI.displayCards(); },
@@ -111,8 +113,9 @@ const onSectionEnter = {
         t.status = 'idle';
         UI.toggleTournamentView('tournamentSetupView');
         UI.resetTournamentSlots();
+        UI.renderTournamentSetup();
     },
-    inventory: () => {},
+    inventory: () => { UI.renderInventory(gameState.inventory); UI.initInventoryFilters(); },
     shop: () => {}
 };
 
@@ -706,8 +709,8 @@ function initEvents() {
         const t = gameState.tournament;
         if (!t.matchF1 || !t.matchF2 || t.status !== 'match') return;
 
-        const loser = t.matchF1.hp <= 0 ? t.matchF1 : t.matchF2;
-        const winner = loser === t.matchF1 ? t.matchF2 : t.matchF1;
+        const loser = t.matchF1;
+        const winner = t.matchF2;
 
         UI.logConsole(`🚩 ${winner.name} wins by forfeit!`, 'victory', null, 'tournamentLogContentMatch');
         UI.addTournamentLog(`🚩 ${winner.name} advances (forfeit)`, 'system');
@@ -745,8 +748,15 @@ function initEvents() {
             const stageId = node.dataset.stage;
             const status = adv.stageProgress[stageId];
             if (status === 'available') {
+                const hint = document.getElementById('adventureStartHint');
+                if (hint) hint.remove();
                 adv.currentStage = stageId;
-                UI.renderTeamSelection(stageId);
+                const hasStory = !!UI.STORY_DATA[stageId];
+                if (hasStory) {
+                    UI.showStoryPanel(stageId, () => { UI.renderTeamSelection(stageId); });
+                } else {
+                    UI.renderTeamSelection(stageId);
+                }
             }
             return;
         }
@@ -776,16 +786,16 @@ function initEvents() {
             return;
         }
 
-        // Card picker close button
+        // Card picker close button — works for both adventure and tournament modals
         if (e.target.closest('.card-picker-close')) {
-            const picker = document.getElementById('cardPickerModal');
+            const picker = e.target.closest('.card-picker-modal');
             if (picker) picker.remove();
             return;
         }
 
-        // Close picker by clicking backdrop
+        // Close picker by clicking backdrop — works for both modals (adventure + tournament)
         if (e.target.closest('.card-picker-modal') && !e.target.closest('.card-picker-panel')) {
-            const picker = document.getElementById('cardPickerModal');
+            const picker = document.querySelector('.card-picker-modal');
             if (picker) picker.remove();
             return;
         }
@@ -851,8 +861,9 @@ function initEvents() {
                             adv.stageProgress[next] = 'available';
                         }
                     }
+                    const loot = Engine.generateLoot(adv.currentStage, ac.squad);
                     UI.pveLogConsole(`🏆 ¡VICTORIA!`, 'victory');
-                    setTimeout(() => { UI.showRewardModal(adv.currentStage); }, 400);
+                    setTimeout(() => { UI.showRewardModal(adv.currentStage, loot); }, 400);
                     return true;
                 } else if (result.defeat) {
                     adv.inCombat = false;
@@ -907,6 +918,14 @@ function initEvents() {
                 : '';
             if (result.hpDamage > 0 && dmgTargetSel) UI.spawnDmgFloat(dmgTargetSel, 'hp', result.hpDamage);
             if (result.defDamage > 0 && dmgTargetSel) UI.spawnDmgFloat(dmgTargetSel, 'def', result.defDamage);
+
+            // Combat hit animation: attacker slides forward, target shakes
+            if (result.acted && dmgTargetSel) {
+                const aSel = entry.isAlly
+                    ? `.party-member-card[data-index="${entry.slotIndex}"]`
+                    : `.squad-member-card[data-enemy-index="${entry.slotIndex}"]`;
+                UI.animatePvEHit(aSel, dmgTargetSel);
+            }
 
             // Ultimate animation
             if (result.ultimateUsed) {
@@ -980,10 +999,38 @@ function initEvents() {
         }
     });
 
-    // 🎁 Rewards claimed → show result overlay
-    document.addEventListener('rewardsClaimed', () => {
-        UI.showPvEResult('victory');
+    // 🎁 Rewards claimed → add to inventory + resources → show result
+    document.addEventListener('rewardsClaimed', (e) => {
+        const detail = e.detail || {};
+        const lootItems = detail.loot || [];
+        if (lootItems.length > 0) {
+            gameState.inventory.push(...lootItems);
+            UI.saveInventory(gameState.inventory);
+        }
+        const gold = detail.gold || 0;
+        const xp = detail.xp || 0;
+        if (gold > 0) gameState.resources.gold = (gameState.resources.gold || 0) + gold;
+        if (xp > 0) gameState.player.xp = (gameState.player.xp || 0) + xp;
+        updateHUD();
+        const adv = gameState.adventure;
+        const stages = ['1-1','1-2','1-3','1-4','1-5'];
+        const stageLabels = {'1-1':'The Awakening','1-2':'Goblin Woods','1-3':'Heart of the Woods','1-4':'Stone Bastion','1-5':"Warlord's Lair"};
+        const stgIdx = stages.indexOf(detail.stageId);
+        const party = adv.selectedTeam || [];
+        const nextStageId = (stgIdx >= 0 && stgIdx < stages.length - 1) ? stages[stgIdx + 1] : '';
+        const nextStageName = nextStageId ? `${nextStageId}: ${stageLabels[nextStageId] || ''}` : '';
+        UI.showPvEResult('victory', {
+            party,
+            stageName: `${detail.stageId}: ${stageLabels[detail.stageId] || 'Stage'}`,
+            nextStage: nextStageName
+        });
     });
+
+    // Cargar inventario desde localStorage
+    try {
+        const savedInv = UI.loadInventory();
+        if (savedInv.length > 0) gameState.inventory = savedInv;
+    } catch (e) {}
 
     // Restaurar última pestaña desde localStorage (solo activas)
     try {

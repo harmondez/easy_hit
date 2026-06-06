@@ -32,6 +32,10 @@
 - **El Manual Manda (RAG Anchor):** Toda nueva mecánica, carta o pasiva debe ser analizada rigurosamente frente al manual de diseño adjunto antes de escribir una sola línea de código.
 - **Protocolo de Snippets:** Al refactorizar, los agentes deben entregar únicamente las funciones modificadas completas, indicando explícitamente su punto de inserción para optimizar el contexto.
 - **Optimización de Assets:** El código visual debe priorizar formatos de imagen performantes (`WebP`), dimensiones estandarizadas y ratios estricto para asegurar tiempos de carga ínfimos.
+- **Tasa de Deploys Controlada:** No más de **8 pushes por hora** de trabajo agente. Los cambios deben acumularse en lotes antes de commitear. Un agente nunca hará más de 1 push cada 7.5 minutos.
+- **Presupuesto de Almacenamiento:** Toda persistencia en localStorage debe usar claves cortas (≤ 4 chars, ej. `hp`/`atq`/`def`/`vel`/`el`/`cls`/`pid`) y verificar cuota restante antes de escribir (`navigator.storage.estimate()`). Si cuota ≥ 80%, emitir advertencia visual.
+- **Silencio de Consola:** Cero errores/warnings en producción. `console.log` de debug se elimina en el despliegue (minificación tree-shake).
+- **Audio Sintetizado:** Prohibido usar archivos MP3/WAV. Todo sonido se genera con Web Audio API (`AudioContext.createOscillator` + `GainNode`). Peso total del módulo `sfx.js` < 2 KB.
 
 ## 🛠️ Stack Tecnológico de Producción
 

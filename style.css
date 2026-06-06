@@ -378,6 +378,17 @@ body {
     background: rgba(34, 197, 94, 0.2);
 }
 
+.map-node.active {
+    animation: mapNodePulse 2s ease-in-out infinite;
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+}
+
+@keyframes mapNodePulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.3); }
+    50% { box-shadow: 0 0 35px rgba(251, 191, 36, 0.7); }
+}
+
 .map-node.locked {
     filter: grayscale(0.8);
     opacity: 0.5;
@@ -390,6 +401,15 @@ body {
     border-color: #ef4444;
     box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
 }
+
+.adventure-hint {
+    text-align: center; padding: 10px 20px; margin-top: 12px;
+    background: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(251,191,36,0.05));
+    border: 1px solid rgba(251,191,36,0.3); border-radius: 10px;
+    color: var(--gold); font-size: 0.85rem; font-weight: 600;
+    animation: hintFadeIn 0.6s ease-out;
+}
+@keyframes hintFadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
 .adventure-sidebar {
     display: flex;
@@ -2398,7 +2418,8 @@ body {
    ============================================= */
 .pve-arena { display: none; flex-direction: column; gap: 15px; }
 .pve-arena.active { display: flex; }
-.pve-battlefield { display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: start; }
+.pve-battlefield { display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: start; background: rgba(15,23,42,0.5); border: 2px dashed #334155; border-radius: 16px; padding: 20px; position: relative; }
+.pve-battlefield::before { content: '⚔️ BATTLEFIELD'; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--bg-body); padding: 0 12px; font-size: 0.7rem; color: var(--text-dim); letter-spacing: 2px; }
 .pve-enemy-side { display: flex; justify-content: center; }
 .enemy-card-display {
     width: 240px; background: var(--bg-card);
@@ -2811,3 +2832,118 @@ body {
 .rarity-rare { color: #3b82f6; }
 .rarity-epic { color: #a78bfa; }
 .rarity-legendary { color: #fbbf24; }
+.rarity-mythic { color: #ff6b6b; text-shadow: 0 0 8px rgba(255,107,107,0.6); }
+
+/* =============================================
+   📖 STORY PANEL — Visual Novel Overlay
+   ============================================= */
+.story-panel-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); z-index: 1000;
+    display: flex; align-items: flex-end; justify-content: center;
+    cursor: pointer;
+}
+.story-panel-box {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px 16px 0 0;
+    width: 90%; max-width: 720px;
+    padding: 24px 28px 32px;
+    display: flex; gap: 20px;
+    cursor: default;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+}
+.story-portrait {
+    width: 100px; height: 140px; min-width: 100px;
+    border-radius: 12px;
+    background-size: cover; background-position: center;
+    border: 2px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.5rem;
+}
+.story-portrait-narrator { background: linear-gradient(135deg, #1a0533, #0d1b3e); border-color: #6366f1; }
+.story-portrait-unknown { background: linear-gradient(135deg, #1a1a2e, #0a0a0f); border-color: #6b7280; }
+.story-portrait-goblin { background: linear-gradient(135deg, #064e3b, #047857); border-color: #22c55e; }
+.story-portrait-warlord { background: linear-gradient(135deg, #450a0a, #991b1b); border-color: #ef4444; }
+.story-portrait-default { background: linear-gradient(135deg, #1e293b, #334155); border-color: #64748b; }
+.story-dialog {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+}
+.story-speaker {
+    font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;
+    color: #94a3b8; margin-bottom: 6px;
+}
+.story-text {
+    font-size: 1.05rem; line-height: 1.6;
+    color: #e2e8f0; margin: 0;
+    min-height: 3.2em;
+}
+.story-hint {
+    font-size: 0.75rem; color: #475569;
+    text-align: right; margin-top: 8px;
+    animation: pulse-hint 1.5s ease-in-out infinite;
+}
+@keyframes pulse-hint {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+@media (max-width: 600px) {
+    .story-panel-box { flex-direction: column; align-items: center; padding: 20px; }
+    .story-portrait { width: 80px; height: 100px; min-width: 80px; }
+    .story-text { font-size: 0.95rem; text-align: center; }
+    .story-speaker { text-align: center; }
+}
+
+/* =============================================
+   🎒 INVENTORY GRID
+   ============================================= */
+.inv-item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: default;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+.inv-item:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.2);
+    transform: translateY(-2px);
+}
+.inv-item-icon { font-size: 1.8rem; }
+.inv-item-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    text-align: center;
+    line-height: 1.2;
+}
+.pve-result-stage {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+.pve-result-stars {
+    font-size: 2rem;
+    margin: 8px 0;
+    letter-spacing: 6px;
+    min-height: 2.5rem;
+}
+.pve-result-next {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+.inv-item-rarity {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.05);
+}
