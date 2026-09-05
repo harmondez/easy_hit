@@ -1,19 +1,48 @@
 :root {
     --primary: #6366f1;
     --primary-hover: #4f46e5;
+    --primary-light: #818cf8;
+    --primary-glow: rgba(99, 102, 241, 0.45);
+
     --bg-main: #0f172a;
     --bg-card: #1e293b;
+    --bg-card-elevated: #253449;
     --bg-input: #0f172a;
+    --bg-panel: rgba(15, 23, 42, 0.55);
+
     --text-main: #f8fafc;
+    --text-light: #e2e8f0;
     --text-muted: #94a3b8;
     --text-dim: #64748b;
+
     --border-color: #334155;
+    --border-strong: #475569;
+
     --gold: #fbbf24;
+    --gold-hover: #f59e0b;
+    --gold-glow: rgba(251, 191, 36, 0.4);
+
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --success: #22c55e;
+    --success-hover: #16a34a;
+    --info: #3b82f6;
+
+    /* Rarezas: misma curva de luminosidad/croma vía oklch (matiz distinto por tier,
+       progresion perceptualmente uniforme en vez de hex elegidos al ojo). Cada bloque
+       repite el mismo custom property: el hex de arriba queda como fallback si el
+       navegador no soporta oklch() -- la declaracion invalida simplemente se ignora. */
     --rarity-common: #94a3b8;
+    --rarity-common: oklch(72% 0.02 250);
     --rarity-rare: #3b82f6;
+    --rarity-rare: oklch(65% 0.18 250);
     --rarity-epic: #a78bfa;
+    --rarity-epic: oklch(72% 0.16 300);
     --rarity-legendary: #fbbf24;
+    --rarity-legendary: oklch(82% 0.16 85);
     --rarity-mythic: #ff6b6b;
+    --rarity-mythic: oklch(68% 0.19 25);
+
     --hud-height: 64px;
     --tab-height: 48px;
 
@@ -22,6 +51,7 @@
     --art-height: 320px;
     --card-radius: 18px;
     --shadow-tcg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+    --shadow-elevated: 0 14px 34px -10px rgba(2, 6, 23, 0.65), 0 4px 14px rgba(2, 6, 23, 0.45);
 }
 
 html { scroll-behavior: smooth; }
@@ -29,7 +59,11 @@ html { scroll-behavior: smooth; }
 body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-main);
-    background-image: radial-gradient(circle at top right, #1e1b4b, transparent);
+    background-image:
+        radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.16), transparent 55%),
+        radial-gradient(circle at 0% 100%, rgba(6, 182, 212, 0.08), transparent 45%),
+        radial-gradient(circle at top right, #1e1b4b, transparent);
+    background-attachment: fixed;
     color: var(--text-main);
     margin: 0;
     min-height: 100vh;
@@ -44,9 +78,10 @@ body {
     position: sticky;
     top: 0;
     z-index: 100;
-    background: rgba(15, 23, 42, 0.95);
+    background: linear-gradient(180deg, rgba(20, 27, 48, 0.97), rgba(15, 23, 42, 0.94));
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 24px -16px rgba(2, 6, 23, 0.8);
     padding: 8px 24px;
     display: flex;
     align-items: center;
@@ -87,7 +122,7 @@ body {
 
 .hud-resource .icon { font-size: 1.1rem; }
 
-.hud-resource .value { color: var(--gold); min-width: 40px; }
+.hud-resource .value { color: var(--gold); min-width: 40px; text-shadow: 0 0 12px var(--gold-glow); }
 
 .hud-player {
     display: flex;
@@ -96,7 +131,8 @@ body {
 }
 
 .hud-level-badge {
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    box-shadow: 0 2px 8px var(--primary-glow);
     padding: 2px 10px;
     border-radius: 20px;
     font-size: 0.7rem;
@@ -141,17 +177,39 @@ body {
     transform: rotate(25deg);
 }
 
+.hud-settings-btn:active {
+    transform: rotate(25deg) scale(0.88);
+    transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .hud-settings-panel {
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
     width: 260px;
-    background: var(--bg-card, #1a1a1a);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(160deg, var(--bg-card-elevated), var(--bg-card));
+    border: 1px solid var(--border-strong);
     border-radius: 10px;
     padding: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: var(--shadow-elevated);
     z-index: 200;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px) scale(0.96);
+    transform-origin: top right;
+    pointer-events: none;
+    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0s linear 0.18s;
+}
+
+.hud-settings-panel.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hud-settings-desc {
@@ -163,9 +221,9 @@ body {
 
 .hud-settings-clear-btn {
     width: 100%;
-    background: #7f1d1d;
+    background: linear-gradient(135deg, #7f1d1d, #5f1414);
     color: #fecaca;
-    border: 1px solid #ef4444;
+    border: 1px solid var(--danger);
     border-radius: 8px;
     padding: 8px 10px;
     font-size: 0.8rem;
@@ -175,7 +233,7 @@ body {
 }
 
 .hud-settings-clear-btn:hover {
-    background: #991b1b;
+    background: linear-gradient(135deg, #991b1b, #7f1d1d);
 }
 
 /* =============================================
@@ -192,23 +250,41 @@ body {
     display: flex;
     justify-content: center;
     padding: 10px 20px 5px;
-    background: rgba(15, 23, 42, 0.6);
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.5));
     border-bottom: 1px solid rgba(51, 65, 85, 0.3);
 }
 
 .tabs {
-    background: rgba(30, 41, 59, 0.7);
+    position: relative;
+    background: linear-gradient(180deg, rgba(37, 52, 73, 0.75), rgba(30, 41, 59, 0.6));
     backdrop-filter: blur(10px);
     padding: 5px;
     border-radius: 12px;
     border: 1px solid var(--border-color);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 20px -12px rgba(2, 6, 23, 0.7);
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
     justify-content: center;
 }
 
+.tab-slider {
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 0;
+    height: 0;
+    background: var(--primary);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    opacity: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
 .tab-item {
+    position: relative;
+    z-index: 1;
     background: transparent;
     border: none;
     color: var(--text-muted);
@@ -226,10 +302,12 @@ body {
 
 .tab-item:hover { color: white; background: rgba(255,255,255,0.05); }
 
+.tab-item:active { transform: scale(0.94); transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1); }
+
 .tab-item.active {
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
     color: white;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 4px 14px var(--primary-glow);
 }
 
 .tab-item.locked {
@@ -340,6 +418,11 @@ body {
 
 .chest-lid:hover {
     transform: scale(1.1) rotate(-5deg);
+}
+
+.chest-lid:active {
+    transform: scale(0.95) rotate(-5deg);
+    transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .chest-lid.open {
@@ -661,8 +744,8 @@ body {
 }
 
 .tournament-slot {
-    background: var(--bg-card);
-    border: 2px dashed #475569;
+    background: linear-gradient(160deg, var(--bg-card-elevated), var(--bg-card));
+    border: 2px dashed var(--border-strong);
     border-radius: 10px;
     padding: 12px 8px;
     text-align: center;
@@ -718,18 +801,20 @@ body {
 }
 
 .btn-secondary {
-    background: #334155;
-    border: 1px solid #475569;
+    background: linear-gradient(160deg, var(--bg-card-elevated), var(--border-color));
+    border: 1px solid var(--border-strong);
     color: var(--text-light);
     padding: 10px 24px;
     border-radius: 8px;
     cursor: pointer;
     font-family: inherit;
     font-size: 0.9rem;
-    transition: background 0.2s, border-color 0.2s;
+    transition: background 0.2s, border-color 0.2s, transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.btn-secondary:hover { background: #475569; }
+.btn-secondary:hover { background: linear-gradient(160deg, var(--border-strong), var(--bg-card-elevated)); border-color: var(--primary-light); }
+
+.btn-secondary:active { transform: scale(0.96); }
 
 /* --- Bracket View --- */
 .tournament-rounds-container {
@@ -740,6 +825,24 @@ body {
     overflow-x: auto;
     padding: 20px 0;
     min-height: 400px;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) rgba(255,255,255,0.05);
+}
+
+.tournament-rounds-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+.tournament-rounds-container::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+}
+
+.tournament-rounds-container::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 4px;
 }
 
 .tournament-round-col {
@@ -748,6 +851,7 @@ body {
     gap: 12px;
     min-width: 180px;
     justify-content: space-around;
+    scroll-snap-align: start;
 }
 
 .tournament-round-title {
@@ -761,19 +865,20 @@ body {
 }
 
 .tournament-match-card {
-    background: var(--bg-card);
-    border: 1px solid #334155;
+    background: linear-gradient(160deg, var(--bg-card-elevated), var(--bg-card));
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 10px;
     font-size: 0.8rem;
+    box-shadow: 0 4px 14px -8px rgba(2, 6, 23, 0.7);
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.tournament-match-card.completed { border-color: #22c55e; }
+.tournament-match-card.completed { border-color: var(--success); }
 
 .tournament-match-card.active-match {
     border-color: var(--gold);
-    box-shadow: 0 0 12px rgba(250,204,21,0.3);
+    box-shadow: 0 0 14px var(--gold-glow);
 }
 
 .tournament-match-card .tm-fighter {
@@ -793,7 +898,7 @@ body {
 
 .tm-fighter .tm-name { font-weight: 500; color: var(--text-light); flex:1; }
 
-.tm-fighter.tm-winner .tm-name { color: #22c55e; font-weight: 700; }
+.tm-fighter.tm-winner .tm-name { color: var(--success); font-weight: 700; }
 
 .tm-fighter.tm-loser { opacity: 0.5; }
 
@@ -813,11 +918,12 @@ body {
 
 /* --- Tournament Log --- */
 .tournament-log {
-    background: var(--bg-card);
-    border: 1px solid #334155;
+    background: linear-gradient(160deg, var(--bg-card-elevated), var(--bg-card));
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 12px;
     margin-top: 16px;
+    box-shadow: 0 4px 14px -8px rgba(2, 6, 23, 0.7);
 }
 
 .tournament-log-title {
@@ -859,17 +965,18 @@ body {
 }
 
 .tournament-fighter-box {
-    background: var(--bg-card);
-    border: 2px solid #334155;
+    background: linear-gradient(160deg, var(--bg-card-elevated), var(--bg-card));
+    border: 2px solid var(--border-color);
     border-radius: 12px;
     padding: 16px;
     min-width: 240px;
     text-align: center;
     flex: 1;
     max-width: 320px;
+    box-shadow: var(--shadow-elevated);
 }
 
-.tournament-fighter-box.active-turn { border-color: var(--gold); }
+.tournament-fighter-box.active-turn { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-glow), var(--shadow-elevated); }
 
 .tournament-fighter-box .tf-img {
     width: 80px;
@@ -887,7 +994,8 @@ body {
 
 .tournament-fighter-box .tf-hp-bar {
     height: 10px;
-    background: #1e293b;
+    background: var(--bg-input);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
     border-radius: 6px;
     margin: 8px 0;
     overflow: hidden;
@@ -895,7 +1003,7 @@ body {
 
 .tf-hp-bar .tf-hp-fill {
     height: 100%;
-    background: linear-gradient(90deg, #22c55e, #16a34a);
+    background: linear-gradient(90deg, var(--success), var(--success-hover));
     border-radius: 6px;
     transition: width 0.4s ease;
 }
@@ -907,7 +1015,8 @@ body {
 
 .tournament-fighter-box .tf-fervor-bar {
     height: 6px;
-    background: #1e293b;
+    background: var(--bg-input);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
     border-radius: 4px;
     margin: 4px 0;
     overflow: hidden;
@@ -938,15 +1047,17 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 9999;
+    animation: modalFadeIn 0.3s ease;
 }
 
 .tournament-champion-card {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
+    background: linear-gradient(135deg, var(--bg-card-elevated), var(--bg-main));
     border: 3px solid var(--gold);
     border-radius: 20px;
     padding: 40px;
     text-align: center;
     max-width: 420px;
+    box-shadow: 0 0 50px var(--gold-glow), var(--shadow-elevated);
     animation: champion-pop 0.5s ease-out;
 }
 
@@ -1242,7 +1353,16 @@ body {
 .full-width { grid-column: 1 / -1; }
 
 .section-header { margin-bottom: 25px; }
-.section-header h2 { margin: 0; font-size: 1.5rem; }
+.section-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    background: linear-gradient(120deg, var(--text-main) 55%, var(--primary-light));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: var(--text-main);
+    width: fit-content;
+}
 .section-header p { color: var(--text-muted); font-size: 0.9rem; margin: 5px 0 0; }
 
 .form-grid {
@@ -1263,8 +1383,9 @@ body {
 }
 
 .input-field {
-    background: var(--bg-input);
+    background: linear-gradient(180deg, rgba(2, 6, 23, 0.6), var(--bg-input));
     border: 1px solid var(--border-color);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
     color: white;
     padding: 12px 16px;
     border-radius: 10px;
@@ -1313,8 +1434,8 @@ body {
 .custom-file-btn:hover .icon { transform: scale(1.2) rotate(5deg); }
 
 .input-field:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    border-color: var(--primary-light);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 3px var(--primary-glow);
 }
 
 .stats-workshop {
@@ -1370,20 +1491,27 @@ body {
 .btn-forge {
     width: 100%;
     padding: 16px;
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary-light), var(--primary) 70%);
     color: white;
     border: none;
     border-radius: 12px;
     font-weight: 700;
     font-size: 1rem;
     cursor: pointer;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 6px 16px -6px rgba(2, 6, 23, 0.7);
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .btn-forge:hover:not(:disabled) {
-    background: var(--primary-hover);
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover) 70%);
     transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 10px 20px -5px var(--primary-glow);
+}
+
+.btn-forge:active:not(:disabled) {
+    transform: translateY(0) scale(0.97);
+    box-shadow: 0 2px 6px -2px rgba(99, 102, 241, 0.4);
+    transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-forge:disabled {
@@ -1393,12 +1521,12 @@ body {
 }
 
 .btn-forge.btn-finish {
-    background: #ef4444;
-    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+    background: linear-gradient(135deg, #f87171, var(--danger) 70%);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 0 18px rgba(239, 68, 68, 0.45);
 }
 
 .btn-forge.btn-next {
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary-light), var(--primary) 70%);
     box-shadow: none;
 }
 
@@ -1480,12 +1608,12 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: #1a1a1a;
+    background: #10141f;
     background-image: url('https://www.transparenttextures.com/patterns/dark-leather.png');
-    border: 2px solid #333;
+    border: 2px solid var(--border-color);
     margin: 6px;
     border-radius: 4px;
-    color: #e2e8f0;
+    color: var(--text-light);
 }
 
 .card-header-inner h3 {
@@ -1505,7 +1633,7 @@ body {
     text-transform: uppercase;
     letter-spacing: 2px;
     margin-bottom: 8px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--border-color);
     padding-bottom: 4px;
 }
 
@@ -1517,8 +1645,8 @@ body {
 }
 
 .stat-box {
-    background: linear-gradient(145deg, #262626, #171717);
-    border: 1px solid #444;
+    background: linear-gradient(145deg, var(--bg-card-elevated), var(--bg-input));
+    border: 1px solid var(--border-strong);
     padding: 8px 4px;
     border-radius: 4px;
     font-size: 0.9rem;
@@ -1950,10 +2078,11 @@ body {
     justify-content: space-between;
     align-items: flex-start;
     gap: 15px;
-    background: rgba(15, 23, 42, 0.4);
+    background: linear-gradient(160deg, rgba(37, 52, 73, 0.55), rgba(15, 23, 42, 0.55));
     padding: 20px;
     border-radius: 15px;
     border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-elevated);
 }
 
 .fighter-select {
@@ -2010,8 +2139,8 @@ body {
     flex-wrap: wrap;
     gap: 6px;
     padding: 8px;
-    background: rgba(15, 23, 42, 0.85);
-    border-top: 1px solid var(--border-color);
+    background: linear-gradient(0deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.8));
+    border-top: 1px solid var(--border-strong);
     font-size: 0.7rem;
     font-family: 'Courier New', monospace;
     align-items: center;
@@ -2027,9 +2156,9 @@ body {
     margin-bottom: 2px;
 }
 
-.arena-fighter-stats .stat-hp { color: #ef4444; font-weight: 700; }
-.arena-fighter-stats .stat-atq { color: #f59e0b; font-weight: 700; }
-.arena-fighter-stats .stat-def { color: #3b82f6; font-weight: 700; }
+.arena-fighter-stats .stat-hp { color: var(--danger); font-weight: 700; }
+.arena-fighter-stats .stat-atq { color: var(--gold-hover); font-weight: 700; }
+.arena-fighter-stats .stat-def { color: var(--info); font-weight: 700; }
 
 /* .combat-console (unificado — consultar línea ~1703 para el estilo completo) */
 
@@ -2103,18 +2232,28 @@ body {
 
 .cromo-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 14px;
+    /* Fluid track: an explicit numeric minmax() floor (not the keyword `auto`) so tracks
+       size from available space, not from item content — see the min-width note on
+       .cromo-card below for why that distinction is what actually fixes uneven columns.
+       ~5 columns at a ~1400px desktop viewport, reflowing gracefully at other widths. */
+    grid-template-columns: repeat(auto-fill, minmax(clamp(150px, 15vw, 182px), 1fr));
+    gap: 20px;
 }
 
 .cromo-card {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 8px;
+    gap: 9px;
+    padding: 12px;
+    /* Grid items default to `min-width: auto`, which resolves to the item's min-content
+       size. Without this override, .cromo-name's `white-space: nowrap` leaked its full
+       unwrapped text width into that min-content contribution, so whichever column held
+       the longest hero name that row got sized to fit it instead of an equal share of the
+       track — that's what made some .cromo-art tiles render visibly larger than others. */
+    min-width: 0;
     background: linear-gradient(160deg, rgba(30, 41, 59, 0.9), rgba(2, 6, 23, 0.9));
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: 14px;
     cursor: pointer;
     transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -2143,6 +2282,10 @@ body {
     position: relative;
     width: 100%;
     aspect-ratio: 3 / 4;
+    /* Belt-and-suspenders: never let the flex column compress this away from its
+       aspect-ratio-derived height if a sibling (name/stats) ever needs more room
+       than the card's stretched height provides. */
+    flex-shrink: 0;
     border-radius: 8px;
     overflow: hidden;
     background: radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--accent, #6366f1) 35%, #0f172a), #020617);
@@ -2159,30 +2302,30 @@ body {
 
 .cromo-art.cromo-art-fallback::after {
     content: attr(data-icon);
-    font-size: 2.6rem;
+    font-size: 4.2rem;
     filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.6));
 }
 
 .cromo-element-badge,
 .cromo-class-badge {
     position: absolute;
-    top: 4px;
-    width: 20px;
-    height: 20px;
+    top: 8px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: rgba(2, 6, 23, 0.75);
     border-radius: 50%;
-    font-size: 0.7rem;
+    font-size: 1.05rem;
     line-height: 1;
 }
 
-.cromo-element-badge { left: 4px; }
-.cromo-class-badge { right: 4px; }
+.cromo-element-badge { left: 8px; }
+.cromo-class-badge { right: 8px; }
 
 .cromo-name {
-    font-size: 0.72rem;
+    font-size: 1.05rem;
     font-weight: 700;
     text-align: center;
     white-space: nowrap;
@@ -2193,13 +2336,29 @@ body {
 
 .cromo-stats {
     display: flex;
-    justify-content: space-between;
-    font-size: 0.6rem;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.9rem;
     font-family: 'Courier New', monospace;
 }
 
+.cromo-stat b {
+    margin-right: 6px;
+    letter-spacing: 0.5px;
+}
+
+.cromo-stat.atk { color: #f59e0b; }
+.cromo-stat.hp { color: #ef4444; }
+.cromo-stat.def { color: #49BBEB; }
+
 .library-detail-view {
-    background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+    /* The panel is wide and short, so a single centered radial-gradient barely shows its
+       lighter stop before the edge — it read as a flat, muddy gray slab next to the
+       colorful album above. Layering a soft accent glow on top gives it the same
+       glassmorphism depth as the rest of the UI even at this aspect ratio. */
+    background:
+        radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--primary) 20%, transparent) 0%, transparent 65%),
+        radial-gradient(circle at center, #1e293b 0%, #020617 100%);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 30px;
@@ -2207,6 +2366,17 @@ body {
     gap: 30px;
     align-items: center;
     justify-content: center;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 0 50px rgba(2, 6, 23, 0.5);
+}
+
+.library-detail-view .empty-state-msg {
+    color: var(--text-dim);
+    text-align: center;
+    letter-spacing: 0.3px;
+}
+
+.library-detail-view .empty-state-msg span {
+    filter: drop-shadow(0 0 16px color-mix(in srgb, var(--primary) 60%, transparent));
 }
 
 .detail-art-container {
@@ -2225,15 +2395,15 @@ body {
 .mini-card-slot {
     position: relative;
     height: 200px;
-    border: 2px solid #1e293b;
+    border: 2px solid var(--bg-card);
     border-radius: 12px;
-    background: radial-gradient(circle, #1e293b 0%, #020617 100%);
+    background: radial-gradient(circle, var(--bg-card) 0%, #020617 100%);
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     margin-top: 15px;
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 4px 14px -8px rgba(2, 6, 23, 0.7);
 }
 
 .arena-fighter-img {
@@ -2265,7 +2435,7 @@ body {
 .hp-bar-fill {
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, #ef4444, #dc2626);
+    background: linear-gradient(90deg, var(--danger), var(--danger-hover));
     border-radius: 4px;
     transition: width 0.4s ease-out;
 }
@@ -2407,7 +2577,7 @@ body {
     }
 
     .cromo-grid {
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(clamp(120px, 24vw, 160px), 1fr));
     }
 
     .library-detail-view.showcase-mode .card-visual {
@@ -2462,7 +2632,7 @@ body {
     }
 
     .cromo-grid {
-        grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(clamp(90px, 28vw, 120px), 1fr));
         gap: 10px;
     }
 
@@ -3550,7 +3720,7 @@ body {
     right: 20px;
     background: none;
     border: none;
-    color: #888;
+    color: var(--text-dim);
     font-size: 1.5rem;
     cursor: pointer;
     transition: color 0.2s;
@@ -3570,7 +3740,7 @@ body {
 }
 
 .hero-picker-subtitle {
-    color: #aaa;
+    color: var(--text-muted);
     margin-bottom: 20px;
     font-size: 0.95rem;
 }
@@ -3588,7 +3758,7 @@ body {
 
 .hero-picker-card {
     background: linear-gradient(145deg, #1a1a2e, #16213e);
-    border: 2px solid #333;
+    border: 2px solid var(--border-color);
     border-radius: 12px;
     padding: 14px;
     cursor: pointer;
@@ -3612,7 +3782,7 @@ body {
 
 .hero-picker-card .hpc-desc {
     font-size: 0.78rem;
-    color: #999;
+    color: var(--text-dim);
     margin-bottom: 8px;
     line-height: 1.3;
 }
@@ -3622,7 +3792,7 @@ body {
     gap: 8px;
     justify-content: center;
     font-size: 0.75rem;
-    color: #ccc;
+    color: var(--text-light);
     flex-wrap: wrap;
 }
 
@@ -3686,7 +3856,7 @@ body {
     gap: 12px;
     padding: 10px 14px;
     background: #1a1a2e;
-    border: 2px solid #333;
+    border: 2px solid var(--border-color);
     border-radius: 10px;
     transition: all 0.3s;
     position: relative;
@@ -3735,7 +3905,7 @@ body {
 .og-phase-desc {
     flex: 1;
     font-size: 0.78rem;
-    color: #999;
+    color: var(--text-dim);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3774,7 +3944,7 @@ body {
 .single-arena-card {
     width: 240px;
     background: linear-gradient(145deg, #1a1a2e, #16213e);
-    border: 2px solid #333;
+    border: 2px solid var(--border-color);
     border-radius: 14px;
     padding: 16px;
     text-align: center;
@@ -3799,12 +3969,12 @@ body {
     height: 80px;
     border-radius: 50%;
     margin: 0 auto 8px;
-    background: #222;
+    background: var(--bg-input);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 2.2rem;
-    border: 2px solid #444;
+    border: 2px solid var(--border-strong);
 }
 
 .single-arena-card.hero-card .sac-avatar {
@@ -3824,14 +3994,14 @@ body {
 
 .single-arena-card .sac-element {
     font-size: 0.75rem;
-    color: #888;
+    color: var(--text-dim);
     margin-bottom: 6px;
 }
 
 .single-arena-card .sac-hp-bar {
     width: 100%;
     height: 10px;
-    background: #333;
+    background: var(--border-color);
     border-radius: 5px;
     overflow: hidden;
     margin-bottom: 6px;
@@ -3846,7 +4016,7 @@ body {
 
 .single-arena-card .sac-hp-text {
     font-size: 0.8rem;
-    color: #ccc;
+    color: var(--text-light);
     margin-bottom: 6px;
 }
 
@@ -3855,7 +4025,7 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 2px 8px;
     font-size: 0.78rem;
-    color: #aaa;
+    color: var(--text-muted);
 }
 
 .single-arena-card .sac-stats .s {
@@ -3995,7 +4165,7 @@ body {
 }
 
 .upgrade-modal-sub {
-    color: #aaa;
+    color: var(--text-muted);
     margin-bottom: 20px;
     font-size: 0.9rem;
 }
@@ -4011,7 +4181,7 @@ body {
 .upgrade-card {
     width: 190px;
     background: linear-gradient(145deg, #1a1a2e, #16213e);
-    border: 2px solid #444;
+    border: 2px solid var(--border-strong);
     border-radius: 14px;
     padding: 18px 14px;
     text-align: center;
@@ -4039,7 +4209,7 @@ body {
 
 .upgrade-card .uc-desc {
     font-size: 0.8rem;
-    color: #999;
+    color: var(--text-dim);
     line-height: 1.3;
 }
 
@@ -4093,7 +4263,7 @@ body {
 
 .item-drop-stats {
     font-size: 0.85rem;
-    color: #ccc;
+    color: var(--text-light);
     margin-bottom: 16px;
     line-height: 1.5;
 }
@@ -4125,11 +4295,11 @@ body {
 }
 
 .item-drop-btns .btn-skip {
-    background: #555;
+    background: linear-gradient(160deg, var(--bg-card-elevated), var(--border-color));
 }
 
 .item-drop-btns .btn-skip:hover {
-    background: #777;
+    background: linear-gradient(160deg, var(--border-strong), var(--bg-card-elevated));
 }
 
 /* =============================================
@@ -4186,14 +4356,14 @@ body {
 }
 
 .run-result-desc {
-    color: #aaa;
+    color: var(--text-muted);
     font-size: 0.9rem;
     margin-bottom: 16px;
 }
 
 .run-result-stats {
     font-size: 0.85rem;
-    color: #ccc;
+    color: var(--text-light);
     margin-bottom: 6px;
 }
 
@@ -4206,12 +4376,12 @@ body {
 }
 
 .run-result-items .rri {
-    background: #222;
-    border: 1px solid #444;
+    background: var(--bg-input);
+    border: 1px solid var(--border-strong);
     border-radius: 6px;
     padding: 4px 10px;
     font-size: 0.78rem;
-    color: #ccc;
+    color: var(--text-light);
 }
 
 .run-result-btn {
@@ -4245,9 +4415,9 @@ body {
 }
 
 .run-result-btn.btn-quit {
-    background: #555;
+    background: linear-gradient(160deg, var(--bg-card-elevated), var(--border-color));
 }
 
 .run-result-btn.btn-quit:hover {
-    background: #777;
+    background: linear-gradient(160deg, var(--border-strong), var(--bg-card-elevated));
 }

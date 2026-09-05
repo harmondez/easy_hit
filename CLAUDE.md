@@ -25,7 +25,7 @@ LOCKED_SECTIONS   = []
 
 | Modo | Qué es | Visible en nav |
 |------|--------|:---:|
-| **Library** | Página de entrada de la app. Muestra los 32 campeones oficiales jugables (`OFFICIAL_CARDS`) — ya no la colección personal vacía. | ✅ (es el estado inicial) |
+| **Library** | Página de entrada de la app. Muestra los 22 campeones oficiales jugables (`OFFICIAL_CARDS`), cada uno con una pasiva distinta — ya no la colección personal vacía. | ✅ (es el estado inicial) |
 | **Coliseo** ("Duelos" en la UI) | 1v1 simultáneo (ambos golpean cada ronda), Fervor/Ultimate, pasivas completas. | ✅ |
 | **Torneo** | Bracket de 16 luchadores, siembra aleatoria, eliminación simple. | ✅ |
 | **Creator** | Formulario para forjar cartas propias. | 🚫 oculto |
@@ -35,7 +35,7 @@ LOCKED_SECTIONS   = []
 | **Shop** | Paquetes de cartas y recursos. | 🚫 oculto |
 
 ### Library como onboarding
-`displayCards()`/`selectLibraryCard()`/`handleDeleteCard()` (`ui.js`) ahora leen de `Engine.getAllPlayableCards()` (cartas personales + los 32 oficiales) en vez de solo `Engine.cards`. Las cartas oficiales (`card._official === true`) no se pueden borrar — `renderCardDetail()` muestra un badge "Official Champion" en vez del botón `DISMANTLE HERO`, y `handleDeleteCard()` rechaza el borrado igual por si se invoca directo.
+`displayCards()`/`selectLibraryCard()`/`handleDeleteCard()` (`ui.js`) ahora leen de `Engine.getAllPlayableCards()` (cartas personales + los 22 oficiales) en vez de solo `Engine.cards`. Las cartas oficiales (`card._official === true`) no se pueden borrar — `renderCardDetail()` muestra un badge "Official Champion" en vez del botón `DISMANTLE HERO`, y `handleDeleteCard()` rechaza el borrado igual por si se invoca directo.
 
 ## Aventura = roguelike de héroe único
 
@@ -121,6 +121,8 @@ Este archivo describía hasta hace poco una campaña de equipo 5v5 con mapa de n
 
 Después de eso se quitó el stat VEL de todo el juego y se volvió al combate simultáneo 1v1 original de Easy Hit (recuperado del historial de git, commit `3779a84`, de antes de que VEL/turnos llegaran en `06b6821`) — pero conservando Fervor y las Ultimates, que el diseño original no tenía. `buildTurnOrder`, `resolveCombatTurn`, `resolveEnemyTurn` y `findTarget` se eliminaron de `engine.js`; los reemplazan `resolveSimultaneousRound` (Coliseo/Torneo) y `resolveAdventureRound` (Aventura). La barra de orden de turno (`renderTurnBar`) y los highlights de turno activo (`setActiveHighlight`) se retiraron de `ui.js` por quedar sin uso. De paso se encontró y arregló un bug real que había quedado de la limpieza anterior: `clearPvETurnHighlights` usaba una variable `_dimmed` que se había borrado sin querer junto a código muerto — lanzaba `ReferenceError` cada vez que se llamaba en combate de Aventura.
 
-Después de eso se decidió volver a enfocar el juego en su identidad original: duelos 1v1 entre campeones ya hechos, no creación de cartas propias. Se ocultó `Creator` (y `Gallery`, que quedó redundante), Library pasó a mostrar el roster completo de campeones oficiales como pantalla de bienvenida, y se completó el roster de 19 a **32 campeones** (`OFFICIAL_CARDS`, ver `cartas-ideas.md` para el criterio de diseño de las piezas nuevas). De paso se ocultaron también `Adventure`/`Inventory`/`Shop` — solo quedan visibles Library, Coliseo (etiqueta de UI "Duelos") y Torneo (etiqueta de UI "Torneo"). Nada de este código se borró, solo se quitó de `ACTIVE_SECTIONS` y se ocultaron los botones de tab — reactivar cualquiera de estos modos es tan simple como revertir esos dos puntos.
+Después de eso se decidió volver a enfocar el juego en su identidad original: duelos 1v1 entre campeones ya hechos, no creación de cartas propias. Se ocultó `Creator` (y `Gallery`, que quedó redundante), Library pasó a mostrar el roster completo de campeones oficiales como pantalla de bienvenida, y se completó el roster de 19 a 32 campeones (`OFFICIAL_CARDS`, ver `cartas-ideas.md` para el criterio de diseño de las piezas nuevas). De paso se ocultaron también `Adventure`/`Inventory`/`Shop` — solo quedan visibles Library, Coliseo (etiqueta de UI "Duelos") y Torneo (etiqueta de UI "Torneo"). Nada de este código se borró, solo se quitó de `ACTIVE_SECTIONS` y se ocultaron los botones de tab — reactivar cualquiera de estos modos es tan simple como revertir esos dos puntos.
+
+Más tarde el roster se recortó a **22 campeones**: cada una de las 22 pasivas de carta (`passiveNames` en `ui.js`) quedó asignada a exactamente un héroe, sin duplicados y sin ningún héroe sin pasiva. Se retiraron 10 cartas que repetían una pasiva ya usada por otra (Ashenclaw, Riptide, Circuit, Halcyon, Ferrox, Nerezza, Skarn, Coralynn, Thistle, Aurelian); Krondor pasó de `prog_scale_stats` (duplicada) a `orc_warlord` (la única pasiva que no tenía carta asignada). Library, Coliseo y Torneo ahora reflejan ese roster de 22 — si se quiere volver a 32 o rediseñar la asignación, el historial de git conserva la versión anterior de `OFFICIAL_CARDS`.
 
 `ideas-agents.md` tiene conceptos de posibles roles de agentes especializados para el futuro (no un pipeline obligatorio, solo ideas). `ideas-easyhit.md` tiene observaciones de auditoría (qué reutilizar/quitar/añadir). `cartas-ideas.md` tiene 10 diseños de cartas especiales con prompts de imagen. `Plan_12_fases.md` tiene el roadmap de fases con más detalle de lo que falta.

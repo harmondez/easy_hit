@@ -1,5 +1,5 @@
-import { cards } from './engine.js?v=20260907a';
-import * as Engine from './engine.js?v=20260907a';
+import { cards } from './engine.js?v=20260907d';
+import * as Engine from './engine.js?v=20260907d';
 
 function esc(str) {
     if (!str) return '';
@@ -73,7 +73,83 @@ export const passiveNames = {
     'fen_antimatter': 'Overkill: Detona su núcleo al morir (Victoria Negativa)',
     'anti_armor': 'Anti-Armor: +50% ATQ contra objetivos con DEF > 0',
     'armor_piercing': 'Armor Piercing: Ignora 50% de la DEF enemiga',
-    'orc_warlord': 'Warlord: Bloquea el primer golpe y entra en furia'
+    'orc_warlord': 'Warlord: Bloquea el primer golpe y entra en furia',
+
+    // --- Easy Hit ACT (héroes originales) — texto de pasiva copiado tal cual, sin lógica de combate todavía ---
+    'orig_hades': 'Suma atributos enemigos unidos en Vida. El ataque que deje a vida negativa sumará 1000 de daño',
+    'orig_shadow_hunter': 'Dobla sus atributos si el enemigo NO es humano',
+    'orig_guardian_de_la_puerta': 'DEF +300 si el enemigo es HUMANO',
+    'orig_malmortius': 'Cada ronda añade el 40% del mejor atributo enemigo, como vida',
+    'orig_tirzah': 'Quita cartas hasta obtener un arma o un apoyo',
+    'orig_caperucita_vanessa': 'INBLOQUEABLE. Pasiva de la siguiente carta +50%',
+    'orig_kikuri': 'Elimina Pasivas y bloquea el primer turno',
+    'orig_gioconda_y_muerte': 'El primer golpe recibido absorbe como DEF. La pasiva enemiga se reduce un 50%',
+    'orig_rey_altajerjes': 'Genera +75 POT y +75 DEF por turno',
+    'orig_kaligula': 'Bloquea el primer y el último turno. +1000 de vida al final del combate',
+    'orig_valkyria': 'El golpe que la lleva a la muerte lo absorbe como vida y lo devuelve',
+    'orig_ares': 'Potencia armas y apoyos x2. INBLOQUEABLE',
+    'orig_skorteo': 'El 50% del daño recibido se convierte en DEF. Si le bloquean o reflejan, hace lo mismo con el mismo % enemigo',
+    'orig_siseron': 'Coge el 100% de la pasiva de 2 héroes',
+    'orig_angosto_vackhir': 'Bloquea el primer turno y -20 DEF enemiga por turno',
+    'orig_incorporeo': 'Absorbe el 50% de los atributos enemigos. El reflejo recibido cura x2',
+    'orig_pisro_lan': '+15 POT y +15 Vida por ronda',
+    'orig_bruneleski': 'Bloquea el primer turno y lo refleja al 90%',
+    'orig_freewolf': 'Dobla sus atributos si el enemigo es humano. INBLOQUEABLE',
+    'orig_mago_de_rivenhelm': 'Crea 2 hologramas de 10 POT y 10 Vida',
+    'orig_maestro_xin': 'Gana potencia según el porcentaje de la POT enemiga',
+    'orig_ghaz_rankha': 'Bloquea el primer ataque y lo suma a su vida y defensa',
+    'orig_aristoteles': '20% prob. ganar, 30% prob. +40 POT, 50% prob. +20 Vida',
+    'orig_chronos': '+150 Vida y +150 DEF por ronda, y refleja el 40%',
+    'orig_johann': 'Si bloquean su ataque, -80% potencia enemiga. INBLOQUEABLE',
+    'orig_olher': 'Elimina la pasiva rival y se la queda con 50% de aumento',
+    'orig_giberti_de_luz': 'Refleja el 50% del daño y lo absorbe como Potencia en el siguiente turno',
+    'orig_cubano_heep': 'Refleja el daño al 90%',
+    'orig_armadillo_del_armaggedon': 'Extrae la defensa enemiga x3',
+    'orig_thrillseeker': 'El reflejo lo cura. Las incapacitaciones se revierten. Añade el 40% del total de atributos enemigos como POT',
+    'orig_akriloth_rojo': 'Refleja el 200% del daño el primer turno. Elimina Inbloqueables',
+    'orig_ripblood': 'Vida enemiga x3. INBLOQUEABLE',
+    'orig_katarina': 'El primer golpe refleja el 100%, bloquea y suma la POT enemiga. INBLOQUEABLE',
+    'orig_jaegger': 'Extrae 100 de vida por turno',
+    'orig_borgeck_haman': 'Absorbe el reflejo como vida. Absorbe el segundo golpe y lo implanta en POT',
+    'orig_sheorida': 'Bloquea los dos primeros ataques rivales y aguanta el golpe de muerte',
+    'orig_agente_nina': 'Antes de aplicar pasivas, causa 250 de daño al enemigo',
+    'orig_asesino_del_origami': '50% de posibilidad de matar al enemigo en el primer turno',
+    'orig_sombra_orianna': '75% de posibilidad de esquivar el ataque. INBLOQUEABLE',
+    'orig_kira': 'Triplica el bonus de armas y apoyos. Destruye el apoyo enemigo',
+    'orig_princesa_valyria': 'Si el enemigo bloquea algún ataque, Valyria lo matará',
+    'orig_perforadora_z': 'Bloquea el primer ataque y copia la POT enemiga',
+    'orig_laocont': 'Cuando muere deja 3 crías de 500 ATQ y 1 de Vida cada una',
+    'orig_anatreonte': 'Duplica su vida por cada turno transcurrido',
+    'orig_stark': 'Cada golpe extrae 20 de vida traspasando defensas',
+    'orig_solomon_kane': 'Vuelve a resucitar con POT y Vida invertida',
+    'orig_general_najenda': 'Refleja el 200% del daño y elimina la pasiva',
+    'orig_arquera_del_zen': 'Cada turno regenera un 50% del daño recibido',
+    'orig_tuarek_miravaille': 'Bloquea el 50% de daño por turno',
+    'orig_gilgamesh_miravaille': 'Bloquea y refleja el 100% del daño el primer turno',
+    'orig_zyra_miravaille': 'Refleja el 50% del daño recibido además de bloquear el primer turno',
+    'orig_helen_miravaille': 'Aumenta sus atributos en un 30% por turno',
+    'orig_exodia': 'Sube la POT y la DEF según el 50% del atributo más alto enemigo repartido equitativamente. Si lo bloquean, +2000 Vida',
+    'orig_lady_flemeth': 'La potenciación enemiga se revertirá en su contra',
+    'orig_omega': 'Regenera el 50% del daño recibido. El golpe que la lleva a la muerte lo devuelve sumando el daño total recibido en batalla',
+    'orig_sacred_del_vacio': 'Cada turno regenera un 50% del daño recibido',
+    'orig_natsuki_del_vacio': 'Cada turno regenera un 50% del daño recibido',
+    'orig_didack_del_vacio': 'Cada turno regenera un 50% del daño recibido',
+    'orig_aatrox': 'Invoca a 2 dragones de 1000 Vida y 500 POT',
+    'orig_amateratsu': 'El golpe que lleva a la muerte no ataca, pero absorbe el daño como Vida',
+    'orig_theradeus': 'Suma la Vida enemiga y refleja el 35% del daño recibido',
+    'orig_cerberus': 'La defensa se regenera al final de cada turno. El primer daño causado por pasivas se convierte en POT x1,5',
+    'orig_libelula': 'Cada turno hay un 50% de probabilidad de doblar sus atributos',
+    'orig_riven': 'Cada turno regenera un 50% del daño recibido',
+    'orig_zero': 'El daño por pasiva se invierte. Refleja el 50% del daño recibido. Cuando muere, resucita con 1 de vida',
+    'orig_selene': 'Cada turno regenera un 50% del daño recibido',
+    'orig_misha': 'Cada turno regenera un 50% del daño recibido',
+    'orig_charlie': 'Cada turno regenera un 50% del daño recibido',
+    'orig_tera': 'Cada turno regenera un 50% del daño recibido',
+    'orig_megan': 'Cada turno regenera un 50% del daño recibido',
+    'orig_xen': 'La potenciación enemiga se reduce un 70%. El daño de pasiva se reduce un 70%. Si bloquean o reflejan su ataque, +2000 DEF',
+    'orig_myrmidon': 'Refleja el 75% del daño recibido. Cuando muere, 50% de probabilidad de resucitar con 2000 de vida',
+    'orig_zombie': 'Al segundo turno transforma al enemigo en Zombie',
+    'orig_drakonnan': 'Su defensa y su vida no se auto regeneran jamás. INBLOQUEABLE'
 };
 
 // --- 🛠️ FUNCIONES DE INTERFAZ Y NAVEGACIÓN ---
@@ -197,7 +273,46 @@ export function showSection(section) {
         default:
             console.warn(`showSection: sección '${section}' no reconocida.`);
     }
+
+    moveTabIndicator(section);
 }
+
+/**
+ * Desliza el indicador de pestaña activa (fondo tipo "pill") hasta la
+ * posición del botón de la sección dada. Puramente decorativo: si el tab
+ * está oculto (display:none, p.ej. Creator/Aventura) no hace nada.
+ */
+function moveTabIndicator(section) {
+    const slider = document.getElementById('tabSlider');
+    const btn = document.getElementById(`tab-${section}`);
+    if (!slider || !btn || btn.offsetWidth === 0) return;
+
+    const left = btn.offsetLeft;
+    const top = btn.offsetTop;
+    const width = btn.offsetWidth;
+    const height = btn.offsetHeight;
+
+    if (typeof gsap !== 'undefined') {
+        try {
+            gsap.to(slider, { left, top, width, height, opacity: 1, duration: 0.35, ease: "power3.out" });
+            return;
+        } catch (e) {}
+    }
+    slider.style.left = `${left}px`;
+    slider.style.top = `${top}px`;
+    slider.style.width = `${width}px`;
+    slider.style.height = `${height}px`;
+    slider.style.opacity = '1';
+}
+
+let _tabIndicatorResizeTimer = null;
+window.addEventListener('resize', () => {
+    clearTimeout(_tabIndicatorResizeTimer);
+    _tabIndicatorResizeTimer = setTimeout(() => {
+        const activeBtn = document.querySelector('.tab-item.active');
+        if (activeBtn) moveTabIndicator(activeBtn.id.replace('tab-', ''));
+    }, 120);
+});
 
 // --- ⚔️ SECCIÓN DEL COLISEO ---
 
@@ -431,9 +546,9 @@ function renderCromoCard(card) {
         </div>
         <div class="cromo-name">${esc(card.name)}</div>
         <div class="cromo-stats">
-            <span style="color:#ef4444">❤️${card.hp}</span>
-            <span style="color:#49BBEB">🛡️${card.def}</span>
-            <span style="color:#f59e0b">⚔️${card.atq}</span>
+            <div class="cromo-stat atk"><b>ATK</b> ${card.atq}</div>
+            <div class="cromo-stat hp"><b>HP</b> ${card.hp}</div>
+            <div class="cromo-stat def"><b>DEF</b> ${card.def}</div>
         </div>
     </div>`;
 }
@@ -1596,6 +1711,14 @@ export function renderTournamentBracket(bracket) {
             }).join('')}
         </div>
     `).join('');
+
+    if (typeof gsap !== 'undefined') {
+        try {
+            gsap.from(container.querySelectorAll('.tournament-match-card'), {
+                opacity: 0, y: 12, duration: 0.35, stagger: 0.04, ease: "power2.out"
+            });
+        } catch (e) {}
+    }
 }
 
 export function renderTournamentMatch(f1, f2, round, matchNum) {

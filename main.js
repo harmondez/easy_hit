@@ -1,6 +1,6 @@
-import * as UI from './ui.js?v=20260907a';
-import * as Engine from './engine.js?v=20260907a';
-import * as Narrator from './narrator.js?v=20260907a';
+import * as UI from './ui.js?v=20260907d';
+import * as Engine from './engine.js?v=20260907d';
+import * as Narrator from './narrator.js?v=20260907d';
 
 // Expose for debugging / browser tests
 window.Engine = Engine;
@@ -85,7 +85,7 @@ const LOCKED_SECTIONS = [];
 // 'creator', 'gallery', 'adventure', 'inventory' y 'shop' siguen en SECTION_WHITELIST
 // (el código y las secciones no se tocan, nada se borra) pero se quitaron de ACTIVE_SECTIONS
 // y sus tabs están ocultos en index.html. Solo quedan visibles Library, Duelos (coliseo) y
-// Torneo (tournament) — Library absorbió el rol de mostrar el roster de 32 campeones jugables.
+// Torneo (tournament) — Library absorbió el rol de mostrar el roster de 22 campeones jugables.
 
 const onSectionEnter = {
     library: () => { UI.displayCards(); },
@@ -304,13 +304,13 @@ function initEvents() {
     safeListener('btnSettings', 'click', (e) => {
         e.stopPropagation();
         const panel = document.getElementById('settingsPanel');
-        if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        if (panel) panel.classList.toggle('open');
     });
     document.addEventListener('click', (e) => {
         const panel = document.getElementById('settingsPanel');
         const wrapper = e.target.closest('.hud-settings-wrapper');
-        if (panel && panel.style.display !== 'none' && !wrapper) {
-            panel.style.display = 'none';
+        if (panel && panel.classList.contains('open') && !wrapper) {
+            panel.classList.remove('open');
         }
     });
     safeListener('btnClearData', 'click', () => {
@@ -591,6 +591,7 @@ function initEvents() {
         const result = Engine.resolveSimultaneousRound(t.matchF1, t.matchF2);
 
         if (result.f1Result) {
+            if (result.f1Result.hpDamage > 0 || result.f1Result.defDamage > 0) UI.playHitAnimation('#tBox-2', false);
             if (result.f1Result.hpDamage > 0) UI.spawnDmgFloat('#tBox-2', 'hp', result.f1Result.hpDamage);
             if (result.f1Result.defDamage > 0) UI.spawnDmgFloat('#tBox-2', 'def', result.f1Result.defDamage);
             if (result.f1Result.ultimateUsed) {
@@ -599,6 +600,7 @@ function initEvents() {
             }
         }
         if (result.f2Result) {
+            if (result.f2Result.hpDamage > 0 || result.f2Result.defDamage > 0) UI.playHitAnimation('#tBox-1', false);
             if (result.f2Result.hpDamage > 0) UI.spawnDmgFloat('#tBox-1', 'hp', result.f2Result.hpDamage);
             if (result.f2Result.defDamage > 0) UI.spawnDmgFloat('#tBox-1', 'def', result.f2Result.defDamage);
             if (result.f2Result.ultimateUsed) {

@@ -11,7 +11,7 @@
 
 **No packs. No pulls. No luck. Just simultaneous clashes, Fervor, and the champion you picked.**
 
-Easy Hit is a simultaneous-combat tactical card RPG that runs entirely in your browser — no server, no build step, no gacha. Pick any of the 32 official champions and every fighter's power comes from how its stats were distributed across a hard budget and which passive it was paired with — never from luck.
+Easy Hit is a simultaneous-combat tactical card RPG that runs entirely in your browser — no server, no build step, no gacha. Pick any of the 22 official champions and every fighter's power comes from how its stats were distributed across a hard budget and which passive it was paired with — never from luck.
 
 [▶ Play Now](https://harmondez.github.io/easy_hit/) · [Report a Bug](https://github.com/harmondez/easy_hit/issues) · [Game Modes](#-game-modes) · [Combat System](#%EF%B8%8F-combat-system)
 
@@ -47,7 +47,7 @@ Easy Hit currently ships as a focused 1v1 experience: pick a champion, fight. Th
 
 | Mode | Description | Status |
 |------|-------------|:------:|
-| **📚 Library** | Landing page — browse all 32 official champions, full stats, passive, and ultimate for each | ✅ Live (default screen) |
+| **📚 Library** | Landing page — browse all 22 official champions, full stats, passive, and ultimate for each | ✅ Live (default screen) |
 | **⚔️ Duelos** (Coliseum) | 1v1 arena — simultaneous rounds, full passive resolution, live combat log | ✅ Live |
 | **🏆 Torneo** (Tournament) | 16-fighter bracket, randomized seeding, single elimination, champion crowning | ✅ Live |
 | **🏗️ Forge** | Build custom cards with live stat sliders, elements, classes, passives, and image cropping | 🚧 Hidden — code intact |
