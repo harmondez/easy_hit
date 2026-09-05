@@ -1,6 +1,6 @@
-import * as UI from './ui.js';
-import * as Engine from './engine.js';
-import * as Narrator from './narrator.js';
+import * as UI from './ui.js?v=20260906a';
+import * as Engine from './engine.js?v=20260906a';
+import * as Narrator from './narrator.js?v=20260906a';
 
 // Expose for debugging / browser tests
 window.Engine = Engine;
@@ -298,6 +298,28 @@ function initEvents() {
         safeListener(`tab-${section}`, 'click', () => {
             UI.showComingSoon(section);
         });
+    });
+
+    // --- ⚙️ SETTINGS: borrar datos y empezar de nuevo ---
+    safeListener('btnSettings', 'click', (e) => {
+        e.stopPropagation();
+        const panel = document.getElementById('settingsPanel');
+        if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+    document.addEventListener('click', (e) => {
+        const panel = document.getElementById('settingsPanel');
+        const wrapper = e.target.closest('.hud-settings-wrapper');
+        if (panel && panel.style.display !== 'none' && !wrapper) {
+            panel.style.display = 'none';
+        }
+    });
+    safeListener('btnClearData', 'click', () => {
+        const sure = confirm('¿Borrar todos los datos guardados (cartas propias, inventario, oro, progreso) y empezar de nuevo? Esto no se puede deshacer.');
+        if (!sure) return;
+        ['easyHitLibrary', 'easyHitLastTab', 'eh_save', 'inv', 'easyHitGallery'].forEach(key => {
+            try { localStorage.removeItem(key); } catch (e) {}
+        });
+        location.reload();
     });
 
     // --- ✍️ CREADOR: FEEDBACK EN TIEMPO REAL ---

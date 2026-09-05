@@ -119,6 +119,65 @@ body {
     transition: width 0.4s ease;
 }
 
+.hud-settings-wrapper {
+    position: relative;
+    margin-left: 8px;
+}
+
+.hud-settings-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    font-size: 1rem;
+    cursor: pointer;
+    color: var(--text-light);
+    transition: transform 0.2s, background 0.2s;
+}
+
+.hud-settings-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: rotate(25deg);
+}
+
+.hud-settings-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 260px;
+    background: var(--bg-card, #1a1a1a);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 200;
+}
+
+.hud-settings-desc {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    line-height: 1.4;
+    margin: 0 0 12px;
+}
+
+.hud-settings-clear-btn {
+    width: 100%;
+    background: #7f1d1d;
+    color: #fecaca;
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.hud-settings-clear-btn:hover {
+    background: #991b1b;
+}
+
 /* =============================================
    📌 HEADER (mantenido por compatibilidad)
    ============================================= */

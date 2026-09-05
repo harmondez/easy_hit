@@ -82,6 +82,24 @@ python -m http.server 8765 --bind 127.0.0.1 --directory "I:\easy_hit"
 ```
 `npm run dev` / `npm run start` ya lo hacen. Los ES6 modules rompen bajo `file://`.
 
+## Cache-busting en GitHub Pages (IMPORTANTE al deployar)
+
+GitHub Pages/los navegadores cachean `main.js`/`ui.js`/`engine.js`/`narrator.js` de forma agresiva y por separado del `index.html`. Ya pasó dos veces en la misma sesión: el usuario veía pestañas viejas o `Library` mostrando solo cartas personales porque su navegador tenía un `ui.js` cacheado de antes del cambio, aunque el `index.html` sí se hubiera actualizado.
+
+Mitigación: todos los `import`/`<script src>` entre módulos llevan un query string de versión compartido (hoy `?v=20260906a`) —
+```
+index.html:  <script type="module" src="main.js?v=20260906a"></script>
+main.js:     import * as UI from './ui.js?v=20260906a';
+             import * as Engine from './engine.js?v=20260906a';
+             import * as Narrator from './narrator.js?v=20260906a';
+ui.js:       import { cards } from './engine.js?v=20260906a';
+             import * as Engine from './engine.js?v=20260906a';
+engine.js:   import * as narrate from './narrator.js?v=20260906a';
+```
+**Regla:** cada vez que se deploye un cambio real en `engine.js`/`ui.js`/`main.js`/`narrator.js`, bump el string de versión en los 6 lugares de una vez (deben ser todos idénticos — si `main.js` y `ui.js` importan `engine.js` con versiones distintas, ES modules los trata como dos instancias separadas del módulo con estado duplicado, lo cual rompe `Engine.cards`/`gallery`). Los tests con servidor propio (`uifixes.test.mjs`, `inventory.test.mjs`) ya recortan el query string al resolver el archivo (`req.url.split('?')[0]`) — si se agrega otro test con su propio mini-servidor HTTP, hay que hacer lo mismo o los `import` con `?v=` van a fallar con "Engine is not defined".
+
+Además hay un botón de Settings (⚙️, en el HUD superior) que borra `localStorage` (`easyHitLibrary`, `easyHitLastTab`, `eh_save`, `inv`, `easyHitGallery`) y recarga — sirve para datos de juego corruptos/viejos, pero **no** sustituye el cache-busting de arriba (no puede forzar al navegador a re-descargar los `.js` ya cacheados).
+
 ## Tests (`tests/`, todos en Node)
 
 | Archivo | Qué prueba |

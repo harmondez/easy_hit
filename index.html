@@ -30,6 +30,13 @@
                 <div class="hud-xp-fill" id="hudXpFill" style="width:0%"></div>
             </div>
         </div>
+        <div class="hud-settings-wrapper">
+            <button type="button" class="hud-settings-btn" id="btnSettings" title="Settings">⚙️</button>
+            <div class="hud-settings-panel" id="settingsPanel" style="display:none;">
+                <p class="hud-settings-desc">Si algo se ve raro (cartas viejas, datos que no cuadran), esto limpia todo y recarga desde cero.</p>
+                <button type="button" class="hud-settings-clear-btn" id="btnClearData">🗑️ Borrar datos y empezar de nuevo</button>
+            </div>
+        </div>
     </div>
 
     <!-- =============================================
@@ -576,7 +583,7 @@
          📜 SCRIPTS
          ============================================= -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
-    <script type="module" src="main.js"></script>
+    <script type="module" src="main.js?v=20260906a"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 
 </body>

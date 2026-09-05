@@ -1,5 +1,5 @@
-import { cards } from './engine.js';
-import * as Engine from './engine.js';
+import { cards } from './engine.js?v=20260906a';
+import * as Engine from './engine.js?v=20260906a';
 
 function esc(str) {
     if (!str) return '';
