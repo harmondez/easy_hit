@@ -21,22 +21,13 @@
         <div class="hud-resources">
             <span class="hud-resource">
                 <span class="icon">🪙</span>
-                <span class="value" id="hudGold">1250</span>
-            </span>
-            <span class="hud-resource">
-                <span class="icon">💎</span>
-                <span class="value" id="hudGems">80</span>
-            </span>
-            <span class="hud-resource">
-                <span class="icon">⚡</span>
-                <span class="value" id="hudEnergy">45</span>
-                <span style="color:var(--text-dim);font-size:0.75rem;">/100</span>
+                <span class="value" id="hudGold">0</span>
             </span>
         </div>
         <div class="hud-player">
-            <span class="hud-level-badge" id="hudLevel">LVL 7</span>
+            <span class="hud-level-badge" id="hudLevel">LVL 1</span>
             <div class="hud-xp-bar">
-                <div class="hud-xp-fill" id="hudXpFill" style="width:70%"></div>
+                <div class="hud-xp-fill" id="hudXpFill" style="width:0%"></div>
             </div>
         </div>
     </div>
@@ -373,46 +364,6 @@
                 </div>
 
                 <div class="adventure-sidebar">
-                    <div class="adventure-mission-card">
-                        <h3 style="margin:0 0 10px;font-size:0.95rem;">Current Mission</h3>
-                        <p style="color:var(--text-dim);font-size:0.85rem;" id="currentMission">Clear Stage 1 to proceed</p>
-                        <div class="mission-rewards">
-                            <span>🪙 <b id="missionGoldReward">50</b></span>
-                            <span>💎 <b id="missionGemReward">5</b></span>
-                            <span>⚡ <b id="missionEnergyReward">10</b></span>
-                        </div>
-                    </div>
-
-                    <!-- ⚔️ Altar de Incursiones (Raid Boss) -->
-                    <div class="raid-altar" id="raidAltar">
-                        <h3 style="margin:0 0 15px;font-size:0.95rem;color:#ef4444;">⚔️ Raid Altar</h3>
-                        <div class="raid-boss-card">
-                            <div class="raid-boss-visual" id="raidBossVisual" style="background-image:url('https://via.placeholder.com/150?text=BOSS');"></div>
-                            <h4 id="raidBossName" style="margin:5px 0;color:#ef4444;">The Colossal Warden</h4>
-                            <div class="raid-boss-stats">
-                                <span>❤️ <b id="raidBossHP">50000</b></span>
-                                <span>🛡️ <b id="raidBossDEF">2000</b></span>
-                                <span>⚔️ <b id="raidBossATQ">3500</b></span>
-                            </div>
-                            <p style="font-size:0.75rem;color:var(--text-dim);" id="raidBossPassive">Passive: Fortress — Reduces 30% of incoming damage</p>
-                        </div>
-                        <div class="raid-party">
-                            <div class="raid-fighter-slot" id="raidFighterSlot1">
-                                <span style="font-size:1.5rem;">👤</span>
-                                <span>Slot 1</span>
-                            </div>
-                            <div class="raid-fighter-slot" id="raidFighterSlot2">
-                                <span style="font-size:1.5rem;">👤</span>
-                                <span>Slot 2</span>
-                            </div>
-                            <div class="raid-fighter-slot" id="raidFighterSlot3">
-                                <span style="font-size:1.5rem;">👤</span>
-                                <span>Slot 3</span>
-                            </div>
-                        </div>
-                        <button id="btnRaidAttack" class="btn-forge" disabled>⚔️ ASSAULT (Unlock in Phase 3)</button>
-                    </div>
-
                     <!-- 📖 Códice de Dropeo -->
                     <div class="codex-container" id="dropCodex">
                         <div class="codex-header">

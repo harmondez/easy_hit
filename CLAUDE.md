@@ -1,158 +1,100 @@
-# 🏗️ PROJECT: EASY HIT (Architect Harmondez Edition)
+# Easy Hit — Tactical Card RPG
 
-## 🎯 VISION & ARCHITECTURE
-- **Goal:** High-fidelity 2D tactical card RPG with client-side zero latency, turn-based combat (VEL initiative), Fervor/Ultimate resource system, and addictive PvE campaign progression inspired by *Heroes of Camelot*.
-- **Environment:** 100% static client deployment compatible with **GitHub Pages**. No backend dependencies.
-- **Tech Stack:** Vanilla JS (ES6 Modules), GSAP (Animation Engine), Cropper.js (Image handling), CSS3 (Flexbox/Grid/Glassmorphism).
-- **System Architecture:** 3-module structural separation — no circular dependencies:
-  - `engine.js`: Pure mathematics, turn order/resolution, 18 passive abilities, 6 ultimates, squad calculations, victory conditions, enemy rosters, localStorage persistence + validation.
-  - `ui.js`: Presentation layer, DOM manipulation, card preview, image cropping, turn bar, fervor bars, damage floats, animations, reward modal, library/inventory rendering, XSS sanitization (`esc()`).
-  - `main.js`: System initialization, global state machine (`transitionState`), event delegation, tab navigation, coliseum combat handler, PvE adventure handler, reward flow.
+## Qué es esto
 
----
+Juego de cartas táctico 2D, 100% cliente (sin backend), pensado para GitHub Pages. Vanilla JS (ES6 Modules), GSAP para animación, Cropper.js para el arte de las cartas, CSS3 (Grid/Flexbox/glassmorphism). Sin build step.
 
-## ⚔️ COMBAT FLOWS (Step-by-Step)
+## Arquitectura: 4 módulos, sin dependencias circulares
 
-### 1. Arena Mode (1v1 Coliseum)
-1. **Initiation:** Two fighters selected from `#selectF1`/`#selectF2`. Cards deep-cloned via `JSON.parse(JSON.stringify())`. `buildTurnOrder()` creates queue sorted by VEL descending.
-2. **Turn Loop** (via `#btnNextRound`):
-   - **Step A:** Dequeue next combatant from turn queue.
-   - **Step B:** `applyRoundStartPassives()` triggers (double_strike, shield_recharge, init_poison, etc.).
-   - **Step C:** `procesarAtaque(attacker, defender)` calculates damage via `calcularDetalleDaño()` — DEF absorbs first, remaining goes to HP. Minimum 10 HP damage guaranteed.
-   - **Step D:** Fervor gain: attacker gets `FERVOR_PER_ATTACK` (1), defender flagged with `_wasHit` → gets `FERVOR_PER_HIT` (1) on their OWN next turn start.
-   - **Step E:** If attacker Fervor = 10 → Ultimate fires (piercing/poison/multiplier).
-   - **Step F:** `processPostDamagePassives()` handles reflect, block_heal, hp_convert, def_convert.
-   - **Step G:** `verifyVictory()` checks if either fighter HP ≤ 0 (including revived case).
-3. **Resolution:** Winner declared. `showRewardModal()` in PvE mode.
+- **`engine.js`** (~1500 líneas) — matemáticas puras de combate: turnos por VEL, Fervor/Ultimates, pasivas, validación de cartas, persistencia en `localStorage`, datos de contenido (cartas oficiales, loot, ítems, mejoras, torneo). No toca el DOM.
+- **`ui.js`** (~2100 líneas) — capa de presentación: renderizado DOM, cropping de imágenes, barras de turno/fervor, animaciones, modales de recompensa, inventario, torneo, y todo el roguelike de Aventura. Sanitiza HTML dinámico con `esc()`.
+- **`main.js`** (~1300 líneas) — orquestador: máquina de estados (`transitionState`), delegación de eventos, y los tres flujos de combate (Coliseo, Torneo, Aventura).
+- **`narrator.js`** (204 líneas) — capa de flavor text: traduce eventos de combate (`engine.js` los invoca vía `import * as narrate`) a frases del battle log, sin saber nada de DOM.
 
-### 2. Campaign Mode (5v5 PvE)
-1. **Map:** Canvas with nodes 1-1 through 1-5. Sequential unlock progression. Energy cost per attempt.
-2. **Team Selection:** `#teamSelectionOverlay` — pick up to 5 cards from library.
-3. **Combat** (via `#btnPvENextTurn`):
-   - Same `resolveCombatTurn()` function handles both Coliseum and PvE.
-   - Turn queue includes 5 allies + up to 5 enemies (interleaved by VEL).
-   - Allies target by `findFirstAliveIndex(enemies)`, enemies target by `findFirstAliveIndex(party)`.
-   - `verifyPartyVictory()` checks all enemies dead (victory) or all allies dead (defeat).
-4. **Post-Combat:** `showRewardModal()` with gold/XP/items. `CustomEvent('rewardsClaimed')` triggers result overlay.
+Si algo en este documento choca con lo que ves en el código al momento de trabajar, el código manda — avísame y lo corregimos juntos en vez de asumir que la doc tiene razón.
 
----
+## Los modos de juego (estado real, no aspiracional)
 
-## 📜 THE GOLDEN RULES (NEVER BREAK)
-
-1. **The 7400 Balance:** `HP + DEF + ATQ + (VEL × 2) ≤ 7400`. VEL range 50–500 with `VEL_WEIGHT = 2`. `validateCardStats()` and `saveCard()` enforce hard reject (blocks saving, shake error, alert). Bosses are structurally exempt.
-2. **Mythic Threshold:** Any card with total stats ≥ 7400 gets premium CSS visual effects (gold glow, mythic border).
-3. **Combat Math:** Damage reduces DEF first (shield). Once DEF ≤ 0, remaining damage reduces HP. Guaranteed minimum 10 HP damage per hit (desgaste). Supports overkill tracking via negative HP.
-4. **Turn Order:** Strictly sorted by VEL descending. Interleaved (not team blocks). All combatants get exactly one action per round.
-5. **Fervor Economy:** MAX_FERVOR=10. +1 on turn start, +1 on attacking, +1 when attacked (applied on defender's NEXT turn via `_wasHit` flag). Ultimate auto-fires at 10.
-6. **Defensive DOM:** Every DOM lookup guarded: `if (element) { ... }`. All events via `safeListener()`. All innerHTML via `esc()` sanitizer.
-7. **No Placeholders:** Deliver complete functions ready for integration, never `// the rest remains the same`.
-
----
-
-## 🌐 LOCAL DEVELOPMENT PROTOCOL (CORS BYPASS)
-
-ES6 Modules require a local HTTP server — `file://` protocol breaks CORS.
-- **Staging:** `python -m http.server 8765 --directory "I:\easy_hit"` or `npx http-server -p 8765`.
-- **Tests:** Point Playwright to `http://localhost:8765/index.html`.
-- **Verification:** `Get-Process -Name "python" -ErrorAction SilentlyContinue`
-
----
-
-## 🧠 CONTEXT SKILLS (Workflow Commands)
-- `skill:update_root`: Read all 3 modules and update this CLAUDE.md status.
-- `skill:forge_check`: Validate that a new card or passive doesn't break the 7400 balance.
-- `skill:combat_test`: Run a mental simulation of a combat log to verify math accuracy.
-
----
-
-## 📂 MODULE MAP
-
-### `engine.js` (~666 lines)
-- **System Constants:** `MAX_FERVOR=10`, `STAT_LIMIT=7400`, `VEL_WEIGHT=2`, `VEL_MIN=50`, `VEL_MAX=500`, `FERVOR_PER_TURN/ATTACK/HIT`.
-- **ULTIMATE_DB:** 6 entries — cataclysm_nova (×3.0 Fuego), storm_judgment (piercing + ×2.5), verdant_wrath (poison), temporal_vortex (×2.0 disable), celestial_barrier (×0.8 team shield), nether_strike (×2.5 true damage).
-- **Combat Engine:** `buildTurnOrder(party, enemies)`, `resolveCombatTurn(state)`, `procesarAtaque(atk, def, ...)`, `calcularDetalleDaño()`, `verifyVictory()`, `verifyPartyVictory()`.
-- **Passive System:** `applyRoundStartPassives()` — 8 round-start passives (prog_drain_def, double_strike, shield_recharge, init_poison, gen_steal_stats, prog_scale_stats, fen_revive, nem_element_ward). `processPostDamagePassives()` — 6 post-damage passives (abs_reflect, abs_def_convert, abs_hp_convert, gen_block_heal, life_leech, void_void).
-- **Card Lifecycle:** `initializeCard()`, `validateCardStats()`, `saveCard()`, `deleteCard()`, `importCards()`, `loadLibrary()`, `syncStorage()`.
-- **Rosters:** `ENEMY_ROSTER` (coliseum opponents), `ENEMY_SQUAD_ROSTER` (5v5 squads with VEL), `getSquadForStage()`.
-
-### `ui.js` (~1590 lines)
-- **Sanitization:** `esc(s)` — replaces `&<>"'` with HTML entities.
-- **Dictionaries:** `elementConfigs` (Fire/Water/Lightning/Nature), `classIcons` (6 classes), `passiveNames` (18 passives).
-- **Navigation:** `showSection(section)` — hides/shows sections via `ALL_SECTION_IDS`, tab active states.
-- **Card Preview:** `updatePreview(img)`, `updateRemainingPoints()` — real-time stat feedback with VEL.
-- **Library:** `displayCards(searchTerm)`, `renderCardDetail(card)`, `window.selectLibraryCard(id)`.
-- **Coliseum:** `renderSelector()`, `renderArenaFighters()`, `refreshFighterStats()`, `setActiveHighlight()`, `clearActiveHighlight()`.
-- **Combat UI:** `renderTurnBar(queue, currentIdx)` (2A), fervor bars (2B), `spawnDmgFloat()` (2D), `playUltimateAnimation()` (2E), `playDeathAnimation()` (2E), `animateCombatHit()` (2E).
-- **PvE:** `renderPvEArena(arena)`, `fillTeamSlot()`, `openCardPicker()`, `closeCardPicker()`.
-- **Rewards:** `showRewardModal(rewards)` (2F) — `CustomEvent('rewardsClaimed')`.
-- **Image:** `handleFileSelect(e)`, `applyCrop(callback)`, `resetCropperData()`.
-- **Export/Import:** `exportarBiblioteca()`, `importarBiblioteca()`.
-- **Utilities:** `logConsole()`, `updateHUD()`, `showComingSoon()`.
-- **Known issue:** `fen_antimatter` passive is listed in HTML `<select>` but has no engine logic.
-
-### `main.js` (~746 lines)
-- **State:** `gameState` — resources (gold/gems/energy), currentSection, coliseumCombat, adventureCombat, adventure progress.
-- **Navigation:** `ACTIVE_SECTIONS = ['library', 'creator', 'coliseo', 'adventure']`, `LOCKED_SECTIONS = ['inventory', 'shop']`.
-- **Transition:** `transitionState(target)` — GSAP fade, section switch, enter/exit hooks.
-- **Creator:** `saveCardBtn` click handler — validates name, stats (7400), saves via Engine.
-- **Coliseum:** `processColiseumTurn()` — draws from turn queue, resolves combat, checks victory.
-- **Adventure:** `startPvE()` — loads squad, builds turn queue, `processPvETurn()` — resolves combat, checks party victory, shows reward modal.
-- **Hooks:** `onSectionEnter['adventure']` renders map, `onSectionEnter['library']` refreshes cards.
-
----
-
-## 🚀 CURRENT FOCUS: FASE 03 — Story Panels + Loot Tables
-
-**Next Milestones:**
-- Phase 03: Story panels between stages, loot table drops, stage polish
-- Phase 04: Boss Altar dedicated UI
-- Phase 05: Inventory grid (unlock `#tab-inventory`)
-- Phase 06: Card Forge (fusion + upgrade)
-
-See `Plan_12_fases.md` for full roadmap.
-
----
-
-## 🛠️ ENGINEERING STANDARDS (Quality & Efficiency)
-- **DRY:** Only output specific functions/lines that changed. Use search/replace edits.
-- **Defensive Programming:** Always validate inputs. Clone combat cards via `JSON.parse(JSON.stringify())`. Guard DOM with `if (el)`.
-- **Pure Functions:** `engine.js` math is DOM-independent. Takes inputs, returns values.
-- **Concise Code:** Prefer ternary operators and arrow functions.
-- **No Hallucinations:** If a variable isn't in scope, ASK before inventing.
-
-## 📉 TOKEN SAVING PROTOCOLS
-1. **Brief Responses:** Skip conversational fluff. Go straight to code or technical explanation.
-2. **Context Awareness:** Do not re-explain the 7400 rule unless logic changes.
-3. **Diffs over Full Rewrites:** Search/replace format for code updates.
-4. **Selective Context:** Read `ui.js` for visual tasks, `engine.js` for mathematical tasks.
-
----
-
-## 📂 APPLICATION STATE & ROUTING (SPA)
-
-### Navigation Matrix
-```javascript
-ACTIVE_SECTIONS = ['library', 'creator', 'coliseo', 'adventure']
-LOCKED_SECTIONS = ['inventory', 'shop']
-ALL_SECTION_IDS = ['section-library', 'creatorMainGroup', 'section-coliseo',
-                   'section-adventure', 'section-inventory', 'section-shop']
+`main.js` define qué pestañas existen y cuáles están bloqueadas:
+```js
+SECTION_WHITELIST = ['library','creator','coliseo','adventure','gallery','tournament','inventory','shop']
+ACTIVE_SECTIONS   = ['library','creator','coliseo','adventure','gallery','tournament','inventory']
+LOCKED_SECTIONS   = ['shop']   // toast "Coming soon" al hacer click
 ```
 
-- **Locked sections** (`inventory`, `shop`) show `showComingSoon()` toast.
-- `transitionState()` uses GSAP fade transitions via `onSectionEnter`/`onSectionExit` hooks.
+| Modo | Qué es | Estado |
+|------|--------|--------|
+| **Creator** | Formulario para forjar cartas: sliders de HP/DEF/ATQ/VEL, elemento, clase, pasiva, recorte de imagen. | Activo |
+| **Library** | Buscar/gestionar la biblioteca de cartas propias. | Activo |
+| **Gallery** | Roster de cartas oficiales pre-forjadas (`OFFICIAL_CARDS`). | Activo |
+| **Coliseo** | 1v1 con turnos por VEL, Fervor/Ultimate, pasivas completas. | Activo |
+| **Torneo** | Bracket de 16 luchadores, siembra aleatoria, eliminación simple. | Activo |
+| **Aventura** | Roguelike de héroe único (ver abajo). | Activo — es la dirección oficial del modo Aventura |
+| **Inventory** | Grid de ítems/materiales con filtros por categoría. | Activo |
+| **Shop** | Paquetes de cartas y recursos. | Bloqueado |
 
-### Adventure Campaign State
-```javascript
-gameState.adventure = {
-  currentStage: '1-1',
-  selectedTeam: [],      // max 5 cards
-  activeEnemySquad: [],  // enemies from getSquadForStage()
-  stageProgress: { '1-1': 'available', '1-2': 'locked', ... '1-5': 'locked' },
-  turnCount: 0
-}
+## Aventura = roguelike de héroe único
+
+Esto **reemplazó** un diseño anterior de campaña de equipo 5v5 con mapa de nodos y story panels. Ese código fue retirado (ver "Historia reciente" abajo) — si buscas `renderMapNodes`, `showStoryPanel`, `renderTeamSelection`, etc., ya no existen.
+
+Flujo real (`main.js`, bloque "🎯 Roguelike Run — State Machine"):
+1. **Lobby** (`UI.renderAdventureLobby`) → botón `#btnSelectHero` → `UI.renderHeroPicker` para elegir una carta de la biblioteca como héroe.
+2. **Organigrama** (`UI.renderOrganigrama`) — muestra los nodos del run actual (`Engine.RUN_TEMPLATES['run-1']`: 6 nodos — combate/combate/upgrade/combate/combate/boss).
+3. Nodo de **combate** → `Engine.getEnemyForRunNode` + `buildTurnOrder` → turnos con `executeNormalAttack`/`executeUltimateAttack`/`resolveEnemyTurn`, pociones de curación/fervor (`healPotions`/`fervorPotions`), pasivas de run (`Engine.RUN_PASSIVE_DB`: `bloodthirst`, `thornmail`, `precision`, `second_wind`, `poison_strikes`).
+4. Nodo de **upgrade** → `Engine.getUpgradeChoices`/`applyUpgrade` (pool: `atk_up`, `def_up`, `hp_up`, `vel_up`, más las 5 pasivas de run, más `new_ultimate`).
+5. Victoria de nodo → `Engine.getItemDrop`/`ITEM_DB` (armas y armaduras por rareza: common/rare/epic) → equipar con `equipItem`.
+6. Fin del run → `UI.renderRunComplete` o, si el héroe muere sin `second_wind` disponible, `UI.renderRunGameOver`.
+
+`Engine.getRunNode`/`getRunProgress` existen y tienen test propio (`tests/run-sim.mjs`) pero **no están conectados a la UI todavía** — candidatos naturales para un indicador "nodo X de Y" en `renderOrganigrama`, si se quiere en el futuro.
+
+## Combate: reglas que no cambian sin querer
+
+1. **Balance de 7400**: `HP + DEF + ATQ + (VEL × 2) ≤ 7400`. `VEL` entre 50 y 500, `VEL_WEIGHT = 2`. `validateCardStats()`/`saveCard()` rechazan el guardado si se excede. Los jefes están exentos por diseño.
+2. **Umbral Mítico**: cualquier carta con stats totales ≥ 7400 recibe el CSS premium (glow dorado, borde mítico).
+3. **Daño**: golpea DEF primero (escudo); al llegar a 0, el resto va a HP. Mínimo garantizado de 10 HP de desgaste por golpe.
+4. **Turnos**: orden estricto por VEL descendente, intercalado (no por equipos).
+5. **Fervor**: `MAX_FERVOR = 10`. +1 al iniciar turno, +1 al atacar, +1 al ser atacado (se aplica en el turno propio siguiente vía flag `_wasHit`). Al llegar a 10, la Ultimate se dispara sola.
+6. **DOM defensivo**: todo lookup con `if (el) {...}`, eventos vía `safeListener()`, todo `innerHTML` dinámico pasa por `esc()`.
+7. **Sin placeholders**: entregar funciones completas, nunca `// resto sigue igual`.
+
+### Ultimates (`ULTIMATE_DB`, 7 entradas)
+`cataclysm_nova`, `tidal_reckoning`, `storm_judgment`, `verdant_wrath`, `void_rend`, `radiance_purge` (jugables) + `enemy_smash` (solo enemigos del roguelike).
+
+### Pasivas de carta (`passiveNames` en `ui.js`, 22 entradas)
+Familias: Génesis (`gen_block_heal`, `gen_reflect_full`, `gen_steal_stats`), Némesis (`nem_xenophobia`, `nem_dragon_slayer`, `nem_element_ward`), Progresión (`prog_scale_stats`, `prog_venom`, `prog_drain_def`), Reactivas (`double_strike`, `life_leech`, `shield_recharge`), Post-daño (`abs_def_convert`, `abs_hp_convert`, `abs_reflect`), Fénix (`fen_revive`, `fen_berserker`, `fen_last_stand`, `fen_antimatter`), especiales (`anti_armor`, `armor_piercing`, `orc_warlord`). Todas tienen lógica real en `engine.js` — no hay pasivas fantasma pendientes.
+
+## Persistencia
+
+`localStorage`, todo protegido con `try/catch`:
+- `easyHitLibrary` — biblioteca de cartas del jugador.
+- `easyHitLastTab` — última pestaña visitada.
+- `eh_save` — oro, nivel, XP, inventario, pociones de run (`_savePlayerData`/`_loadPlayerData`).
+- `inv` — inventario en esquema compacto (`UI.saveInventory`/`loadInventory`).
+
+## Local dev (bypass de CORS para ES Modules)
+
+```bash
+python -m http.server 8765 --bind 127.0.0.1 --directory "I:\easy_hit"
 ```
+`npm run dev` / `npm run start` ya lo hacen. Los ES6 modules rompen bajo `file://`.
 
-### Test Suite
-- `tests/engine.unit.mjs` — 58 Node.js unit tests (pure engine logic, injects to globalThis).
-- `tests/browser.test.mjs` — Playwright integration tests (requires `python -m http.server 8765`).
-- Run with: `node tests/engine.unit.mjs` / `node tests/browser.test.mjs`.
+## Tests (`tests/`, todos en Node)
+
+| Archivo | Qué prueba |
+|---------|-----------|
+| `engine.unit.mjs` | Motor puro: constantes, turnos, Fervor, pasivas, veneno, piercing, persistencia (90 tests). |
+| `run-sim.mjs` | Datos y lógica del roguelike (nodos, pasivas de run, drops, simulación completa). |
+| `pve-sim.mjs` | Flujo de turnos del combate PvE (sin freeze, targeting, input lock). |
+| `tournament-sim.mjs` | Lógica de bracket + combate end-to-end. |
+| `inventory.test.mjs` | Persistencia e interfaz de inventario (Puppeteer). |
+| `uifixes.test.mjs` | Torneo (abrir picker), Aventura (elegir héroe), filtros de inventario (Puppeteer). |
+
+`pve-sim.mjs`/`run-sim.mjs` mockean temporalmente `narrator.js` con stubs vacíos (para simulaciones headless rápidas) y lo restauran en un bloque `finally` — no lo edites a mano si ves el mock ahí, es esperado y transitorio.
+
+Los tests con Puppeteer necesitan el servidor local corriendo (`python -m http.server 8765`) antes de ejecutarlos.
+
+## Historia reciente (para no repetir la confusión)
+
+Este archivo describía hasta hace poco una campaña de equipo 5v5 con mapa de nodos (1-1 a 1-5) y story panels — ese diseño fue abandonado a mitad de camino por una sesión anterior, que empezó a construir el roguelike de héroe único sin terminar de retirar el código viejo ni actualizar esta doc. Se limpiaron ~25 funciones muertas de `ui.js`/`engine.js`/`index.html` (mapa, story panels, selección de equipo de 5 cartas, action sheet de targeting) y se restauró `narrator.js`, que había quedado vaciado a funciones vacías por una edición sin terminar. El roguelike es ahora la dirección confirmada del modo Aventura.
+
+`ideas-agents.md` tiene conceptos de posibles roles de agentes especializados para el futuro (no un pipeline obligatorio, solo ideas). `Plan_12_fases.md` tiene el roadmap de fases con más detalle de lo que falta.

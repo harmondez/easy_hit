@@ -1346,6 +1346,16 @@ body {
     cursor: not-allowed;
 }
 
+.btn-forge.btn-finish {
+    background: #ef4444;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+}
+
+.btn-forge.btn-next {
+    background: var(--primary);
+    box-shadow: none;
+}
+
 /* Preview y Card TCG */
 .preview-container {
     display: flex;
@@ -1508,7 +1518,7 @@ body {
     display: flex;
     flex-direction: column;
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    transition: transform 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .card-item:hover {
@@ -2765,7 +2775,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 200;
+    z-index: 9999;
 }
 .reward-container {
     background: var(--bg-card);
@@ -2946,4 +2956,1239 @@ body {
     padding: 2px 8px;
     border-radius: 3px;
     background: rgba(255,255,255,0.05);
+}
+
+/* =============================================
+   ⚔️ PvE ARENA — TACTICAL LAYOUT (Phase 2)
+   Enemies TOP, heroes BOTTOM
+   ============================================= */
+
+/* Restructure battlefield grid: enemies top, heroes bottom */
+.pve-battlefield {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 16px;
+}
+
+.pve-squad-side {
+    grid-row: 1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    order: 1;
+}
+
+.pve-vs-column {
+    grid-row: 2;
+    flex-direction: row;
+    padding-top: 0;
+    order: 2;
+}
+
+.pve-party-side {
+    grid-row: 3;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    order: 3;
+}
+
+/* Larger card-like squad members (enemies) */
+.squad-member-card {
+    width: 180px;
+    background: rgba(30, 15, 15, 0.7);
+    border: 2px solid #7f1d1d;
+    border-radius: 12px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    user-select: none;
+}
+
+.squad-member-card:hover {
+    border-color: #ef4444;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+}
+
+.squad-member-card.dead {
+    opacity: 0.35;
+    filter: grayscale(1);
+    pointer-events: none;
+}
+
+.squad-member-card.boss-card {
+    width: 220px;
+    border-width: 3px;
+    border-color: #dc2626;
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.3);
+}
+
+/* Targetable hover glow for enemies when player must select target */
+.squad-member-card.targetable {
+    border-color: #f97316;
+    animation: target-pulse 1.2s ease-in-out infinite;
+    cursor: crosshair;
+}
+
+@keyframes target-pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(249, 115, 22, 0.3); }
+    50% { box-shadow: 0 0 25px rgba(249, 115, 22, 0.7), 0 0 40px rgba(249, 115, 22, 0.3); }
+}
+
+/* Selected target state */
+.squad-member-card.target-selected {
+    border-color: #22c55e;
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.6), 0 0 60px rgba(34, 197, 94, 0.2);
+    transform: scale(1.08);
+}
+
+.squad-member-card.target-selected::after {
+    content: '🎯 TARGET';
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    background: #22c55e;
+    color: #000;
+    font-size: 0.6rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 8px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 10px rgba(34, 197, 94, 0.4);
+}
+
+.squad-member-header {
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.squad-member-card .enemy-img {
+    width: 100%;
+    height: 110px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.squad-hp-bar-container {
+    height: 16px;
+    border-radius: 8px;
+}
+
+.squad-hp-bar-fill {
+    border-radius: 8px;
+}
+
+.squad-hp-text {
+    font-size: 0.7rem;
+}
+
+.squad-stats-row {
+    font-size: 0.7rem;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+/* Larger card-like party members (heroes) */
+.party-member-card {
+    width: 180px;
+    background: var(--bg-card);
+    border: 2px solid #1e40af;
+    border-radius: 12px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    user-select: none;
+}
+
+.party-member-card:hover {
+    border-color: #3b82f6;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25);
+}
+
+.party-member-card.dead {
+    opacity: 0.35;
+    filter: grayscale(1);
+    pointer-events: none;
+}
+
+.party-member-card .member-img {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border-width: 3px;
+}
+
+.party-member-card .member-name {
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.party-member-card .member-element {
+    text-align: center;
+    font-size: 0.7rem;
+}
+
+.party-member-card .member-hp-text {
+    text-align: center;
+}
+
+.party-member-hp-bar {
+    height: 8px;
+}
+
+/* Show hero stats on the card */
+.party-member-stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+}
+
+/* Status badges */
+.squad-status-badge,
+.party-status-badge {
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    font-size: 1.2rem;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    pointer-events: none;
+}
+
+/* Active turn big highlight */
+.party-member-card.active-turn {
+    --glow-1: rgba(59, 130, 246, 0.9);
+    --glow-2: rgba(59, 130, 246, 0.4);
+    --glow-3: rgba(59, 130, 246, 0.95);
+    --glow-4: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 50px var(--glow-1), 0 0 100px var(--glow-2);
+    transform: scale(1.15);
+    border-color: #60a5fa;
+    z-index: 10;
+    animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+.squad-member-card.active-turn {
+    --glow-1: rgba(239, 68, 68, 0.9);
+    --glow-2: rgba(239, 68, 68, 0.4);
+    --glow-3: rgba(239, 68, 68, 0.95);
+    --glow-4: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 50px var(--glow-1), 0 0 100px var(--glow-2);
+    transform: scale(1.15);
+    border-color: #f87171;
+    z-index: 10;
+    animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+.party-member-card.dimmed {
+    opacity: 0.35;
+    filter: grayscale(0.6);
+    transform: scale(0.95);
+    transition: all 0.4s ease;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 50px var(--glow-1), 0 0 100px var(--glow-2); }
+    50% { box-shadow: 0 0 70px var(--glow-3), 0 0 140px var(--glow-4); }
+}
+
+/* Fert indicator when at max */
+.fervor-full .fervor-text {
+    color: #ef4444;
+    font-weight: 800;
+}
+
+.party-member-card.ult-ready {
+    border-color: #f97316;
+    box-shadow: 0 0 15px rgba(249, 115, 22, 0.4);
+}
+
+/* =============================================
+   📋 BOTTOM SHEET — Action Menu
+   ============================================= */
+.action-sheet-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 500;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: sheet-overlay-in 0.2s ease-out;
+}
+
+@keyframes sheet-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.action-sheet-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-width: 500px;
+    padding: 20px 24px 32px;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+    animation: sheet-slide-up 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes sheet-slide-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+.action-sheet-handle {
+    width: 40px;
+    height: 4px;
+    background: #475569;
+    border-radius: 2px;
+    margin: 0 auto 16px;
+}
+
+.action-sheet-title {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    text-align: center;
+    margin-bottom: 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.action-sheet-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px;
+    border: 2px solid transparent;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #fff;
+    background: var(--bg-main);
+}
+
+.action-btn:active {
+    transform: scale(0.97);
+}
+
+.action-btn.attack {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+}
+
+.action-btn.attack:hover {
+    background: rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+}
+
+.action-btn.ultimate {
+    border-color: #f97316;
+    background: rgba(249, 115, 22, 0.15);
+    color: #fdba74;
+}
+
+.action-btn.ultimate:hover {
+    background: rgba(249, 115, 22, 0.3);
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.2);
+}
+
+.action-btn.ultimate:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.8);
+}
+
+.action-btn.cancel {
+    border-color: #475569;
+    background: rgba(71, 85, 105, 0.15);
+    color: var(--text-muted);
+}
+
+.action-btn.cancel:hover {
+    background: rgba(71, 85, 105, 0.3);
+}
+
+.action-btn .action-icon {
+    font-size: 1.3rem;
+}
+
+.action-btn .action-label {
+    flex: 1;
+    text-align: left;
+}
+
+.action-btn .action-hint {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    font-weight: 400;
+}
+
+/* =============================================
+   📋 TARGETING ARROW INDICATOR
+   ============================================= */
+.target-arrow {
+    position: absolute;
+    pointer-events: none;
+    z-index: 100;
+    font-size: 2rem;
+    color: #22c55e;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    animation: arrow-bounce 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes arrow-bounce {
+    from { transform: translateY(0); }
+    to { transform: translateY(-8px); }
+}
+
+/* =============================================
+   📱 RESPONSIVE — PvE Tactical Arena
+   ============================================= */
+@media (max-width: 768px) {
+    .pve-battlefield {
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .squad-member-card,
+    .party-member-card {
+        width: 140px;
+        padding: 8px;
+    }
+
+    .squad-member-card.boss-card {
+        width: 160px;
+    }
+
+    .squad-member-card .enemy-img {
+        height: 80px;
+    }
+
+    .party-member-card .member-img {
+        width: 56px;
+        height: 56px;
+    }
+
+    .action-sheet-panel {
+        padding: 16px 16px 24px;
+        max-width: 100%;
+        border-radius: 16px 16px 0 0;
+    }
+
+    .action-btn {
+        padding: 14px;
+        font-size: 0.9rem;
+    }
+
+    .action-btn .action-hint {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .squad-member-card,
+    .party-member-card {
+        width: 120px;
+        padding: 6px;
+    }
+
+    .squad-member-card.boss-card {
+        width: 140px;
+    }
+
+    .squad-member-header {
+        font-size: 0.7rem;
+    }
+
+    .party-member-card .member-name {
+        font-size: 0.75rem;
+    }
+
+    .squad-stats-row {
+        font-size: 0.6rem;
+        gap: 6px;
+    }
+
+    .party-member-stats-row {
+        font-size: 0.6rem;
+        gap: 6px;
+    }
+}
+
+/* =============================================
+   🎮 ROGUELIKE RUN — Adventure Lobby
+   ============================================= */
+.adventure-lobby-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: 20px;
+}
+
+.adventure-lobby-text {
+    font-size: 2rem;
+    color: #ffd700;
+    cursor: pointer;
+    text-shadow: 0 0 20px rgba(255,215,0,0.3);
+    transition: all 0.25s;
+    user-select: none;
+    letter-spacing: 1px;
+}
+
+.adventure-lobby-text:hover {
+    text-shadow: 0 0 40px rgba(255,215,0,0.6);
+    transform: scale(1.05);
+}
+
+/* =============================================
+   🎮 ROGUELIKE RUN — Hero Picker
+   ============================================= */
+.hero-picker-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.hero-picker-close {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: color 0.2s;
+    z-index: 10001;
+    line-height: 1;
+}
+
+.hero-picker-close:hover {
+    color: #fff;
+}
+
+.hero-picker-title {
+    font-size: 1.8rem;
+    color: #ffd700;
+    margin-bottom: 8px;
+    text-shadow: 0 0 20px rgba(255,215,0,0.5);
+}
+
+.hero-picker-subtitle {
+    color: #aaa;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+}
+
+.hero-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    max-width: 900px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 10px;
+    width: 100%;
+}
+
+.hero-picker-card {
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 2px solid #333;
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-align: center;
+    position: relative;
+}
+
+.hero-picker-card:hover {
+    border-color: #ffd700;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(255,215,0,0.25);
+}
+
+.hero-picker-card .hpc-name {
+    font-size: 1.05rem;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.hero-picker-card .hpc-desc {
+    font-size: 0.78rem;
+    color: #999;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.hero-picker-card .hpc-stats {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: #ccc;
+    flex-wrap: wrap;
+}
+
+.hero-picker-card .hpc-element {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 1.1rem;
+}
+
+.hero-picker-btn {
+    margin-top: 16px;
+    padding: 10px 30px;
+    font-size: 1.05rem;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.hero-picker-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(231,76,60,0.4);
+}
+
+/* =============================================
+   🎮 ROGUELIKE RUN — Organigrama
+   ============================================= */
+.organigrama-container {
+    display: flex;
+    justify-content: center;
+    padding: 30px 20px;
+}
+
+.og-phases {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    padding-left: 28px;
+    max-width: 480px;
+    width: 100%;
+}
+
+.og-phases::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 20px;
+    bottom: 20px;
+    width: 3px;
+    background: linear-gradient(to bottom, #e74c3c, #ffd700);
+    border-radius: 2px;
+}
+
+.og-phase {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #1a1a2e;
+    border: 2px solid #333;
+    border-radius: 10px;
+    transition: all 0.3s;
+    position: relative;
+}
+
+.og-phase.current {
+    border-color: #ffd700;
+    box-shadow: 0 0 12px rgba(255,215,0,0.35);
+    background: linear-gradient(145deg, #1e1e3a, #1a1a3e);
+    cursor: pointer;
+    animation: og-pulse 2s ease-in-out infinite;
+}
+
+.og-phase.current:active {
+    transform: scale(0.97);
+}
+
+.og-phase.completed {
+    border-color: #4ade8044;
+}
+
+.og-phase.boss {
+    border-color: #a855f7;
+}
+
+.og-phase.boss.current {
+    border-color: #a855f7;
+    box-shadow: 0 0 12px rgba(168,85,247,0.35);
+    animation: og-pulse-boss 2s ease-in-out infinite;
+}
+
+.og-phase-icon {
+    font-size: 1.2rem;
+    width: 30px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.og-phase-label {
+    font-weight: bold;
+    color: #fff;
+    font-size: 0.88rem;
+    flex-shrink: 0;
+}
+
+.og-phase-desc {
+    flex: 1;
+    font-size: 0.78rem;
+    color: #999;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.og-phase-status {
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+}
+
+@keyframes og-pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(255,215,0,0.25); }
+    50% { box-shadow: 0 0 20px rgba(255,215,0,0.55); }
+}
+
+@keyframes og-pulse-boss {
+    0%, 100% { box-shadow: 0 0 8px rgba(168,85,247,0.25); }
+    50% { box-shadow: 0 0 20px rgba(168,85,247,0.55); }
+}
+
+/* =============================================
+   🎮 ROGUELIKE RUN — Single Hero Arena (1v1)
+   ============================================= */
+.single-arena {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 60px;
+    padding: 30px;
+    min-height: 300px;
+    position: relative;
+}
+
+.single-arena-card {
+    width: 240px;
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 2px solid #333;
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.single-arena-card.hero-card {
+    border-color: #2196f3;
+}
+
+.single-arena-card.enemy-card {
+    border-color: #e74c3c;
+}
+
+.single-arena-card.boss-enemy {
+    border-color: #a855f7;
+    box-shadow: 0 0 20px rgba(168,85,247,0.3);
+}
+
+.single-arena-card .sac-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    margin: 0 auto 8px;
+    background: #222;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    border: 2px solid #444;
+}
+
+.single-arena-card.hero-card .sac-avatar {
+    border-color: #2196f3;
+}
+
+.single-arena-card.enemy-card .sac-avatar {
+    border-color: #e74c3c;
+}
+
+.single-arena-card .sac-name {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 2px;
+}
+
+.single-arena-card .sac-element {
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 6px;
+}
+
+.single-arena-card .sac-hp-bar {
+    width: 100%;
+    height: 10px;
+    background: #333;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.single-arena-card .sac-hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e74c3c, #4ade80);
+    border-radius: 5px;
+    transition: width 0.4s ease;
+}
+
+.single-arena-card .sac-hp-text {
+    font-size: 0.8rem;
+    color: #ccc;
+    margin-bottom: 6px;
+}
+
+.single-arena-card .sac-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 8px;
+    font-size: 0.78rem;
+    color: #aaa;
+}
+
+.single-arena-card .sac-stats .s {
+    text-align: left;
+}
+
+.single-arena-card .sac-stats .v {
+    text-align: right;
+    color: #fff;
+}
+
+.single-arena-vs {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 0 0 20px rgba(255,215,0,0.4);
+}
+
+.single-arena-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 16px;
+}
+
+.single-arena-actions button {
+    padding: 10px 28px;
+    font-size: 0.95rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #fff;
+    font-weight: bold;
+}
+
+.single-arena-actions .btn-attack {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.single-arena-actions .btn-attack:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(231,76,60,0.4);
+}
+
+.single-arena-actions .btn-ultimate {
+    background: linear-gradient(135deg, #a855f7, #7c3aed);
+}
+
+.single-arena-actions .btn-ultimate:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(168,85,247,0.4);
+}
+
+.single-arena-actions .btn-ultimate:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.single-arena-fervor {
+    font-size: 0.78rem;
+    color: #ffd700;
+    margin-top: 6px;
+}
+
+.potion-bar {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.potion-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 16px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+    color: #fff;
+    font-weight: bold;
+}
+
+.potion-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+
+.potion-heal {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.potion-heal:hover:not(:disabled) {
+    transform: scale(1.08);
+    box-shadow: 0 4px 14px rgba(231,76,60,0.5);
+}
+
+.potion-fervor {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.potion-fervor:hover:not(:disabled) {
+    transform: scale(1.08);
+    box-shadow: 0 4px 14px rgba(245,158,11,0.5);
+}
+
+.potion-count {
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+/* =============================================
+   🎮 ROGUELIKE RUN — Upgrade Modal
+   ============================================= */
+.upgrade-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.upgrade-modal-title {
+    font-size: 1.6rem;
+    color: #ffd700;
+    margin-bottom: 4px;
+    text-shadow: 0 0 20px rgba(255,215,0,0.4);
+}
+
+.upgrade-modal-sub {
+    color: #aaa;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+.upgrade-choices {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 700px;
+}
+
+.upgrade-card {
+    width: 190px;
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 2px solid #444;
+    border-radius: 14px;
+    padding: 18px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+}
+
+.upgrade-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 30px rgba(255,215,0,0.2);
+    border-color: #ffd700;
+}
+
+.upgrade-card .uc-icon {
+    font-size: 2.4rem;
+    margin-bottom: 8px;
+}
+
+.upgrade-card .uc-name {
+    font-size: 1.05rem;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 6px;
+}
+
+.upgrade-card .uc-desc {
+    font-size: 0.8rem;
+    color: #999;
+    line-height: 1.3;
+}
+
+/* =============================================
+   🎮 ROGUELIKE RUN — Item Drop Popup
+   ============================================= */
+.item-drop-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.item-drop-box {
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 2px solid #ffd700;
+    border-radius: 16px;
+    padding: 30px;
+    text-align: center;
+    max-width: 400px;
+    animation: dropIn 0.4s ease;
+}
+
+@keyframes dropIn {
+    from { transform: scale(0.6); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.item-drop-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+.item-drop-name {
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.item-drop-rarity {
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.item-drop-stats {
+    font-size: 0.85rem;
+    color: #ccc;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.item-drop-btns {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.item-drop-btns button {
+    padding: 8px 22px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #fff;
+    transition: all 0.2s;
+}
+
+.item-drop-btns .btn-equip {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+}
+
+.item-drop-btns .btn-equip:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(74,222,128,0.4);
+}
+
+.item-drop-btns .btn-skip {
+    background: #555;
+}
+
+.item-drop-btns .btn-skip:hover {
+    background: #777;
+}
+
+/* =============================================
+   🎮 ROGUELIKE RUN — Run Complete / Game Over
+   ============================================= */
+.run-result-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.run-result-box {
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border-radius: 16px;
+    padding: 34px;
+    text-align: center;
+    max-width: 450px;
+    animation: dropIn 0.5s ease;
+}
+
+.run-result-box.victory {
+    border: 2px solid #ffd700;
+    box-shadow: 0 0 40px rgba(255,215,0,0.3);
+}
+
+.run-result-box.defeat {
+    border: 2px solid #e74c3c;
+    box-shadow: 0 0 40px rgba(231,76,60,0.3);
+}
+
+.run-result-icon {
+    font-size: 3.5rem;
+    margin-bottom: 10px;
+}
+
+.run-result-title {
+    font-size: 1.6rem;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.run-result-title.win {
+    color: #ffd700;
+}
+
+.run-result-title.lose {
+    color: #e74c3c;
+}
+
+.run-result-desc {
+    color: #aaa;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+
+.run-result-stats {
+    font-size: 0.85rem;
+    color: #ccc;
+    margin-bottom: 6px;
+}
+
+.run-result-items {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.run-result-items .rri {
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    color: #ccc;
+}
+
+.run-result-btn {
+    padding: 10px 30px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #fff;
+    transition: all 0.2s;
+    margin: 4px;
+}
+
+.run-result-btn.btn-continue {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.run-result-btn.btn-continue:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(231,76,60,0.4);
+}
+
+.run-result-btn.btn-retry {
+    background: linear-gradient(135deg, #2196f3, #1976d2);
+}
+
+.run-result-btn.btn-retry:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(33,150,243,0.4);
+}
+
+.run-result-btn.btn-quit {
+    background: #555;
+}
+
+.run-result-btn.btn-quit:hover {
+    background: #777;
 }

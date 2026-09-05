@@ -265,3 +265,16 @@
 2. **Play-test** coliseo, adventure, torneo, library
 3. **Fusión y Evolución** (Fase 7): combinar cartas del mismo elemento, límite 7400 → 8800 → 10000
 4. **Sistema de Runas**: modificadores equipables con stats % y pasivas adicionales
+
+---
+
+## 🔄 Pivote de Aventura y llegada de Claude Code (post-Fase 6)
+
+Entre esta auditoría y la siguiente sesión de trabajo, el modo Aventura fue rediseñado de la campaña de equipo 5v5 descrita en la Fase 5 a un **roguelike de héroe único** (`Engine.RUN_TEMPLATES`, nodos de combate/upgrade/boss, ítems equipables, pociones). El cambio nunca se documentó ni se completó del todo: el código viejo (mapa de nodos, story panels, selección de equipo de 5 cartas) quedó en los archivos sin usarse, y `narrator.js` quedó vaciado a 44 funciones sin efecto por una edición interrumpida.
+
+Al retomar el proyecto con Claude Code se hizo una auditoría completa y, con confirmación del usuario en cada decisión:
+- Se confirmó el roguelike como dirección oficial de Aventura y se retiraron ~25 funciones muertas del diseño viejo (`renderMapNodes`, `showStoryPanel`/`STORY_DATA`, `renderTeamSelection`, `openCardPicker`, `fillTeamSlot`, `renderPvEArena`, el cluster de action-sheet/targeting, y sus equivalentes en `engine.js`/`index.html`).
+- Se restauró `narrator.js` desde la última versión commiteada — mismas firmas de función, sin tocar call sites.
+- Se corrigieron los tests que ejercitaban el flujo muerto (`story.test.mjs` se eliminó, `uifixes.test.mjs` se reescribió sobre el flujo real del hero picker) y de paso se encontró y arregló un bug real: el botón de cerrar del picker de Torneo no tenía listener.
+- Se limpiaron artefactos de herramientas anteriores (`.opencode/`, `.continue/`, `AGENTS.md` → ideas reformuladas en `ideas-agents.md`).
+- `CLAUDE.md` y `Plan_12_fases.md` se reescribieron para reflejar el estado real del código en vez de un diseño abandonado.

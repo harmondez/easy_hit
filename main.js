@@ -18,14 +18,11 @@ const gameState = {
     lastSection: null,
     currentSection: null,
     resources: {
-        gold: 1250,
-        gems: 80,
-        energy: 45,
-        maxEnergy: 100
+        gold: 0
     },
     player: {
-        level: 7,
-        xp: 70,
+        level: 1,
+        xp: 0,
         xpToNext: 100
     },
     inventory: [],
@@ -41,18 +38,19 @@ const gameState = {
         status: 'idle'
     },
     adventure: {
-        currentStage: null,
-        selectedTeam: [],
-        activeSquad: [],
+        hero: null,
+        heroBaseSnapshot: null,
+        currentRun: 'run-1',
+        currentNode: 0,
         inCombat: false,
         turnCount: 0,
-        stageProgress: {
-            '1-1': 'available',
-            '1-2': 'locked',
-            '1-3': 'locked',
-            '1-4': 'locked',
-            '1-5': 'locked'
-        }
+        weapon: null,
+        armor: null,
+        runPassives: [],
+        completed: false,
+        runProgress: { 'run-1': 'available' },
+        healPotions: 3,
+        fervorPotions: 1
     }
 };
 
@@ -90,16 +88,21 @@ const onSectionEnter = {
     creator: () => {},
     coliseo: () => { UI.renderSelector(); },
     adventure: () => {
+        const adv = gameState.adventure;
         UI.cleanAdventureOverlays();
-        UI.initTeamSlots();
         gameState.adventureCombat = null;
-        gameState.adventure.inCombat = false;
-        gameState.adventure.currentStage = null;
-        gameState.adventure.selectedTeam = [];
-        gameState.adventure.activeSquad = [];
-        gameState.adventure.turnCount = 0;
+        adv.inCombat = false;
+        adv.turnCount = 0;
         UI.renderCodex();
-        UI.renderMapNodes(gameState.adventure);
+        if (adv.hero) {
+            const run = Engine.RUN_TEMPLATES[adv.currentRun];
+            if (run) {
+                UI.renderOrganigrama(run, adv.currentNode);
+                return;
+            }
+        }
+        const run = Engine.RUN_TEMPLATES[adv.currentRun];
+        if (run) UI.renderAdventureLobby(run);
     },
     gallery: () => {},
     tournament: () => {
@@ -132,9 +135,6 @@ const onSectionExit = {
     adventure: () => {
         const adv = gameState.adventure;
         adv.inCombat = false;
-        adv.currentStage = null;
-        adv.selectedTeam = [];
-        adv.activeSquad = [];
         adv.turnCount = 0;
         gameState.adventureCombat = null;
         Narrator.resetLogContainer();
@@ -226,18 +226,54 @@ function transitionState(target) {
 function updateHUD() {
     const r = gameState.resources;
     const p = gameState.player;
-
     const goldEl = document.getElementById('hudGold');
-    const gemsEl = document.getElementById('hudGems');
-    const energyEl = document.getElementById('hudEnergy');
     const levelEl = document.getElementById('hudLevel');
     const xpEl = document.getElementById('hudXpFill');
-
     if (goldEl) goldEl.innerText = r.gold;
-    if (gemsEl) gemsEl.innerText = r.gems;
-    if (energyEl) energyEl.innerText = r.energy;
     if (levelEl) levelEl.innerText = `LVL ${p.level}`;
-    if (xpEl) xpEl.style.width = `${(p.xp / p.xpToNext) * 100}%`;
+    if (xpEl) xpEl.style.width = `${Math.min(100, (p.xp / p.xpToNext) * 100)}%`;
+}
+
+function addXP(amount) {
+    const p = gameState.player;
+    p.xp += amount;
+    while (p.xp >= p.xpToNext) {
+        p.xp -= p.xpToNext;
+        p.level++;
+        UI.pveLogConsole(`🎉 Level Up! You are now LVL ${p.level}!`, 'victory');
+    }
+    _savePlayerData();
+    updateHUD();
+}
+
+function _savePlayerData() {
+    try {
+        const data = {
+            gold: gameState.resources.gold,
+            level: gameState.player.level,
+            xp: gameState.player.xp,
+            xpToNext: gameState.player.xpToNext,
+            inventory: gameState.inventory,
+            hpPots: gameState.adventure.healPotions,
+            fvPots: gameState.adventure.fervorPotions
+        };
+        localStorage.setItem('eh_save', JSON.stringify(data));
+    } catch (e) {}
+}
+
+function _loadPlayerData() {
+    try {
+        const raw = localStorage.getItem('eh_save');
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data.gold !== undefined) gameState.resources.gold = data.gold;
+        if (data.level !== undefined) gameState.player.level = data.level;
+        if (data.xp !== undefined) gameState.player.xp = data.xp;
+        if (data.xpToNext !== undefined) gameState.player.xpToNext = data.xpToNext;
+        if (Array.isArray(data.inventory)) gameState.inventory = data.inventory;
+        if (data.hpPots !== undefined) gameState.adventure.healPotions = data.hpPots;
+        if (data.fvPots !== undefined) gameState.adventure.fervorPotions = data.fvPots;
+    } catch (e) {}
 }
 
 // =============================================
@@ -737,300 +773,543 @@ function initEvents() {
     });
 
     // =============================================
-    // 🌍 DELEGACIÓN GLOBAL (Adventure dinámico)
+    // 🌍 DELEGACIÓN GLOBAL (Roguelike Run Flow)
     // =============================================
     document.addEventListener('click', (e) => {
         const adv = gameState.adventure;
 
-        // Map node click (available node)
-        const node = e.target.closest('.map-node');
-        if (node && node.dataset.stage && !node.classList.contains('locked')) {
-            const stageId = node.dataset.stage;
-            const status = adv.stageProgress[stageId];
-            if (status === 'available') {
-                const hint = document.getElementById('adventureStartHint');
-                if (hint) hint.remove();
-                adv.currentStage = stageId;
-                const hasStory = !!UI.STORY_DATA[stageId];
-                if (hasStory) {
-                    UI.showStoryPanel(stageId, () => { UI.renderTeamSelection(stageId); });
-                } else {
-                    UI.renderTeamSelection(stageId);
-                }
+        // Select Hero button → open hero picker
+        if (e.target.id === 'btnSelectHero') {
+            UI.renderHeroPicker((hero) => {
+                adv.hero = hero;
+                adv.heroBaseSnapshot = JSON.parse(JSON.stringify(hero));
+                adv.weapon = null;
+                adv.armor = null;
+                adv.runPassives = [];
+                adv.currentNode = 0;
+                adv.completed = false;
+                adv.healPotions = 3;
+                adv.fervorPotions = 1;
+                const run = Engine.RUN_TEMPLATES[adv.currentRun];
+                if (run) UI.renderOrganigrama(run, 0);
+            });
+            return;
+        }
+
+        // Click on current organigrama phase → enter node
+        const phaseEl = e.target.closest('.og-phase.current');
+        if (phaseEl) {
+            _enterRunNode();
+            return;
+        }
+
+        // Single-hero arena: Attack button
+        if (e.target.id === 'btnSingleAttack') {
+            if (adv.inCombat && gameState.adventureCombat) {
+                _runPvEAttack('attack');
             }
             return;
         }
 
-        // Party slot click (empty)
-        const slot = e.target.closest('.party-slot:not(.filled)');
-        if (slot && slot.dataset.slotIndex !== undefined) {
-            UI.openCardPicker(parseInt(slot.dataset.slotIndex));
-            e.stopPropagation();
-            return;
-        }
-
-        // Card picker item click
-        const pickerItem = e.target.closest('.card-picker-item:not(.disabled)');
-        if (pickerItem && pickerItem.dataset.cardId) {
-            const cardId = pickerItem.dataset.cardId;
-            const card = Engine.getAllPlayableCards().find(c => c.id === cardId);
-            if (card) {
-                const modal = document.getElementById('cardPickerModal');
-                const slotIndex = modal ? parseInt(modal.dataset.targetSlot) : -1;
-                if (slotIndex >= 0 && slotIndex < 5) {
-                    UI.fillTeamSlot(slotIndex, card);
-                }
-            }
-            const picker = document.getElementById('cardPickerModal');
-            if (picker) picker.remove();
-            return;
-        }
-
-        // Card picker close button — works for both adventure and tournament modals
-        if (e.target.closest('.card-picker-close')) {
-            const picker = e.target.closest('.card-picker-modal');
-            if (picker) picker.remove();
-            return;
-        }
-
-        // Close picker by clicking backdrop — works for both modals (adventure + tournament)
-        if (e.target.closest('.card-picker-modal') && !e.target.closest('.card-picker-panel')) {
-            const picker = document.querySelector('.card-picker-modal');
-            if (picker) picker.remove();
-            return;
-        }
-
-        // Confirm team button
-        if (e.target.id === 'btnConfirmTeam') {
-            const team = UI.getSelectedTeam();
-            if (team && team.length === 5 && adv.currentStage) {
-                UI.closeTeamSelection();
-                const initializedParty = team.map(c => Engine.initializeCard(c));
-                const squad = Engine.getSquadForStage(adv.currentStage);
-                const initializedSquad = squad.map(e => Engine.initializeCard(e));
-
-                adv.selectedTeam = initializedParty;
-                adv.activeSquad = initializedSquad;
-                adv.turnCount = 0;
-                adv.inCombat = true;
-
-                const turnQueue = Engine.buildTurnOrder(initializedParty, initializedSquad);
-                gameState.adventureCombat = {
-                    turnQueue,
-                    currentIndex: 0,
-                    turnNumber: 0,
-                    party: initializedParty,
-                    squad: initializedSquad
-                };
-
-                const squadSize = initializedSquad.length;
-                const stageLabel = adv.currentStage === '1-5' ? 'BOSS' : `${squadSize}v5`;
-                UI.resetTurnGroups('pveLogContent');
-                UI.pveLogConsole(`🔥 ¡QUE COMIENCE EL COMBATE EN ${adv.currentStage} (${stageLabel})! 🔥`, 'system');
-                UI.pveLogConsole(`📋 Orden: ${turnQueue.map(e => e.actor.name + (e.isAlly ? ' (Tú)' : ' (Enemy)')).join(' → ')}`, 'system');
-                UI.renderPvEArena(initializedParty, initializedSquad, adv.turnCount);
-                UI.renderTurnBar(turnQueue, 0, 'pveTurnBar');
+        // Single-hero arena: Ultimate button
+        if (e.target.id === 'btnSingleUltimate') {
+            if (adv.inCombat && gameState.adventureCombat) {
+                _runPvEAttack('ultimate');
             }
             return;
         }
 
-        // Cancel team button
-        if (e.target.id === 'btnCancelTeam') {
-            UI.closeTeamSelection();
-            adv.currentStage = null;
+        // Potion: Heal
+        if (e.target.id === 'btnHealPotion') {
+            if (adv.inCombat && adv.healPotions > 0 && adv.hero) {
+                _useHealPotion();
+            }
             return;
         }
 
-        // PvE Next Turn button
-        if (e.target.id === 'btnPvENextTurn') {
-            if (!adv.inCombat || !gameState.adventureCombat) return;
-            if (adv.turnCount >= 200) return;
-
-            const ac = gameState.adventureCombat;
-
-            function handlePvEOutcome(result) {
-                if (result.victory) {
-                    adv.inCombat = false;
-                    gameState.adventureCombat = null;
-                    adv.stageProgress[adv.currentStage] = 'completed';
-                    const stages = ['1-1','1-2','1-3','1-4','1-5'];
-                    const idx = stages.indexOf(adv.currentStage);
-                    if (idx >= 0 && idx < stages.length - 1) {
-                        const next = stages[idx + 1];
-                        if (adv.stageProgress[next] === 'locked') {
-                            adv.stageProgress[next] = 'available';
-                        }
-                    }
-                    const loot = Engine.generateLoot(adv.currentStage, ac.squad);
-                    UI.pveLogConsole(`🏆 ¡VICTORIA!`, 'victory');
-                    setTimeout(() => { UI.showRewardModal(adv.currentStage, loot); }, 400);
-                    return true;
-                } else if (result.defeat) {
-                    adv.inCombat = false;
-                    gameState.adventureCombat = null;
-                    UI.pveLogConsole(`💀 DERROTA — Todos los héroes han caído.`, 'victory');
-                    setTimeout(() => { UI.showPvEResult('defeat'); }, 500);
-                    return true;
-                }
-                return false;
+        // Potion: Fervor
+        if (e.target.id === 'btnFervorPotion') {
+            if (adv.inCombat && adv.fervorPotions > 0 && adv.hero) {
+                _useFervorPotion();
             }
+            return;
+        }
+    });
 
-            // Skip all dead entries before processing a turn
-            while (ac.turnQueue.length > 0) {
-                const currentEntry = ac.turnQueue[ac.currentIndex];
-                if (currentEntry.actor && currentEntry.actor.hp > 0) break;
-                ac.turnQueue.splice(ac.currentIndex, 1);
-                if (ac.currentIndex >= ac.turnQueue.length) ac.currentIndex = 0;
-            }
+    // =============================================
+    // 🎯 Roguelike Run — State Machine
+    // =============================================
 
+    let _runProcessing = false;
+
+    function _enterRunNode() {
+        const adv = gameState.adventure;
+        const run = Engine.RUN_TEMPLATES[adv.currentRun];
+        if (!run || !run.nodes[adv.currentNode]) return;
+
+        const node = run.nodes[adv.currentNode];
+        adv.inCombat = false;
+        adv.turnCount = 0;
+
+        if (node.type === 'combat') {
+            _startRunCombat(run, node);
+        } else if (node.type === 'upgrade') {
+            _enterRunUpgrade();
+        }
+    }
+
+    function _startRunCombat(run, node) {
+        const adv = gameState.adventure;
+        const enemy = Engine.getEnemyForRunNode(adv.currentRun, adv.currentNode);
+        if (!enemy || !adv.hero) return;
+
+        const hero = adv.hero;
+        adv.inCombat = true;
+        adv.turnCount = 0;
+
+        // Apply run passives on combat start (thornmail doesn't need init, but secondWind flag persists)
+        // Regen for Phoenix Aegis if equipped
+        if (adv.armor && adv.armor.id === 'phoenix_aegis') {
+            const regen = Math.floor(hero.maxHp * 0.05);
+            hero.hp = Math.min(hero.maxHp, hero.hp + regen);
+        }
+
+        const turnQueue = Engine.buildTurnOrder([hero], [enemy]);
+        gameState.adventureCombat = {
+            turnQueue,
+            currentIndex: 0,
+            turnNumber: 0,
+            party: [hero],
+            squad: [enemy],
+            isRunCombat: true,
+            nodeEnemyId: node.enemyId,
+            nodeIsBoss: node.isBoss
+        };
+
+        UI.removeSingleHeroActions();
+        UI.renderSingleHeroArena(hero, enemy, adv.turnCount);
+        UI.renderPotionBar(adv.healPotions, adv.fervorPotions);
+        Narrator.setLogContainer('pveLogContent');
+        UI.pveLogConsole(`🔥 ${hero.name} vs ${enemy.name}! 🔥`, 'system');
+        UI.pveLogConsole(`📋 Order: ${turnQueue.map(e => e.actor.name).join(' → ')}`, 'system');
+
+        setTimeout(() => _runAdvanceTurn(), 300);
+    }
+
+    function _useHealPotion() {
+        const adv = gameState.adventure;
+        const hero = adv.hero;
+        if (!hero || adv.healPotions <= 0) return;
+        hero.hp = hero.maxHp;
+        adv.healPotions--;
+        _savePlayerData();
+        UI.pveLogConsole(`🧪 ${hero.name} fully healed!`, 'system');
+        UI.renderPotionBar(adv.healPotions, adv.fervorPotions);
+        UI.updateSingleHeroArena(hero, gameState.adventureCombat?.squad?.[0]);
+    }
+
+    function _useFervorPotion() {
+        const adv = gameState.adventure;
+        const hero = adv.hero;
+        if (!hero || adv.fervorPotions <= 0) return;
+        hero.fervor = 10;
+        adv.fervorPotions--;
+        _savePlayerData();
+        UI.pveLogConsole(`🟡 ${hero.name} gains full fervor!`, 'system');
+        UI.renderPotionBar(adv.healPotions, adv.fervorPotions);
+        UI.updateSingleHeroArena(hero, gameState.adventureCombat?.squad?.[0]);
+        UI.removeSingleHeroActions();
+        UI.showSingleHeroActions(hero, () => _runPvEAttack('attack'), () => _runPvEAttack('ultimate'));
+    }
+
+    function _runAdvanceTurn() {
+        if (_runProcessing) return;
+        _runProcessing = true;
+
+        const ac = gameState.adventureCombat;
+        const adv = gameState.adventure;
+        if (!ac || !adv || !adv.inCombat) { _runProcessing = false; return; }
+        if (adv.turnCount >= 200) { _runProcessing = false; return; }
+
+        // Skip dead entries
+        while (ac.turnQueue.length > 0) {
+            const e = ac.turnQueue[0];
+            if (e && e.actor && e.actor.hp > 0) break;
+            ac.turnQueue.splice(0, 1);
+        }
+
+        if (ac.turnQueue.length === 0) {
+            ac.turnQueue = Engine.buildTurnOrder(ac.party, ac.squad);
             if (ac.turnQueue.length === 0) {
                 adv.inCombat = false;
                 gameState.adventureCombat = null;
+                _runProcessing = false;
                 return;
             }
+        }
 
-            const v = Engine.verifyPartyVictory(ac.party, ac.squad);
-            if (handlePvEOutcome(v)) return;
+        // Check victory/defeat
+        const v = Engine.verifyPartyVictory(ac.party, ac.squad);
+        if (_handleRunOutcome(v)) { _runProcessing = false; return; }
 
-            const entry = ac.turnQueue[ac.currentIndex];
+        const entry = ac.turnQueue[0];
 
-            adv.turnCount++;
-            ac.turnNumber++;
+        if (entry.isAlly) {
+            UI.clearPvETurnHighlights();
+            UI.updateSingleHeroArena(adv.hero, ac.squad[0]);
+            UI.showSingleHeroActions(entry.actor,
+                () => { _runPvEAttack('attack'); },
+                () => { _runPvEAttack('ultimate'); }
+            );
+            _runProcessing = false;
+            return;
+        }
 
-            UI.setActiveHighlight(false, entry.isAlly, entry.slotIndex);
-            UI.renderTurnBar(ac.turnQueue, ac.currentIndex, 'pveTurnBar');
-            UI.pveLogConsole(`🎯 Turno de ${entry.actor.name}`, 'round-header', ac.turnNumber);
-            Narrator.setLogContainer('pveLogContent');
+        // Enemy turn — auto-resolve
+        adv.turnCount++;
+        ac.turnNumber++;
 
-            const result = Engine.resolveCombatTurn(entry, ac.turnQueue);
+        UI.clearPvETurnHighlights();
+        UI.pveLogConsole(`🎯 ${entry.actor.name}'s turn`, 'round-header', ac.turnNumber);
+        Narrator.setLogContainer('pveLogContent');
 
-            // Damage floats
-            const isTargetAlly = result.target ? ac.party.includes(result.target) : false;
-            const targetIdx = result.target
-                ? (isTargetAlly
-                    ? ac.party.findIndex(p => p === result.target)
-                    : ac.squad.findIndex(s => s === result.target))
-                : -1;
-            const dmgTargetSel = result.target && targetIdx >= 0
-                ? (isTargetAlly
-                    ? `.party-member-card[data-index="${targetIdx}"]`
-                    : `.squad-member-card[data-enemy-index="${targetIdx}"]`)
-                : '';
-            if (result.hpDamage > 0 && dmgTargetSel) UI.spawnDmgFloat(dmgTargetSel, 'hp', result.hpDamage);
-            if (result.defDamage > 0 && dmgTargetSel) UI.spawnDmgFloat(dmgTargetSel, 'def', result.defDamage);
+        const allTargets = [{ actor: adv.hero, isAlly: true, slotIndex: 0, vel: adv.hero.vel || 100 }];
+        const result = Engine.resolveEnemyTurn(entry, allTargets);
 
-            // Combat hit animation: attacker slides forward, target shakes
-            if (result.acted && dmgTargetSel) {
-                const aSel = entry.isAlly
-                    ? `.party-member-card[data-index="${entry.slotIndex}"]`
-                    : `.squad-member-card[data-enemy-index="${entry.slotIndex}"]`;
-                UI.animatePvEHit(aSel, dmgTargetSel);
+        // Apply run passives: thornmail (reflect)
+        if (result.hpDamage > 0 && result.target) {
+            const reflect = Engine.applyRunPassivesOnDamaged(result.target, adv.runPassives, result.hpDamage, entry.actor);
+            if (reflect.reflected > 0 && entry.actor.hp > 0) {
+                UI.pveLogConsole(`🌵 Thornmail reflects ${reflect.reflected} damage!`, 'system');
             }
+        }
 
-            // Ultimate animation
+        // Check if reflect killed enemy
+        const vMid = Engine.verifyPartyVictory(ac.party, ac.squad);
+        if (vMid.victory || vMid.defeat) {
+            UI.updateSingleHeroArena(adv.hero, ac.squad[0]);
+            if (result.hpDamage > 0) UI.spawnDmgFloat('#singleArena .enemy-card', 'hp', result.hpDamage);
+            if (result.defDamage > 0) UI.spawnDmgFloat('#singleArena .enemy-card', 'def', result.defDamage);
+            if (result.acted) UI.animatePvEHit('#singleArena .enemy-card', '#singleArena .hero-card');
             if (result.ultimateUsed) {
                 const ult = Engine.ULTIMATE_DB[entry.actor.ultimateId];
                 if (ult) UI.playUltimateAnimation(entry.actor.name, ult.name);
             }
+            ac.turnQueue.splice(0, 1);
+            _handleRunOutcome(vMid);
+            _runProcessing = false;
+            return;
+        }
 
-            // Death animation
-            if (result.targetKilled && dmgTargetSel) {
-                UI.playDeathAnimation(dmgTargetSel);
+        // Damage float & animation
+        if (result.hpDamage > 0) UI.spawnDmgFloat('#singleArena .hero-card', 'hp', result.hpDamage);
+        if (result.defDamage > 0) UI.spawnDmgFloat('#singleArena .hero-card', 'def', result.defDamage);
+
+        if (result.acted) {
+            UI.animatePvEHit('#singleArena .enemy-card', '#singleArena .hero-card');
+        }
+
+        if (result.ultimateUsed) {
+            const ult = Engine.ULTIMATE_DB[entry.actor.ultimateId];
+            if (ult) UI.playUltimateAnimation(entry.actor.name, ult.name);
+        }
+
+        if (result.targetKilled) {
+            UI.playDeathAnimation('#singleArena .hero-card');
+        }
+
+        ac.turnQueue.splice(0, 1);
+        UI.updateSingleHeroArena(adv.hero, ac.squad[0]);
+
+        const v2 = Engine.verifyPartyVictory(ac.party, ac.squad);
+        if (_handleRunOutcome(v2)) { _runProcessing = false; return; }
+
+        _runProcessing = false;
+        setTimeout(() => _runAdvanceTurn(), 400);
+    }
+
+    function _runPvEAttack(action) {
+        if (_runProcessing) return;
+        _runProcessing = true;
+
+        const ac = gameState.adventureCombat;
+        const adv = gameState.adventure;
+        if (!ac || !adv || !adv.inCombat) { _runProcessing = false; return; }
+
+        const entry = ac.turnQueue[0];
+        if (!entry || !entry.isAlly) { _runProcessing = false; return; }
+
+        const hero = entry.actor;
+        const target = ac.squad[0];
+        if (!target || target.hp <= 0) { _runProcessing = false; return; }
+
+        adv.turnCount++;
+        ac.turnNumber++;
+
+        UI.removeSingleHeroActions();
+        UI.clearPvETurnHighlights();
+        Narrator.setLogContainer('pveLogContent');
+
+        let result;
+        let doubleStrike = false;
+
+        if (action === 'ultimate') {
+            result = Engine.executeUltimateAttack(hero, target, hero.name, target.name);
+            if (!result) {
+                _runProcessing = false;
+                setTimeout(() => _runAdvanceTurn(), 100);
+                return;
+            }
+        } else {
+            result = Engine.executeNormalAttack(hero, target, hero.name, target.name);
+            // Check for Precision double strike
+            if (Engine.checkPrecisionDoubleStrike(adv.runPassives) && target.hp > 0) {
+                doubleStrike = true;
+            }
+        }
+
+        const actionLabel = action === 'ultimate' ? 'ULTIMATE' : 'attacks';
+        UI.pveLogConsole(`🎯 ${hero.name} ${actionLabel} ${target.name}!`, 'round-header', ac.turnNumber);
+
+        // Apply passives: Bloodthirst (heal on hit)
+        const bh = Engine.applyRunPassivesOnHit(hero, adv.runPassives, result.hpDamage);
+        if (bh.healed > 0) {
+            UI.pveLogConsole(`🩸 Bloodthirst heals ${bh.healed} HP!`, 'system');
+        }
+
+        // Damage float & animation
+        const tSel = '#singleArena .enemy-card';
+        const aSel = '#singleArena .hero-card';
+        if (result.hpDamage > 0) UI.spawnDmgFloat(tSel, 'hp', result.hpDamage);
+        if (result.defDamage > 0) UI.spawnDmgFloat(tSel, 'def', result.defDamage);
+        UI.animatePvEHit(aSel, tSel);
+
+        if (result.ultimateUsed) {
+            const ult = Engine.ULTIMATE_DB[hero.ultimateId];
+            if (ult) UI.playUltimateAnimation(hero.name, ult.name);
+        }
+
+        if (result.targetKilled) {
+            UI.playDeathAnimation(tSel);
+        }
+
+        ac.turnQueue.splice(0, 1);
+        UI.updateSingleHeroArena(hero, target);
+
+        // Check if enemy died
+        const v = Engine.verifyPartyVictory(ac.party, ac.squad);
+        if (v.victory || v.defeat) {
+            _handleRunOutcome(v);
+            _runProcessing = false;
+            return;
+        }
+
+        // Double strike from Precision
+        if (doubleStrike && target.hp > 0) {
+            UI.pveLogConsole(`🎯 Precision! ${hero.name} strikes again!`, 'system');
+            const result2 = Engine.executeNormalAttack(hero, target, hero.name, target.name);
+            if (result2.hpDamage > 0) UI.spawnDmgFloat(tSel, 'hp', result2.hpDamage);
+            if (result2.defDamage > 0) UI.spawnDmgFloat(tSel, 'def', result2.defDamage);
+            if (result2.hpDamage > 0 || result2.defDamage > 0) {
+                UI.animatePvEHit(aSel, tSel);
+            }
+            if (result2.targetKilled) {
+                UI.playDeathAnimation(tSel);
+            }
+            const bh2 = Engine.applyRunPassivesOnHit(hero, adv.runPassives, result2.hpDamage);
+            if (bh2.healed > 0) {
+                UI.pveLogConsole(`🩸 Bloodthirst heals ${bh2.healed} HP!`, 'system');
+            }
+            const v2 = Engine.verifyPartyVictory(ac.party, ac.squad);
+            if (v2.victory || v2.defeat) {
+                _handleRunOutcome(v2);
+                _runProcessing = false;
+                return;
+            }
+        }
+
+        UI.updateSingleHeroArena(hero, target);
+
+        _runProcessing = false;
+        setTimeout(() => _runAdvanceTurn(), 500);
+    }
+
+    function _handleRunOutcome(result) {
+        const adv = gameState.adventure;
+        const ac = gameState.adventureCombat;
+        if (!adv) return false;
+
+        if (result.victory) {
+            adv.inCombat = false;
+            const enemy = ac ? ac.squad[0] : null;
+            const enemyId = (ac && ac.nodeEnemyId) || '';
+            const isBoss = ac && ac.nodeIsBoss;
+
+            gameState.adventureCombat = null;
+            UI.removeSingleHeroActions();
+
+            UI.pveLogConsole(`🏆 ${adv.hero.name} defeats ${enemy ? enemy.name : 'the enemy'}!`, 'victory');
+
+            // XP and gold reward
+            const xpReward = isBoss ? 50 : 30;
+            const goldReward = isBoss ? 100 : 50;
+            gameState.resources.gold += goldReward;
+            UI.pveLogConsole(`🪙 +${goldReward} gold`, 'system');
+            addXP(xpReward);
+
+            // Check for item drop — always goes to inventory
+            const drop = Engine.getItemDrop(enemyId);
+            if (drop) {
+                const itemDef = Engine.ITEM_DB[drop.id];
+                if (itemDef) {
+                    return _showItemDrop(itemDef, () => {
+                        _advanceRunAfterCombat(isBoss);
+                    }, () => {
+                        _advanceRunAfterCombat(isBoss);
+                    });
+                }
             }
 
-            ac.currentIndex++;
-            if (ac.currentIndex >= ac.turnQueue.length) ac.currentIndex = 0;
+            setTimeout(() => _advanceRunAfterCombat(isBoss), 400);
+            return true;
 
-            UI.clearActiveHighlight();
-            UI.updatePvEArena(ac.party, ac.squad, adv.turnCount);
-            UI.renderTurnBar(ac.turnQueue, ac.currentIndex, 'pveTurnBar');
-
-            const v2 = Engine.verifyPartyVictory(ac.party, ac.squad);
-            handlePvEOutcome(v2);
-            return;
-        }
-
-        // PvE Retreat button
-        if (e.target.id === 'btnPvERetreat') {
+        } else if (result.defeat) {
             adv.inCombat = false;
-            adv.currentStage = null;
-            adv.selectedTeam = [];
-            adv.activeSquad = [];
-            adv.turnCount = 0;
             gameState.adventureCombat = null;
-            UI.cleanAdventureOverlays();
-            UI.renderMapNodes(adv);
-            return;
-        }
+            UI.removeSingleHeroActions();
 
-        // Result overlay: Continue (victory)
-        if (e.target.id === 'btnPvEResultContinue') {
-            adv.inCombat = false;
-            adv.currentStage = null;
-            adv.selectedTeam = [];
-            adv.activeSquad = [];
-            adv.turnCount = 0;
-            gameState.adventureCombat = null;
-            UI.cleanAdventureOverlays();
-            UI.renderMapNodes(adv);
-            return;
-        }
+            // Check Second Wind
+            if (Engine.applyRunPassivesOnDeath(adv.hero, adv.runPassives)) {
+                UI.pveLogConsole(`🔄 Second Wind! ${adv.hero.name} revives with 25% HP!`, 'system');
+                const enemy = ac ? ac.squad[0] : null;
+                if (enemy && enemy.hp > 0) {
+                    adv.inCombat = true;
+                    const turnQueue = Engine.buildTurnOrder([adv.hero], [enemy]);
+                    gameState.adventureCombat = {
+                        turnQueue, currentIndex: 0, turnNumber: 0,
+                        party: [adv.hero], squad: [enemy],
+                        isRunCombat: true, nodeEnemyId: ac.nodeEnemyId, nodeIsBoss: ac.nodeIsBoss
+                    };
+                    UI.updateSingleHeroArena(adv.hero, enemy);
+                    setTimeout(() => _runAdvanceTurn(), 300);
+                    return true;
+                }
+            }
 
-        // Result overlay: Retry (defeat)
-        if (e.target.id === 'btnPvEResultRetry') {
-            const stageId = adv.currentStage;
-            gameState.adventureCombat = null;
-            UI.cleanAdventureOverlays();
-            UI.renderTeamSelection(stageId);
-            return;
+            UI.pveLogConsole(`💀 ${adv.hero.name} has fallen.`, 'victory');
+            adv.hero._runNodeReached = adv.currentNode;
+            const run = Engine.RUN_TEMPLATES[adv.currentRun];
+            setTimeout(() => {
+                UI.renderRunGameOver(adv.hero, run ? run.name : adv.currentRun,
+                    () => {
+                        adv.hero = null;
+                        adv.weapon = null;
+                        adv.armor = null;
+                        adv.runPassives = [];
+                        adv.currentNode = 0;
+                        adv.completed = false;
+                        if (run) UI.renderAdventureLobby(run);
+                    },
+                    () => {
+                        adv.hero = null;
+                        adv.weapon = null;
+                        adv.armor = null;
+                        adv.runPassives = [];
+                        adv.currentNode = 0;
+                        adv.completed = false;
+                        transitionState('library');
+                    }
+                );
+            }, 500);
+            return true;
         }
+        return false;
+    }
 
-        // Result overlay: Back to Map (defeat)
-        if (e.target.id === 'btnPvEBackToMap') {
-            adv.inCombat = false;
-            adv.currentStage = null;
-            adv.selectedTeam = [];
-            adv.activeSquad = [];
-            adv.turnCount = 0;
-            gameState.adventureCombat = null;
-            UI.cleanAdventureOverlays();
-            UI.renderMapNodes(adv);
-            return;
-        }
-    });
-
-    // 🎁 Rewards claimed → add to inventory + resources → show result
-    document.addEventListener('rewardsClaimed', (e) => {
-        const detail = e.detail || {};
-        const lootItems = detail.loot || [];
-        if (lootItems.length > 0) {
-            gameState.inventory.push(...lootItems);
-            UI.saveInventory(gameState.inventory);
-        }
-        const gold = detail.gold || 0;
-        const xp = detail.xp || 0;
-        if (gold > 0) gameState.resources.gold = (gameState.resources.gold || 0) + gold;
-        if (xp > 0) gameState.player.xp = (gameState.player.xp || 0) + xp;
-        updateHUD();
-        const adv = gameState.adventure;
-        const stages = ['1-1','1-2','1-3','1-4','1-5'];
-        const stageLabels = {'1-1':'The Awakening','1-2':'Goblin Woods','1-3':'Heart of the Woods','1-4':'Stone Bastion','1-5':"Warlord's Lair"};
-        const stgIdx = stages.indexOf(detail.stageId);
-        const party = adv.selectedTeam || [];
-        const nextStageId = (stgIdx >= 0 && stgIdx < stages.length - 1) ? stages[stgIdx + 1] : '';
-        const nextStageName = nextStageId ? `${nextStageId}: ${stageLabels[nextStageId] || ''}` : '';
-        UI.showPvEResult('victory', {
-            party,
-            stageName: `${detail.stageId}: ${stageLabels[detail.stageId] || 'Stage'}`,
-            nextStage: nextStageName
+    function _showItemDrop(itemDef, onEquip, onSkip) {
+        UI.renderItemDrop(itemDef, () => {
+            const adv = gameState.adventure;
+            const slot = itemDef.slot;
+            const result = Engine.equipItem(adv.hero, adv.weapon, adv.armor, itemDef, slot);
+            adv.weapon = result.weapon;
+            adv.armor = result.armor;
+            gameState.inventory.push(itemDef);
+            _savePlayerData();
+            UI.pveLogConsole(`⚡ Equipped ${itemDef.name}!`, 'system');
+            if (onEquip) onEquip();
+        }, () => {
+            gameState.inventory.push(itemDef);
+            _savePlayerData();
+            UI.pveLogConsole(`📦 ${itemDef.name} stored in inventory.`, 'system');
+            if (onSkip) onSkip();
         });
-    });
+    }
 
-    // Cargar inventario desde localStorage
-    try {
-        const savedInv = UI.loadInventory();
-        if (savedInv.length > 0) gameState.inventory = savedInv;
-    } catch (e) {}
+    function _advanceRunAfterCombat(isBoss) {
+        const adv = gameState.adventure;
+        const run = Engine.RUN_TEMPLATES[adv.currentRun];
+        if (!run) return;
+
+        adv.currentNode++;
+        adv.completed = adv.currentNode >= run.nodes.length;
+
+        if (adv.completed) {
+            // Run complete!
+            adv.runProgress['run-1'] = 'completed';
+            adv.runProgress['run-2'] = 'available';
+            gameState.resources.gold += 100;
+            _savePlayerData();
+            updateHUD();
+            UI.renderRunComplete(run.name, adv.hero, adv.weapon, adv.armor, () => {
+                UI.cleanAdventureOverlays();
+                transitionState('library');
+            });
+            return;
+        }
+
+        // Show organigrama with updated state
+        UI.cleanAdventureOverlays();
+        UI.renderOrganigrama(run, adv.currentNode);
+    }
+
+    function _enterRunUpgrade() {
+        const adv = gameState.adventure;
+        const choices = Engine.getUpgradeChoices(adv.hero, adv.runPassives);
+        UI.renderUpgradeModal(choices, (idx) => {
+            const chosen = choices[idx];
+            if (chosen) {
+                adv.runPassives = Engine.applyUpgrade(adv.hero, chosen, adv.runPassives);
+                UI.pveLogConsole(`⭐ Upgraded: ${chosen.name}!`, 'system');
+
+                // If full restore, animate
+                if (chosen.id === 'full_restore') {
+                    UI.pveLogConsole(`💚 ${adv.hero.name} fully restored!`, 'system');
+                }
+            }
+            adv.currentNode++;
+            const run = Engine.RUN_TEMPLATES[adv.currentRun];
+            if (!run) return;
+            adv.completed = adv.currentNode >= run.nodes.length;
+            if (adv.completed) {
+                adv.runProgress['run-1'] = 'completed';
+                adv.runProgress['run-2'] = 'available';
+                gameState.resources.gold += 100;
+                _savePlayerData();
+                updateHUD();
+                UI.renderRunComplete(run.name, adv.hero, adv.weapon, adv.armor, () => {
+                    UI.cleanAdventureOverlays();
+                    transitionState('library');
+                });
+                return;
+            }
+            UI.cleanAdventureOverlays();
+            UI.renderOrganigrama(run, adv.currentNode);
+        });
+    }
+
+    // Cargar datos de jugador desde localStorage
+    _loadPlayerData();
+    updateHUD();
 
     // Restaurar última pestaña desde localStorage (solo activas)
     try {

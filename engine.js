@@ -45,6 +45,11 @@ export const ULTIMATE_DB = {
         id: 'radiance_purge', name: 'Radiance Purge', element: 'Luz',
         desc: 'Purga divina: cura 30% HP a todos los aliados y otorga escudo.',
         healPct: 0.3, shieldPct: 0.2, cost: 10, cooldown: 3
+    },
+    enemy_smash: {
+        id: 'enemy_smash', name: 'Smash', element: 'Neutral',
+        desc: 'Aplasta al enemigo infligiendo 200% ATQ como daño.',
+        multiplier: 2.0, cost: 10, cooldown: 3
     }
 };
 
@@ -63,7 +68,7 @@ function getUltimateForCard(card) {
 // =============================================
 // 🧮 CÁLCULO DE DAÑO (núcleo unificado)
 // =============================================
-function calcularDetalleDaño(atk, def) {
+function calcularDetalleDaño(atk, def, options = {}) {
     if (typeof atk.atq !== 'number' || isNaN(atk.atq)) atk.atq = 0;
     let rawDmg = atk.atq;
     let hpDamage = 0;
@@ -72,7 +77,7 @@ function calcularDetalleDaño(atk, def) {
     let ultimateUsed = false;
 
     const ult = getUltimateForCard(atk);
-    if (atk.fervor >= MAX_FERVOR && !atk.ultimateCooldown && ult) {
+    if (!options.forceNormal && atk.fervor >= MAX_FERVOR && !atk.ultimateCooldown && ult) {
         ultimateUsed = true;
         atk.fervor = 0;
         atk.ultimateCooldown = ult.cooldown || 3;
@@ -231,7 +236,7 @@ function processPostDamagePassives(receiver, attacker, dmg) {
 let _passiveDepth = 0;
 const MAX_PASSIVE_DEPTH = 20;
 
-export function procesarAtaque(atk, def, atkLabel, defLabel, skipPassives) {
+export function procesarAtaque(atk, def, atkLabel, defLabel, skipPassives, options = {}) {
     if (!atk || !def || atk.hp <= 0 || def.hp <= 0) return { defDamage: 0, hpDamage: 0, ultimateUsed: false, blocked: false };
     if (_passiveDepth > MAX_PASSIVE_DEPTH) return { defDamage: 0, hpDamage: 0, ultimateUsed: false, blocked: false };
 
@@ -250,7 +255,7 @@ export function procesarAtaque(atk, def, atkLabel, defLabel, skipPassives) {
         }
     }
 
-    const dmg = calcularDetalleDaño(atk, def);
+    const dmg = calcularDetalleDaño(atk, def, options);
 
     const blocked = dmg.blocked || false;
     const revived = dmg.reviveCounter || false;
@@ -397,7 +402,109 @@ function findTarget(turnEntry, allEntries) {
         return lowestHp;
     }
 
-    return enemies[0];
+    return enemies[Math.floor(Math.random() * enemies.length)];
+}
+
+// =============================================
+// 🎯 ATAQUE MANUAL (para input del jugador)
+// =============================================
+export function executeNormalAttack(actor, target, actLabel, defLabel) {
+    if (!actor || !target || actor.hp <= 0 || target.hp <= 0) {
+        return { acted: false, hpDamage: 0, defDamage: 0, ultimateUsed: false, targetKilled: false };
+    }
+    const result = procesarAtaque(actor, target, actLabel, defLabel, false, { forceNormal: true });
+    return {
+        acted: true,
+        targetKilled: target.hp <= 0,
+        ultimateUsed: false,
+        actor, target: target,
+        hpDamage: result.hpDamage,
+        defDamage: result.defDamage
+    };
+}
+
+export function executeUltimateAttack(actor, target, actLabel, defLabel) {
+    if (!actor || !target || actor.hp <= 0 || target.hp <= 0) return null;
+    const ult = getUltimateForCard(actor);
+    if (!ult) return null;
+    if (actor.fervor < MAX_FERVOR) return null;
+    if (actor.ultimateCooldown > 0) return null;
+    const result = procesarAtaque(actor, target, actLabel, defLabel, false, { forceNormal: false });
+    return {
+        acted: true,
+        targetKilled: target.hp <= 0,
+        ultimateUsed: result.ultimateUsed,
+        actor, target: target,
+        hpDamage: result.hpDamage,
+        defDamage: result.defDamage
+    };
+}
+
+// =============================================
+// 🤖 IA ENEMIGA (turno automático)
+// =============================================
+export function resolveEnemyTurn(turnEntry, allEntries) {
+    if (!turnEntry || !turnEntry.actor || turnEntry.actor.hp <= 0) {
+        return { acted: false, targetKilled: false, ultimateUsed: false, actor: null };
+    }
+    const actor = turnEntry.actor;
+
+    if (actor.ultimateCooldown > 0) actor.ultimateCooldown--;
+
+    gainFervor(actor, FERVOR_PER_TURN);
+
+    if (actor._poisonApplied > 0) {
+        const poisonDmg = Math.floor(actor.maxHp * 0.05);
+        actor.hp = Math.max(0, actor.hp - poisonDmg);
+        narrate.narratePoisonDamage(actor.name, poisonDmg);
+        actor._poisonApplied--;
+        if (actor.hp <= 0) {
+            return { acted: false, targetKilled: false, ultimateUsed: false, actor };
+        }
+    }
+
+    if (actor._wasHit) {
+        gainFervor(actor, FERVOR_PER_HIT);
+        actor._wasHit = false;
+    }
+
+    const target = findTarget(turnEntry, allEntries);
+    if (!target) return { acted: false, targetKilled: false, ultimateUsed: false, actor };
+
+    const actLabel = `[Enemy] ${actor.name}`;
+    const defLabel = target.isAlly ? `[${target.actor.name}]` : `[Enemy] ${target.actor.name}`;
+
+    const ult = getUltimateForCard(actor);
+    const shouldUlt = actor.fervor >= MAX_FERVOR && !actor.ultimateCooldown && ult;
+
+    let result;
+    if (shouldUlt) {
+        const ultResult = procesarAtaque(actor, target.actor, actLabel, defLabel, false, { forceNormal: false });
+        result = {
+            acted: true,
+            targetKilled: target.actor.hp <= 0,
+            ultimateUsed: ultResult.ultimateUsed,
+            actor, target: target.actor,
+            hpDamage: ultResult.hpDamage,
+            defDamage: ultResult.defDamage
+        };
+    } else {
+        const normalResult = procesarAtaque(actor, target.actor, actLabel, defLabel, false, { forceNormal: true });
+        result = {
+            acted: true,
+            targetKilled: target.actor.hp <= 0,
+            ultimateUsed: false,
+            actor, target: target.actor,
+            hpDamage: normalResult.hpDamage,
+            defDamage: normalResult.defDamage
+        };
+    }
+
+    if (target.actor && target.actor.hp <= 0) {
+        narrate.narrateDeath(target.actor.name);
+    }
+
+    return result;
 }
 
 // =============================================
@@ -512,7 +619,7 @@ export function applyRoundStartPassives(f, r) {
         }
 
         case 'shield_recharge':
-            let regen = Math.floor((f.maxHp || f.hp || 1) * 0.1);
+            let regen = Math.floor((f.maxHp || f.hp || 1) * 0.05);
             f.def = Math.min(f.maxHp || 9999, f.def + regen);
             narrate.narrateShieldRecharge(f.name, regen);
             break;
@@ -1007,73 +1114,6 @@ export function generateLoot(stageId, squad) {
 }
 
 // =============================================
-// 👾 ENEMY ROSTER (Zona 1 — 5v5, con VEL)
-// =============================================
-const ENEMY_ROSTER = {
-    orc_boss: {
-        id: 'orc_boss',
-        name: 'Orc Warlord',
-        element: 'Earth',
-        cardClass: 'Orc',
-        hp: 40000, def: 5000, atq: 3500, vel: 150,
-        maxHp: 40000,
-        passiveId: 'orc_warlord',
-        ultimateId: 'void_rend',
-        image: 'https://via.placeholder.com/300x200?text=Orc+Warlord+BOSS'
-    }
-};
-
-const ENEMY_SQUAD_ROSTER = {
-    goblin_shieldbearer: {
-        id: 'goblin_shield', name: 'Goblin Shieldbearer', element: 'Neutral',
-        cardClass: 'Goblin', hp: 3500, def: 2500, atq: 1400, vel: 60, maxHp: 3500,
-        passiveId: '', ultimateId: '', image: 'https://via.placeholder.com/120x80?text=Shield'
-    },
-    goblin_piker: {
-        id: 'goblin_piker', name: 'Goblin Piker', element: 'Neutral',
-        cardClass: 'Goblin', hp: 2800, def: 1500, atq: 2100, vel: 90, maxHp: 2800,
-        passiveId: '', ultimateId: '', image: 'https://via.placeholder.com/120x80?text=Piker'
-    },
-    goblin_sapper: {
-        id: 'goblin_sapper', name: 'Goblin Sapper', element: 'Darkness',
-        cardClass: 'Goblin', hp: 2500, def: 1200, atq: 2200, vel: 100, maxHp: 2500,
-        passiveId: 'prog_venom', ultimateId: '', image: 'https://via.placeholder.com/120x80?text=Sapper'
-    },
-    goblin_scout: {
-        id: 'goblin_scout', name: 'Goblin Scout', element: 'Wind',
-        cardClass: 'Goblin', hp: 2200, def: 1000, atq: 2700, vel: 130, maxHp: 2200,
-        passiveId: '', ultimateId: '', image: 'https://via.placeholder.com/120x80?text=Scout'
-    },
-    goblin_shaman: {
-        id: 'goblin_shaman', name: 'Goblin Shaman', element: 'Nature',
-        cardClass: 'Goblin', hp: 2000, def: 1500, atq: 1800, vel: 80, maxHp: 2000,
-        passiveId: 'shield_recharge', ultimateId: 'verdant_wrath',
-        image: 'https://via.placeholder.com/120x80?text=Shaman'
-    }
-};
-
-export function getSquadForStage(stageId) {
-    if (!stageId || !/^\d+-\d+$/.test(stageId)) return [];
-    if (stageId === '1-5') {
-        const boss = JSON.parse(JSON.stringify(ENEMY_ROSTER.orc_boss));
-        boss._uid = 'orc_boss';
-        return [boss];
-    }
-    const stageNum = parseInt(stageId.split('-')[1]);
-    const mult = 1.0 + (stageNum - 1) * 0.05;
-    const squad = Object.values(ENEMY_SQUAD_ROSTER).map((e, i) => {
-        const clone = JSON.parse(JSON.stringify(e));
-        clone.hp = Math.floor(clone.hp * mult);
-        clone.maxHp = clone.hp;
-        clone.def = Math.floor(clone.def * mult);
-        clone.atq = Math.floor(clone.atq * mult);
-        clone._uid = `enemy_slot_${i}`;
-        return clone;
-    });
-    return squad;
-}
-
-// =============================================
 // 🏆 TORNEO — LÓGICA DE BRACKET
 // =============================================
 export function generateBracket(contestants) {
@@ -1151,4 +1191,335 @@ export function isTournamentOver(bracket) {
     if (!bracket) return false;
     const lastMatch = bracket[3] && bracket[3][0];
     return lastMatch && lastMatch.completed;
+}
+
+// =============================================
+// 🎮 ROGUELIKE RUN SYSTEM
+// =============================================
+
+export const RARITY_COLORS = { common: '#888', rare: '#4ade80', epic: '#a855f7' };
+
+export const ITEM_DB = {
+    rusty_sword: { id: 'rusty_sword', name: 'Rusty Sword', slot: 'weapon', rarity: 'common', atq: 50, def: 0, hp: 0, vel: 0 },
+    wooden_shield: { id: 'wooden_shield', name: 'Wooden Shield', slot: 'armor', rarity: 'common', atq: 0, def: 80, hp: 0, vel: 0 },
+    bone_ring: { id: 'bone_ring', name: 'Bone Ring', slot: 'weapon', rarity: 'common', atq: 20, def: 20, hp: 0, vel: 0 },
+    leather_vest: { id: 'leather_vest', name: 'Leather Vest', slot: 'armor', rarity: 'common', atq: 0, def: 50, hp: 100, vel: 0 },
+    iron_claymore: { id: 'iron_claymore', name: 'Iron Claymore', slot: 'weapon', rarity: 'rare', atq: 150, def: 0, hp: 0, vel: 0 },
+    steel_plate: { id: 'steel_plate', name: 'Steel Plate', slot: 'armor', rarity: 'rare', atq: 0, def: 200, hp: 0, vel: 0 },
+    berserker_axe: { id: 'berserker_axe', name: "Berserker's Axe", slot: 'weapon', rarity: 'rare', atq: 200, def: -50, hp: 0, vel: 0 },
+    phoenix_crown: { id: 'phoenix_crown', name: 'Phoenix Crown', slot: 'armor', rarity: 'rare', atq: 0, def: 0, hp: 300, vel: 20 },
+    dragon_fang: { id: 'dragon_fang', name: 'Dragon Fang Blade', slot: 'weapon', rarity: 'epic', atq: 300, def: 0, hp: 0, vel: 30 },
+    phoenix_aegis: { id: 'phoenix_aegis', name: 'Phoenix Aegis', slot: 'armor', rarity: 'epic', atq: 0, def: 250, hp: 200, vel: 0 },
+};
+
+export function getItemRarityColor(rarity) {
+    return RARITY_COLORS[rarity] || '#fff';
+}
+
+export function applyItemStats(hero, item) {
+    if (!hero || !item) return;
+    hero.atq += (item.atq || 0);
+    hero.def += (item.def || 0);
+    hero.hp += (item.hp || 0);
+    hero.maxHp += (item.hp || 0);
+    hero.vel += (item.vel || 0);
+}
+
+export function removeItemStats(hero, item) {
+    if (!hero || !item) return;
+    hero.atq -= (item.atq || 0);
+    hero.def -= (item.def || 0);
+    hero.hp = Math.max(1, hero.hp - (item.hp || 0));
+    hero.maxHp -= (item.hp || 0);
+    hero.vel -= (item.vel || 0);
+}
+
+export const RUN_PASSIVE_DB = {
+    bloodthirst: {
+        id: 'bloodthirst', name: 'Bloodthirst', icon: '🩸',
+        desc: 'Cura 10% del daño infligido',
+        onHit(hero, damageDealt) {
+            const heal = Math.floor(damageDealt * 0.1);
+            if (heal > 0) {
+                hero.hp = Math.min(hero.maxHp, hero.hp + heal);
+                return { healed: heal };
+            }
+            return { healed: 0 };
+        }
+    },
+    thornmail: {
+        id: 'thornmail', name: 'Thornmail', icon: '🌵',
+        desc: 'Reflecta 15% del daño recibido',
+        onDamaged(hero, damage, attacker) {
+            const reflect = Math.floor(damage * 0.15);
+            if (reflect > 0 && attacker && attacker.hp > 0) {
+                attacker.hp = Math.max(0, (attacker.hp || 0) - reflect);
+                return { reflected: reflect };
+            }
+            return { reflected: 0 };
+        }
+    },
+    precision: {
+        id: 'precision', name: 'Precision', icon: '🎯',
+        desc: '20% de chance de golpe doble',
+        onAttack() {
+            return Math.random() < 0.2;
+        }
+    },
+    second_wind: {
+        id: 'second_wind', name: 'Second Wind', icon: '🔄',
+        desc: '1 vez por run, revive con 25% HP',
+        onDeath(hero) {
+            if (!hero._secondWindUsed) {
+                hero._secondWindUsed = true;
+                hero.hp = Math.floor(hero.maxHp * 0.25);
+                return true;
+            }
+            return false;
+        }
+    },
+    poison_strikes: {
+        id: 'poison_strikes', name: 'Poison Strikes', icon: '🧪',
+        desc: 'Los ataques envenenan 2 turnos',
+        onHit(hero, damageDealt, target) {
+            if (target && target.hp > 0) {
+                target._poisonApplied = 2;
+                return { poisoned: true };
+            }
+            return { poisoned: false };
+        }
+    }
+};
+
+export const UPGRADE_POOL = [
+    { id: 'atk_up', name: 'Power Surge', icon: '⚔️', desc: '+20% ATQ permanente', type: 'stat', apply(hero) { hero.atq = Math.floor(hero.atq * 1.2); } },
+    { id: 'def_up', name: 'Iron Will', icon: '🛡️', desc: '+20% DEF permanente', type: 'stat', apply(hero) { hero.def = Math.floor(hero.def * 1.2); } },
+    { id: 'hp_up', name: 'Vitality Core', icon: '❤️', desc: '+30% HP Máximo (cura esa cantidad)', type: 'stat', apply(hero) { const bonus = Math.floor(hero.maxHp * 0.3); hero.maxHp += bonus; hero.hp = Math.min(hero.maxHp, hero.hp + bonus); } },
+    { id: 'vel_up', name: 'Haste', icon: '💨', desc: '+60 VEL permanente', type: 'stat', apply(hero) { hero.vel = Math.min(500, (hero.vel || 50) + 60); } },
+    { id: 'bloodthirst', name: 'Bloodthirst', icon: '🩸', desc: 'Cura 10% del daño infligido', type: 'passive', passiveId: 'bloodthirst' },
+    { id: 'thornmail', name: 'Thornmail', icon: '🌵', desc: 'Reflecta 15% daño recibido', type: 'passive', passiveId: 'thornmail' },
+    { id: 'precision', name: 'Precision', icon: '🎯', desc: '20% chance de golpe doble', type: 'passive', passiveId: 'precision' },
+    { id: 'second_wind', name: 'Second Wind', icon: '🔄', desc: '1 vez/run revive con 25% HP', type: 'passive', passiveId: 'second_wind' },
+    { id: 'poison_strikes', name: 'Poison Strikes', icon: '🧪', desc: 'Ataques envenenan 2 turnos', type: 'passive', passiveId: 'poison_strikes' },
+    { id: 'new_ultimate', name: 'Ultimate Awakening', icon: '🔥', desc: 'Reemplaza ultimate (+1 nivel si es la misma)', type: 'ultimate' },
+];
+
+const HEAL_UPGRADE = { id: 'full_restore', name: 'Full Restore', icon: '💚', desc: 'Cura 100% HP', type: 'heal', apply(hero) { hero.hp = hero.maxHp; } };
+
+export function getUpgradeChoices(hero, runPassives = []) {
+    const pool = UPGRADE_POOL.filter(u => {
+        if (u.type === 'passive' && runPassives.includes(u.passiveId)) return false;
+        if (u.type === 'ultimate' && runPassives.includes('new_ultimate')) return false;
+        return true;
+    });
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const choices = [HEAL_UPGRADE];
+    for (let i = 0; i < 2 && i < shuffled.length; i++) {
+        choices.push(shuffled[i]);
+    }
+    return choices;
+}
+
+export function applyUpgrade(hero, upgrade, runPassives) {
+    if (!hero || !upgrade) return runPassives;
+    if (upgrade.apply) upgrade.apply(hero);
+    if (upgrade.type === 'passive' && upgrade.passiveId) {
+        runPassives.push(upgrade.passiveId);
+    }
+    if (upgrade.type === 'ultimate') {
+        const allUltIds = Object.keys(ULTIMATE_DB).filter(id => id !== 'enemy_smash');
+        const currentUlt = hero.ultimateId;
+        const available = allUltIds.filter(id => id !== currentUlt);
+        if (available.length > 0) {
+            const newUlt = available[Math.floor(Math.random() * available.length)];
+            hero.ultimateId = newUlt;
+            hero.ultimateLevel = 1;
+        } else if (currentUlt) {
+            hero.ultimateLevel = (hero.ultimateLevel || 1) + 1;
+        }
+    }
+    return runPassives;
+}
+
+export const RUN_ENEMIES_1V1 = {
+    goblin_scout: {
+        id: 'goblin_scout', name: 'Goblin Scout', element: 'Wind',
+        cardClass: 'Goblin', hp: 1500, def: 700, atq: 1200, vel: 130, maxHp: 1500,
+        passiveId: '', ultimateId: 'enemy_smash',
+        image: 'https://via.placeholder.com/240x160?text=Scout'
+    },
+    goblin_piker: {
+        id: 'goblin_piker', name: 'Goblin Piker', element: 'Neutral',
+        cardClass: 'Goblin', hp: 1700, def: 800, atq: 1300, vel: 90, maxHp: 1700,
+        passiveId: '', ultimateId: 'enemy_smash',
+        image: 'https://via.placeholder.com/240x160?text=Piker'
+    },
+    goblin_shieldbearer: {
+        id: 'goblin_shield', name: 'Goblin Shieldbearer', element: 'Neutral',
+        cardClass: 'Goblin', hp: 2200, def: 1400, atq: 1100, vel: 60, maxHp: 2200,
+        passiveId: '', ultimateId: 'enemy_smash',
+        image: 'https://via.placeholder.com/240x160?text=Shield'
+    },
+    goblin_shaman_boss: {
+        id: 'goblin_shaman', name: 'Goblin Shaman', element: 'Nature',
+        cardClass: 'Goblin', hp: 2500, def: 1500, atq: 1600, vel: 80, maxHp: 2500,
+        passiveId: 'shield_recharge', ultimateId: 'verdant_wrath',
+        image: 'https://via.placeholder.com/240x160?text=Shaman+BOSS',
+        isBoss: true
+    }
+};
+
+export const RUN_TEMPLATES = {
+    'run-1': {
+        name: 'The Awakening',
+        desc: 'Un héroe solitario debe demostrar su valía contra la horda goblin.',
+        nodes: [
+            { type: 'combat', enemyId: 'goblin_scout', isBoss: false },
+            { type: 'combat', enemyId: 'goblin_piker', isBoss: false },
+            { type: 'upgrade' },
+            { type: 'combat', enemyId: 'goblin_shieldbearer', isBoss: false },
+            { type: 'combat', enemyId: 'goblin_piker', isBoss: false },
+            { type: 'combat', enemyId: 'goblin_shaman_boss', isBoss: true },
+        ]
+    }
+};
+
+export function getEnemyForRunNode(runId, nodeIndex) {
+    const run = RUN_TEMPLATES[runId];
+    if (!run || !run.nodes[nodeIndex]) return null;
+    const node = run.nodes[nodeIndex];
+    if (node.type !== 'combat' || !node.enemyId) return null;
+    const template = RUN_ENEMIES_1V1[node.enemyId];
+    if (!template) return null;
+    const clone = JSON.parse(JSON.stringify(template));
+    clone._uid = `run_enemy_${nodeIndex}_${node.enemyId}`;
+    clone.fervor = 0;
+    clone.ultimateCooldown = 0;
+    return clone;
+}
+
+export function getRunNode(runId, nodeIndex) {
+    const run = RUN_TEMPLATES[runId];
+    if (!run || !run.nodes[nodeIndex]) return null;
+    return { ...run.nodes[nodeIndex], index: nodeIndex, total: run.nodes.length };
+}
+
+export function getRunProgress(runId, nodeIndex) {
+    const run = RUN_TEMPLATES[runId];
+    if (!run) return { current: 0, total: 0 };
+    return { current: nodeIndex + 1, total: run.nodes.length };
+}
+
+const ITEM_DROP_TABLES = {
+    goblin_scout: {
+        weight: 40,
+        items: [
+            { id: 'rusty_sword', weight: 30 },
+            { id: 'wooden_shield', weight: 30 },
+            { id: 'bone_ring', weight: 20 },
+            { id: 'leather_vest', weight: 20 },
+        ]
+    },
+    goblin_piker: {
+        weight: 40,
+        items: [
+            { id: 'rusty_sword', weight: 20 },
+            { id: 'wooden_shield', weight: 20 },
+            { id: 'bone_ring', weight: 15 },
+            { id: 'leather_vest', weight: 15 },
+            { id: 'iron_claymore', weight: 10 },
+            { id: 'steel_plate', weight: 10 },
+            { id: 'berserker_axe', weight: 5 },
+            { id: 'phoenix_crown', weight: 5 },
+        ]
+    },
+    goblin_shieldbearer: {
+        weight: 50,
+        items: [
+            { id: 'rusty_sword', weight: 10 },
+            { id: 'wooden_shield', weight: 10 },
+            { id: 'iron_claymore', weight: 25 },
+            { id: 'steel_plate', weight: 25 },
+            { id: 'berserker_axe', weight: 15 },
+            { id: 'phoenix_crown', weight: 15 },
+        ]
+    },
+    goblin_shaman_boss: {
+        weight: 100,
+        items: [
+            { id: 'iron_claymore', weight: 15 },
+            { id: 'steel_plate', weight: 15 },
+            { id: 'berserker_axe', weight: 15 },
+            { id: 'phoenix_crown', weight: 15 },
+            { id: 'dragon_fang', weight: 20 },
+            { id: 'phoenix_aegis', weight: 20 },
+        ]
+    }
+};
+
+export function getItemDrop(enemyId) {
+    const table = ITEM_DROP_TABLES[enemyId];
+    if (!table) return null;
+    if (Math.random() * 100 > table.weight) return null;
+    return weightedRandomSelect(table.items);
+}
+
+export function applyRunPassivesOnHit(hero, runPassives, damageDealt) {
+    let totalHealed = 0;
+    for (const pid of runPassives) {
+        const p = RUN_PASSIVE_DB[pid];
+        if (p && p.onHit) {
+            const r = p.onHit(hero, damageDealt);
+            if (r) totalHealed += r.healed || 0;
+        }
+    }
+    return { healed: totalHealed };
+}
+
+export function applyRunPassivesOnDamaged(hero, runPassives, damage, attacker) {
+    let totalReflected = 0;
+    for (const pid of runPassives) {
+        const p = RUN_PASSIVE_DB[pid];
+        if (p && p.onDamaged) {
+            const r = p.onDamaged(hero, damage, attacker);
+            if (r) totalReflected += r.reflected || 0;
+        }
+    }
+    return { reflected: totalReflected };
+}
+
+export function applyRunPassivesOnDeath(hero, runPassives) {
+    for (const pid of runPassives) {
+        const p = RUN_PASSIVE_DB[pid];
+        if (p && p.onDeath) {
+            if (p.onDeath(hero)) return true;
+        }
+    }
+    return false;
+}
+
+export function checkPrecisionDoubleStrike(runPassives) {
+    for (const pid of runPassives) {
+        const p = RUN_PASSIVE_DB[pid];
+        if (p && p.id === 'precision' && p.onAttack) {
+            if (p.onAttack()) return true;
+        }
+    }
+    return false;
+}
+
+export function equipItem(hero, weapon, armor, newItem, slot) {
+    if (!hero || !newItem) return { weapon, armor };
+    const itemDef = ITEM_DB[newItem.id || newItem];
+    if (!itemDef) return { weapon, armor };
+    if (slot === 'weapon') {
+        if (weapon) removeItemStats(hero, weapon);
+        weapon = itemDef;
+        applyItemStats(hero, weapon);
+    } else {
+        if (armor) removeItemStats(hero, armor);
+        armor = itemDef;
+        applyItemStats(hero, armor);
+    }
+    return { weapon, armor };
 }

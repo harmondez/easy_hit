@@ -39,10 +39,10 @@ Every player card is capped at **7400 total stats** (HP + ATQ + DEF). Distribute
 | **🏗️ Forge** | Create custom cards with sliders, pick elements/classes/passives, and preview live | ✅ Live |
 | **📚 Library** | Browse, search, and manage your entire card collection | ✅ Live |
 | **🏟️ Coliseum** | 1v1 PvP arena with full passive processing, round-by-round combat log | ✅ Live |
-| **🗺️ Adventure** | 5-node campaign map, 5-card party deployment, turn-based PvE vs Goblin squads & Orc Warlord boss | ✅ Live |
-| **🏆 Tournament** | 8-fighter bracket with automated seeding, rounds, and champion crowning | ✅ Live |
+| **🗺️ Adventure** | Single-hero roguelike run — combat/upgrade/boss nodes, item drops, potions | ✅ Live |
+| **🏆 Tournament** | 16-fighter bracket with automated seeding, rounds, and champion crowning | ✅ Live |
 | **🖼️ Gallery** | Official card roster with search, filter, and detail view | ✅ Live |
-| **📦 Inventory** | Items, materials, and consumables | 🔒 Phase 7 |
+| **📦 Inventory** | Items, materials, and consumables — filterable grid | ✅ Live |
 | **🏪 Shop** | Card packs and resource bundles | 🔒 Phase 7 |
 
 ---
