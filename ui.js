@@ -1,5 +1,5 @@
-import { cards } from './engine.js?v=20260906a';
-import * as Engine from './engine.js?v=20260906a';
+import { cards } from './engine.js?v=20260907a';
+import * as Engine from './engine.js?v=20260907a';
 
 function esc(str) {
     if (!str) return '';
@@ -26,29 +26,54 @@ export const classIcons = {
     'Monster': '👽', 'Viking': '🪓', 'Pirate': '🏴‍☠️', 'Beast': '🐾', 'Alien': '🛸', 'Neutral': '⚪'
 };
 
+// Nombres de clase en español para mostrar en la UI — el valor interno (cardClass)
+// se mantiene en inglés porque las pasivas comparan contra él (nem_dragon_slayer, nem_xenophobia, etc.)
+export const classNamesEs = {
+    'Human': 'Humano', 'Robot': 'Robot', 'Dragon': 'Dragón', 'Spectre': 'Espectro',
+    'Monster': 'Monstruo', 'Viking': 'Vikingo', 'Pirate': 'Pirata', 'Beast': 'Bestia',
+    'Alien': 'Alienígena', 'Neutral': 'Neutral'
+};
+
+// Plurales (irregulares: Dragón→Dragones, Neutral→Neutrales) — para encabezados de grupo
+export const classNamesEsPlural = {
+    'Human': 'Humanos', 'Robot': 'Robots', 'Dragon': 'Dragones', 'Spectre': 'Espectros',
+    'Monster': 'Monstruos', 'Viking': 'Vikingos', 'Pirate': 'Piratas', 'Beast': 'Bestias',
+    'Alien': 'Alienígenas', 'Neutral': 'Neutrales'
+};
+
+// Rareza en español para mostrar — el valor interno (rarity) se mantiene en inglés
+// porque alimenta las clases CSS (.rarity-common, .rarity-epic, etc.)
+const rarityNamesEs = {
+    common: 'Común', rare: 'Raro', epic: 'Épico', legendary: 'Legendario', mythic: 'Mítico'
+};
+function rarityEs(rarity) {
+    const key = (rarity || 'common').toLowerCase();
+    return rarityNamesEs[key] || (rarity || 'Común');
+}
+
 export const passiveNames = {
-    'gen_block_heal': 'Sacred Veil: Blocks 1st attack and adds to HP',
-    'gen_reflect_full': 'Broken Mirror: 1st strike reflects 100% damage',
-    'gen_steal_stats': 'Soul Thief: Steals 40% of enemy stats as ATK',
-    'nem_xenophobia': 'Xenophobia: Double stats if rival is NOT Human',
-    'nem_dragon_slayer': 'Dragon Slayer: Ignores 50% DEF vs Dragons',
-    'nem_element_ward': 'Lightning Rod: Reduces 50% ATK if rival is Lightning',
-    'prog_scale_stats': 'Growth: +10% ATK & DEF per round',
-    'prog_venom': 'Venomous: Drains 5% of rival HP per round',
-    'prog_drain_def': 'Metal Fatigue: Reduces 10% of rival DEF per round',
-    'double_strike': 'Double Strike: Attacks twice in one round',
-    'life_leech': 'Leech: Drains 50% of damage dealt as HP',
-    'shield_recharge': 'Recharge: Regenerates 10% max HP as shield',
-    'abs_def_convert': 'Iron Skin: Converts 50% of damage into DEF',
-    'abs_hp_convert': 'Leech: Absorbs 30% of damage as HP',
-    'abs_reflect': 'Thorn Armor: Reflects 20% of damage received',
-    'fen_revive': 'Graceful Strike: Absorbs lethal hit as HP and strikes back',
-    'fen_berserker': 'Berserker: ATK x3 when dropping below 30% HP',
-    'fen_last_stand': 'Last Stand: DEF x4 when dropping below 20% HP',
-    'fen_antimatter': 'Overkill: Detonates core upon death (Negative Victory)',
-    'anti_armor': 'Anti-Armor: +50% ATK vs targets with DEF > 0',
-    'armor_piercing': 'Armor Piercing: Ignores 50% of enemy DEF',
-    'orc_warlord': 'Warlord: Blocks 1st hit and enters enraged state'
+    'gen_block_heal': 'Sacred Veil: Bloquea el primer ataque y lo convierte en HP',
+    'gen_reflect_full': 'Broken Mirror: El primer golpe refleja 100% del daño',
+    'gen_steal_stats': 'Soul Thief: Roba 40% de las stats enemigas como ATQ',
+    'nem_xenophobia': 'Xenophobia: Duplica stats si el rival NO es Humano',
+    'nem_dragon_slayer': 'Dragon Slayer: Ignora 50% DEF contra Dragones',
+    'nem_element_ward': 'Lightning Rod: Reduce 50% ATQ si el rival es Rayo',
+    'prog_scale_stats': 'Growth: +10% ATQ y DEF por ronda',
+    'prog_venom': 'Venomous: Drena 5% del HP rival por ronda',
+    'prog_drain_def': 'Metal Fatigue: Reduce 10% del DEF rival por ronda',
+    'double_strike': 'Double Strike: Ataca dos veces en la misma ronda',
+    'life_leech': 'Leech: Drena 50% del daño infligido como HP',
+    'shield_recharge': 'Recharge: Regenera 10% del HP máx como escudo',
+    'abs_def_convert': 'Iron Skin: Convierte 50% del daño en DEF',
+    'abs_hp_convert': 'Leech: Absorbe 30% del daño como HP',
+    'abs_reflect': 'Thorn Armor: Refleja 20% del daño recibido',
+    'fen_revive': 'Graceful Strike: Absorbe el golpe letal como HP y contraataca',
+    'fen_berserker': 'Berserker: ATQ x3 al caer bajo 30% HP',
+    'fen_last_stand': 'Last Stand: DEF x4 al caer bajo 20% HP',
+    'fen_antimatter': 'Overkill: Detona su núcleo al morir (Victoria Negativa)',
+    'anti_armor': 'Anti-Armor: +50% ATQ contra objetivos con DEF > 0',
+    'armor_piercing': 'Armor Piercing: Ignora 50% de la DEF enemiga',
+    'orc_warlord': 'Warlord: Bloquea el primer golpe y entra en furia'
 };
 
 // --- 🛠️ FUNCIONES DE INTERFAZ Y NAVEGACIÓN ---
@@ -64,19 +89,19 @@ export function showComingSoon(feature) {
     if (existing) existing.remove();
 
     const labels = {
-        coliseo: 'Coliseum',
-        adventure: 'Adventure',
-        inventory: 'Inventory',
-        shop: 'Shop',
-        chest: 'Loot Chest',
-        reforge: 'Reforge Altar'
+        coliseo: 'Coliseo',
+        adventure: 'Aventura',
+        inventory: 'Inventario',
+        shop: 'Tienda',
+        chest: 'Cofre de Botín',
+        reforge: 'Altar de Reforja'
     };
 
     const label = labels[feature] || feature;
 
     const toast = document.createElement('div');
     toast.className = 'coming-soon-toast';
-    toast.innerHTML = `🔒 <strong>${label}</strong> — Coming in Phase 5`;
+    toast.innerHTML = `🔒 <strong>${label}</strong> — Próximamente`;
 
     document.body.appendChild(toast);
 
@@ -190,14 +215,15 @@ export function renderSelector() {
         return acc;
     }, {});
 
-    let optionsHTML = '<option value="">Select your hero...</option>';
+    let optionsHTML = '<option value="">Elige tu héroe...</option>';
 
     Object.keys(groups).sort().forEach(className => {
         const icon = classIcons[className] || '👤';
-        optionsHTML += `<optgroup label="${icon} ${className.toUpperCase()}S">`;
+        const label = (classNamesEsPlural[className] || className).toUpperCase();
+        optionsHTML += `<optgroup label="${icon} ${label}">`;
         groups[className].forEach(card => {
             const tag = card._official ? '🏛️ ' : '';
-            optionsHTML += `<option value="${esc(card.id)}">${tag}${esc(card.name)} (ATK: ${card.atq})</option>`;
+            optionsHTML += `<option value="${esc(card.id)}">${tag}${esc(card.name)} (ATQ: ${card.atq})</option>`;
         });
         optionsHTML += `</optgroup>`;
     });
@@ -275,7 +301,7 @@ export function setColiseumButtonMode(mode) {
         btn.classList.add('btn-finish');
         btn.dataset.mode = 'finish';
     } else {
-        btn.innerText = 'NEXT ROUND';
+        btn.innerText = 'SIGUIENTE RONDA';
         btn.classList.add('btn-next');
         btn.dataset.mode = 'next';
     }
@@ -377,70 +403,103 @@ window.handleDeleteCard = function(id) {
             detailContainer.innerHTML = `
                 <div class="empty-state-msg">
                     <span style="font-size: 3rem; display: block; margin-bottom: 10px;">🛡️</span>
-                    Select a hero to view their file
+                    Selecciona un héroe para ver su ficha
                 </div>`;
         }
     }
 };
 
+// Recuerda el último término de búsqueda y modo de orden para poder re-renderizar
+// el álbum tras borrar/importar una carta sin perder el filtro activo del usuario.
+const _libraryState = { search: '', sort: 'name-asc' };
+
+function renderCromoCard(card) {
+    const totalPoints = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
+    const isMythic = totalPoints >= Engine.STAT_LIMIT;
+    const rarityClass = isMythic ? 'rarity-legendary' : totalPoints > 5000 ? 'rarity-epic' : 'rarity-common';
+    const elCfg = elementConfigs[card.element] || { icon: '❓', color: '#777' };
+    const classIcon = classIcons[card.cardClass] || '🛡️';
+    const classLabel = classNamesEs[card.cardClass] || card.cardClass || '';
+
+    return `
+    <div class="cromo-card ${rarityClass}" data-id="${esc(card.id)}" onclick="selectLibraryCard('${esc(card.id)}')">
+        <div class="cromo-art" data-icon="${elCfg.icon}" style="--accent: ${elCfg.color}">
+            <img src="${esc(card.image || '')}" alt="${esc(card.name)}" loading="lazy"
+                 onerror="this.style.display='none'; this.parentElement.classList.add('cromo-art-fallback');">
+            <span class="cromo-element-badge" title="${esc(card.element || '')}">${elCfg.icon}</span>
+            <span class="cromo-class-badge" title="${esc(classLabel)}">${classIcon}</span>
+        </div>
+        <div class="cromo-name">${esc(card.name)}</div>
+        <div class="cromo-stats">
+            <span style="color:#ef4444">❤️${card.hp}</span>
+            <span style="color:#49BBEB">🛡️${card.def}</span>
+            <span style="color:#f59e0b">⚔️${card.atq}</span>
+        </div>
+    </div>`;
+}
+
 /**
- * Muestra la lista de cartas en la biblioteca, con filtro opcional por nombre.
+ * Muestra el álbum de cromos de la biblioteca, con filtro opcional por nombre
+ * y modo de orden (nombre A-Z/Z-A, agrupado por clan o por elemento).
  */
-export function displayCards(searchTerm) {
+export function displayCards(searchTerm, sortMode) {
     const listContainer = document.getElementById('librarySidebarList');
     if (!listContainer) return;
+
+    if (typeof searchTerm === 'string') _libraryState.search = searchTerm;
+    if (typeof sortMode === 'string') _libraryState.sort = sortMode;
+    const term = _libraryState.search;
+    const sort = _libraryState.sort;
 
     const library = Engine.getAllPlayableCards() || [];
     let filtered = library;
 
-    if (searchTerm && searchTerm.length > 0) {
-        const term = searchTerm.toLowerCase();
-        filtered = library.filter(c => (c.name || '').toLowerCase().includes(term));
+    if (term && term.length > 0) {
+        const t = term.toLowerCase();
+        filtered = library.filter(c => (c.name || '').toLowerCase().includes(t));
     }
 
     if (filtered.length === 0) {
-        listContainer.innerHTML = `<div class="empty-state-msg">${library.length === 0 ? 'Roster is empty...' : 'No heroes match your search...'}</div>`;
+        listContainer.innerHTML = `<div class="empty-state-msg">${library.length === 0 ? 'El plantel está vacío...' : 'Ningún héroe coincide con tu búsqueda...'}</div>`;
         return;
     }
 
-    const groups = filtered.reduce((acc, card) => {
-        const className = (card.cardClass || 'Neutral').toUpperCase();
-        if (!acc[className]) acc[className] = [];
-        acc[className].push(card);
-        return acc;
-    }, {});
+    if (sort === 'class' || sort === 'element') {
+        const groupKey = sort === 'class' ? 'cardClass' : 'element';
+        const namesPlural = sort === 'class' ? classNamesEsPlural : null;
 
-    listContainer.innerHTML = Object.keys(groups).sort().map(className => {
-        const formattedClass = className.charAt(0) + className.slice(1).toLowerCase();
+        const groups = filtered.reduce((acc, card) => {
+            const key = card[groupKey] || (sort === 'class' ? 'Neutral' : 'Fuego');
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(card);
+            return acc;
+        }, {});
 
-        return `
-        <div class="roster-group">
-            <div class="roster-category-header">
-                <span class="category-icon">${classIcons[formattedClass] || '🛡️'}</span>
-                ${className}S
-            </div>
-            <div class="roster-category-list">
-                ${groups[className].map(card => {
-                    const totalPoints = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
-                    const isMythic = totalPoints >= Engine.STAT_LIMIT;
-                    const rarityClass = isMythic ? 'rarity-legendary' : totalPoints > 5000 ? 'rarity-epic' : 'rarity-common';
+        Object.values(groups).forEach(group => group.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es')));
 
-                    return `
-                    <div class="card-list-item ${rarityClass}" data-id="${esc(card.id)}" onclick="selectLibraryCard('${esc(card.id)}')">
-                        <div class="item-main-info">
-                            <span class="item-element-dot" style="background-color: ${elementConfigs[card.element]?.color || '#fff'}"></span>
-                            <span class="item-name">${esc(card.name)}</span>
-                        </div>
-                        <div class="item-stats-brief">
-                            <span style="color:#ef4444">❤️${card.hp}</span>
-                            <span style="color:#49BBEB">🛡️${card.def}</span>
-                            <span style="color:#f59e0b">⚔️${card.atq}</span>
-                        </div>
-                    </div>
-                `}).join('')}
-            </div>
-        </div>`;
-    }).join('');
+        listContainer.innerHTML = Object.keys(groups).sort((a, b) => a.localeCompare(b, 'es')).map(key => {
+            const icon = sort === 'class' ? (classIcons[key] || '🛡️') : (elementConfigs[key]?.icon || '❓');
+            const label = sort === 'class' ? (namesPlural[key] || key) : key;
+            return `
+            <div class="roster-group">
+                <div class="roster-category-header">
+                    <span class="category-icon">${icon}</span>
+                    ${label.toUpperCase()}
+                </div>
+                <div class="cromo-grid">
+                    ${groups[key].map(renderCromoCard).join('')}
+                </div>
+            </div>`;
+        }).join('');
+        return;
+    }
+
+    const sorted = [...filtered].sort((a, b) => {
+        const cmp = (a.name || '').localeCompare(b.name || '', 'es');
+        return sort === 'name-desc' ? -cmp : cmp;
+    });
+
+    listContainer.innerHTML = `<div class="cromo-grid">${sorted.map(renderCromoCard).join('')}</div>`;
 }
 
 // =============================================
@@ -458,13 +517,13 @@ export function renderGallery() {
         const classIcon = classIcons[card.cardClass] || '👤';
         const ultData = Engine.ULTIMATE_DB[card.ultimateId];
         const ultName = ultData ? ultData.name : '—';
-        const passName = passiveNames[card.passiveId] || card.passiveId || 'None';
+        const passName = passiveNames[card.passiveId] || card.passiveId || 'Ninguna';
 
         return `
         <div class="gallery-card-item">
             <div class="gallery-card-header" style="border-left: 4px solid ${elCfg.color};">
                 <div class="gallery-card-name">${elCfg.icon} ${esc(card.name)}</div>
-                <div class="gallery-card-class">${classIcon} ${card.cardClass}</div>
+                <div class="gallery-card-class">${classIcon} ${classNamesEs[card.cardClass] || card.cardClass}</div>
             </div>
             <div class="gallery-card-img-wrapper">
                 <img class="gallery-card-img" src="${esc(card.image || '')}" alt="${esc(card.name)}"
@@ -551,7 +610,7 @@ export function renderCardDetail(card) {
                 border-radius: 3px;
                 font-style: italic;
             ">
-                ${esc(card.cardClass)} // ${esc(card.element)}
+                ${esc(classNamesEs[card.cardClass] || card.cardClass)} // ${esc(card.element)}
             </div>
 
             <div style="
@@ -566,7 +625,7 @@ export function renderCardDetail(card) {
                 box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2);
                 overflow-y: auto;
             ">
-                <b style="color: #333;">Ability:</b><br>
+                <b style="color: #333;">Habilidad:</b><br>
                 <span style="color: #444;">${skillName}</span>
             </div>
 
@@ -584,18 +643,18 @@ export function renderCardDetail(card) {
         </div>
 
         <div class="detail-actions" style="flex: 1; padding-left: 40px; text-align: left;">
-            <h3 style="color: var(--text-dim); margin-bottom: 5px;">HERO DATA FILE</h3>
+            <h3 style="color: var(--text-dim); margin-bottom: 5px;">FICHA DEL HÉROE</h3>
             <div style="width: 50px; height: 4px; background: ${elementColor}; margin-bottom: 20px;"></div>
 
             <p style="color: var(--text-dim); line-height: 1.6; font-size: 0.9rem; margin-bottom: 30px;">
-                This unit belongs to the <strong>${card.cardClass}</strong> faction.
-                Infused with the <strong>${card.element}</strong> core, it possesses a total combat power of
-                <span style="color: var(--primary); font-weight: bold;">${totalStats}</span> points.
+                Esta unidad pertenece a la facción <strong>${classNamesEs[card.cardClass] || card.cardClass}</strong>.
+                Imbuida con el núcleo de <strong>${card.element}</strong>, posee un poder de combate total de
+                <span style="color: var(--primary); font-weight: bold;">${totalStats}</span> puntos.
             </p>
 
             ${card._official
-                ? `<div class="official-badge" style="color: var(--text-dim); font-size: 0.8rem; font-style: italic;">🏛️ Official Champion — cannot be dismantled</div>`
-                : `<button onclick="handleDeleteCard('${esc(card.id)}')" class="btn-delete-pro">DISMANTLE HERO</button>`
+                ? `<div class="official-badge" style="color: var(--text-dim); font-size: 0.8rem; font-style: italic;">🏛️ Campeón Oficial — no se puede desmantelar</div>`
+                : `<button onclick="handleDeleteCard('${esc(card.id)}')" class="btn-delete-pro">DESMANTELAR HÉROE</button>`
             }
         </div>
     `;
@@ -617,7 +676,7 @@ export function updatePreview(croppedImg) {
     const previewContainer = document.getElementById('cardVisual');
     if (!previewContainer) return;
 
-    const name = document.getElementById('cardName')?.value || "Unnamed Hero";
+    const name = document.getElementById('cardName')?.value || "Héroe sin nombre";
     const element = document.getElementById('cardElement')?.value || "Neutral";
     const cardClass = document.getElementById('cardClass')?.value || "Human";
     const passiveId = document.getElementById('cardPassive')?.value || "";
@@ -626,7 +685,7 @@ export function updatePreview(croppedImg) {
     const def = parseInt(document.getElementById('inputDEF')?.value) || 1;
     const atq = parseInt(document.getElementById('inputATQ')?.value) || 1;
 
-    const skillName = passiveNames[passiveId] || "Passive: Select one";
+    const skillName = passiveNames[passiveId] || "Pasiva: Elige una";
     const ultName = ultimateId ? (Engine.ULTIMATE_DB[ultimateId]?.name || 'Ultimate') : '';
     const config = elementConfigs[element];
     const totalStats = hp + def + atq;
@@ -653,15 +712,15 @@ export function updatePreview(croppedImg) {
             </div>
 
             <div id="previewArt" style="width: 100%; height: 190px; background: #000; border-radius: 4px; overflow: hidden; border: 2px solid #333; background-image: url('${esc(croppedImg || '')}'); background-size: cover; background-position: center;">
-                ${!croppedImg ? '<div style="color:#444; display:flex; align-items:center; justify-content:center; height:100%; font-size:0.8rem;">AWAITING ART...</div>' : ''}
+                ${!croppedImg ? '<div style="color:#444; display:flex; align-items:center; justify-content:center; height:100%; font-size:0.8rem;">ESPERANDO ARTE...</div>' : ''}
             </div>
 
             <div style="margin: 8px 0; background: #2a2a2a; padding: 2px 10px; font-size: 0.7rem; font-weight: bold; color: ${config?.color || '#fff'}; border: 1px solid ${config?.color}44; border-radius: 3px; font-style: italic;">
-                ${classIcons[cardClass] || '❓'} ${esc(cardClass)} // ${esc(element)}
+                ${classIcons[cardClass] || '❓'} ${esc(classNamesEs[cardClass] || cardClass)} // ${esc(element)}
             </div>
 
             <div style="flex-grow: 1; background: #d1d1d1; border-radius: 4px; padding: 8px; color: #111; font-size: 0.75rem; line-height: 1.2; border: 2px solid #888; overflow-y: auto;">
-                <b style="color: #000;">Passive:</b><br>
+                <b style="color: #000;">Pasiva:</b><br>
                 <span>${skillName}</span>
                 ${ultName ? `<br><b style="color: #000;">Ultimate:</b><br><span style="color:#ef4444;">🔥 ${ultName}</span>` : ''}
             </div>
@@ -1101,8 +1160,8 @@ window.selectLibraryCard = function(id) {
     const card = Engine.getAllPlayableCards().find(c => c.id === id);
     if (card) {
         renderCardDetail(card);
-        document.querySelectorAll('.card-list-item').forEach(el => el.classList.remove('active'));
-        const el = document.querySelector(`[data-id="${CSS.escape(id)}"]`);
+        document.querySelectorAll('.cromo-card').forEach(el => el.classList.remove('active'));
+        const el = document.querySelector(`#librarySidebarList [data-id="${CSS.escape(id)}"]`);
         if (el) el.classList.add('active');
     }
 };
@@ -1156,12 +1215,12 @@ export function renderCodex() {
     if (!grid) return;
 
     const codexEntries = [
-        { id: 'c1', name: 'Forest Wisp', icon: '🧚', dropRate: '25%', owned: true },
-        { id: 'c2', name: 'Stone Golem', icon: '🗿', dropRate: '15%', owned: true },
-        { id: 'c3', name: 'Shadow Stalker', icon: '👻', dropRate: '10%', owned: false },
-        { id: 'c4', name: 'Fire Drake', icon: '🐉', dropRate: '5%', owned: false },
-        { id: 'c5', name: 'Abyssal Mage', icon: '🧙', dropRate: '3%', owned: false },
-        { id: 'c6', name: 'Colossal Warden', icon: '👁️', dropRate: '1%', owned: false }
+        { id: 'c1', name: 'Fuego Fatuo del Bosque', icon: '🧚', dropRate: '25%', owned: true },
+        { id: 'c2', name: 'Gólem de Piedra', icon: '🗿', dropRate: '15%', owned: true },
+        { id: 'c3', name: 'Acechador de Sombras', icon: '👻', dropRate: '10%', owned: false },
+        { id: 'c4', name: 'Dragón de Fuego', icon: '🐉', dropRate: '5%', owned: false },
+        { id: 'c5', name: 'Mago Abisal', icon: '🧙', dropRate: '3%', owned: false },
+        { id: 'c6', name: 'Guardián Colosal', icon: '👁️', dropRate: '1%', owned: false }
     ];
 
     const owned = codexEntries.filter(e => e.owned).length;
@@ -1175,7 +1234,7 @@ export function renderCodex() {
     `).join('');
 
     if (progress) {
-        progress.innerText = `${owned}/${codexEntries.length} collected`;
+        progress.innerText = `${owned}/${codexEntries.length} conseguidos`;
     }
 }
 
@@ -1218,7 +1277,7 @@ export function openChest(count) {
 
         rewardArea.innerHTML = `
             <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;">${rewardsHTML}</div>
-            <button id="btnChestClaim" class="btn-forge" style="margin-top:20px;padding:12px 30px;width:auto;">CLAIM ALL</button>
+            <button id="btnChestClaim" class="btn-forge" style="margin-top:20px;padding:12px 30px;width:auto;">RECLAMAR TODO</button>
         `;
 
         const claimBtn = document.getElementById('btnChestClaim');
@@ -1241,16 +1300,16 @@ export function openChest(count) {
 
 function generateRewardCards(count) {
     const pool = [
-        { name: 'Iron Shield', icon: '🛡️', rarity: 'common', borderColor: '#94a3b8' },
-        { name: 'Healing Potion', icon: '🧪', rarity: 'common', borderColor: '#94a3b8' },
-        { name: 'Silver Dagger', icon: '🗡️', rarity: 'common', borderColor: '#94a3b8' },
-        { name: 'Arcane Scroll', icon: '📜', rarity: 'rare', borderColor: '#3b82f6' },
-        { name: 'Shadow Amulet', icon: '📿', rarity: 'rare', borderColor: '#3b82f6' },
-        { name: 'Dragon Scale', icon: '🐉', rarity: 'epic', borderColor: '#a78bfa' },
-        { name: 'Phoenix Feather', icon: '🪶', rarity: 'epic', borderColor: '#a78bfa' },
-        { name: 'Excalibur Shard', icon: '⚔️', rarity: 'legendary', borderColor: '#fbbf24' },
-        { name: 'Crown of Ages', icon: '👑', rarity: 'legendary', borderColor: '#fbbf24' },
-        { name: 'Void Crystal', icon: '💎', rarity: 'mythic', borderColor: '#ff6b6b' }
+        { name: 'Escudo de Hierro', icon: '🛡️', rarity: 'common', borderColor: '#94a3b8' },
+        { name: 'Poción Curativa', icon: '🧪', rarity: 'common', borderColor: '#94a3b8' },
+        { name: 'Daga de Plata', icon: '🗡️', rarity: 'common', borderColor: '#94a3b8' },
+        { name: 'Pergamino Arcano', icon: '📜', rarity: 'rare', borderColor: '#3b82f6' },
+        { name: 'Amuleto de Sombras', icon: '📿', rarity: 'rare', borderColor: '#3b82f6' },
+        { name: 'Escama de Dragón', icon: '🐉', rarity: 'epic', borderColor: '#a78bfa' },
+        { name: 'Pluma de Fénix', icon: '🪶', rarity: 'epic', borderColor: '#a78bfa' },
+        { name: 'Fragmento de Excalibur', icon: '⚔️', rarity: 'legendary', borderColor: '#fbbf24' },
+        { name: 'Corona de las Eras', icon: '👑', rarity: 'legendary', borderColor: '#fbbf24' },
+        { name: 'Cristal del Vacío', icon: '💎', rarity: 'mythic', borderColor: '#ff6b6b' }
     ];
 
     const results = [];
@@ -1297,8 +1356,8 @@ export function showRewardModal(stageId, loot) {
             dropArea.innerHTML = loot.map((item, i) => `
                 <div class="drop-item" data-drop-idx="${i}" style="opacity:0;transform:translateY(12px)">
                     <span class="drop-icon">${esc(item.icon || '📦')}</span>
-                    <span class="drop-name">${esc(item.name || 'Unknown')}</span>
-                    <span class="drop-rarity rarity-${esc((item.rarity || 'common').toLowerCase())}">${esc(item.rarity || 'Common')}</span>
+                    <span class="drop-name">${esc(item.name || 'Desconocido')}</span>
+                    <span class="drop-rarity rarity-${esc((item.rarity || 'common').toLowerCase())}">${esc(rarityEs(item.rarity))}</span>
                 </div>
             `).join('');
             if (typeof gsap !== 'undefined') {
@@ -1378,8 +1437,8 @@ export function renderInventory(items) {
     grid.innerHTML = list.map((item, i) => `
         <div class="inv-item rarity-${esc((item.rarity || 'common').toLowerCase())}" data-idx="${i}">
             <span class="inv-item-icon">${esc(item.icon || '📦')}</span>
-            <span class="inv-item-name">${esc(item.name || 'Unknown')}</span>
-            <span class="inv-item-rarity">${esc((item.rarity || 'Common').charAt(0).toUpperCase() + (item.rarity || 'Common').slice(1))}</span>
+            <span class="inv-item-name">${esc(item.name || 'Desconocido')}</span>
+            <span class="inv-item-rarity">${esc(rarityEs(item.rarity))}</span>
         </div>
     `).join('');
 }
@@ -1420,10 +1479,10 @@ export function renderTournamentSetup() {
                 ? `<span class="slot-number">#${i+1}</span>
                    <img class="slot-img" src="${esc(_tournamentSlots[i].image || '')}" alt="">
                    <span class="slot-name">${esc(_tournamentSlots[i].name)}</span>
-                   <span class="slot-class">${_tournamentSlots[i].cardClass}</span>`
+                   <span class="slot-class">${classNamesEs[_tournamentSlots[i].cardClass] || _tournamentSlots[i].cardClass}</span>`
                 : `<span class="slot-number">#${i+1}</span>
                    <span style="font-size:2rem;">➕</span>
-                   <span style="font-size:0.7rem;color:var(--text-dim);">Select fighter</span>`
+                   <span style="font-size:0.7rem;color:var(--text-dim);">Elegir luchador</span>`
             }
         </div>
     `).join('');
@@ -1471,7 +1530,7 @@ export function _openTournamentPicker(slotIndex) {
     modal.innerHTML = `
         <div class="card-picker-panel">
             <div class="card-picker-header">
-                <h4>🏆 Select Fighter #${slotIndex+1}</h4>
+                <h4>🏆 Elige al Luchador #${slotIndex+1}</h4>
                 <button class="card-picker-close">&times;</button>
             </div>
             <div class="card-picker-grid">${gridHtml}</div>
@@ -1507,7 +1566,7 @@ export function renderTournamentBracket(bracket) {
     const container = document.getElementById('tournamentRoundsContainer');
     if (!container) return;
 
-    const roundLabels = ['Round of 16', 'Quarter-finals', 'Semi-finals', 'Final'];
+    const roundLabels = ['Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Final'];
 
     container.innerHTML = bracket.map((round, r) => `
         <div class="tournament-round-col">
@@ -1548,7 +1607,7 @@ export function renderTournamentMatch(f1, f2, round, matchNum) {
     }
 
     const label = document.getElementById('tournamentMatchLabel');
-    if (label) label.innerText = `Match ${matchNum+1} · ${round === 0 ? 'Round of 16' : round === 1 ? 'Quarter-finals' : round === 2 ? 'Semi-finals' : 'Final'}`;
+    if (label) label.innerText = `Combate ${matchNum+1} · ${round === 0 ? 'Octavos de Final' : round === 1 ? 'Cuartos de Final' : round === 2 ? 'Semifinal' : 'Final'}`;
 
     function renderBox(fighter, side) {
         const hpPct = Math.min(100, (fighter.hp / fighter.maxHp) * 100);
@@ -1557,7 +1616,7 @@ export function renderTournamentMatch(f1, f2, round, matchNum) {
             <div class="tournament-fighter-box" id="tBox-${side}">
                 <img class="tf-img" src="${esc(fighter.image || '')}" alt="" onerror="this.src='https://via.placeholder.com/80x80?text=${esc(fighter.name[0])}'">
                 <div class="tf-name">${esc(fighter.name)}</div>
-                <div style="font-size:0.75rem;color:var(--text-dim);">${fighter.cardClass || ''} · ${fighter.element || ''}</div>
+                <div style="font-size:0.75rem;color:var(--text-dim);">${classNamesEs[fighter.cardClass] || fighter.cardClass || ''} · ${fighter.element || ''}</div>
                 <div class="tf-hp-bar"><div class="tf-hp-fill" id="tfHpFill-${side}" style="width:${hpPct}%"></div></div>
                 <div class="tf-hp-text" id="tfHpText-${side}">${Math.floor(fighter.hp)} / ${fighter.maxHp}</div>
                 <div class="tf-fervor-bar"><div class="tf-fervor-fill" id="tfFervorFill-${side}" style="width:${fervorPct}%"></div></div>
@@ -1604,7 +1663,7 @@ export function showTournamentChampion(winner) {
     card.innerHTML = `
         <span class="tc-crown">🏆</span>
         <div class="tc-name">${esc(winner.name)}</div>
-        <div class="tc-class">${winner.cardClass || ''} · ${winner.element || ''}</div>
+        <div class="tc-class">${classNamesEs[winner.cardClass] || winner.cardClass || ''} · ${winner.element || ''}</div>
         <div class="tc-stats">
             <div class="tc-stat">❤️ ${winner.hp}</div>
             <div class="tc-stat">🛡️ ${Math.floor(winner.def)}</div>
@@ -1674,7 +1733,7 @@ export function renderHeroPicker(onSelect) {
             <div class="hero-picker-card" data-card-id="${esc(c.id)}">
                 <span class="hpc-element">${elementIcon(c.element || 'Neutral')}</span>
                 <div class="hpc-name">${esc(c.name)}</div>
-                <div class="hpc-desc">${esc(c.description || c.cardClass || '')}</div>
+                <div class="hpc-desc">${esc(c.description || classNamesEs[c.cardClass] || c.cardClass || '')}</div>
                 <div class="hpc-stats">
                     <span>❤️${c.hp}</span>
                     <span>⚔️${c.atq}</span>
@@ -1686,8 +1745,8 @@ export function renderHeroPicker(onSelect) {
 
     overlay.innerHTML = `
         <button class="hero-picker-close" id="heroPickerClose">✕</button>
-        <div class="hero-picker-title">🎴 Choose Your Hero</div>
-        <div class="hero-picker-subtitle">Select one hero to embark on the run</div>
+        <div class="hero-picker-title">🎴 Elige a tu Héroe</div>
+        <div class="hero-picker-subtitle">Elige un héroe para empezar la run</div>
         <div class="hero-picker-grid">${gridHtml}</div>
     `;
 
@@ -1744,13 +1803,20 @@ export function renderOrganigrama(runData, currentNode) {
         if (isCurrent) cls += ' current';
         if (isBoss) cls += ' boss';
 
+        const enemyNamesEs = {
+            goblin_scout: 'Goblin Explorador',
+            goblin_piker: 'Goblin Piquero',
+            goblin_shieldbearer: 'Goblin Escudero',
+            goblin_shaman_boss: 'Chamán Goblin'
+        };
+
         let icon, desc;
         if (n.type === 'combat') {
             icon = isBoss ? '👾' : '⚔️';
-            desc = isBoss ? 'Goblin Shaman' : n.enemyId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            desc = enemyNamesEs[n.enemyId] || n.enemyId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         } else {
             icon = '🏕️';
-            desc = 'ITEM OR BUFF SELECTOR';
+            desc = 'SELECTOR DE ITEM O MEJORA';
         }
 
         let statusHtml;
@@ -1801,7 +1867,7 @@ export function renderSingleHeroArena(hero, enemy, turnCount) {
             <div class="single-arena-card ${cls}" data-entity="${type}">
                 <div class="sac-avatar">${elementIcon(entity.element || 'Neutral')}</div>
                 <div class="sac-name">${esc(entity.name)}</div>
-                <div class="sac-element">${entity.element || 'Neutral'} · ${entity.cardClass || ''}</div>
+                <div class="sac-element">${entity.element || 'Neutral'} · ${classNamesEs[entity.cardClass] || entity.cardClass || ''}</div>
                 <div class="sac-hp-bar">
                     <div class="sac-hp-fill" id="${type}HpFill" style="width:${hpPct}%"></div>
                 </div>
@@ -1875,7 +1941,7 @@ export function showSingleHeroActions(hero, onAttack, onUltimate) {
 
     const ultAvailable = hero.fervor >= 10 && hero.ultimateId && (hero.ultimateCooldown || 0) <= 0;
     const ultDisabled = !ultAvailable || !hero.ultimateId || hero.ultimateCooldown > 0;
-    const ultLabel = ultDisabled ? (hero.ultimateCooldown > 0 ? 'Cooldown' : 'Need Fervor') : 'ULTIMATE';
+    const ultLabel = ultDisabled ? (hero.ultimateCooldown > 0 ? 'Enfriando' : 'Falta Fervor') : 'ULTIMATE';
 
     actions.innerHTML = `
         <button class="btn-attack" id="btnSingleAttack">⚔️ ATTACK</button>
@@ -1916,7 +1982,7 @@ export function renderUpgradeModal(choices, onSelect) {
     `).join('');
 
     overlay.innerHTML = `
-        <div class="upgrade-modal-title">🏕️ Choose an Upgrade</div>
+        <div class="upgrade-modal-title">🏕️ Elige una Mejora</div>
         <div class="upgrade-modal-sub">Pick one blessing for your journey</div>
         <div class="upgrade-choices">${cardsHtml}</div>
     `;
@@ -1949,19 +2015,19 @@ export function renderItemDrop(item, onEquip, onSkip) {
     if (item.atq) statsParts.push(`⚔️ +${item.atq} ATQ`);
     if (item.def) statsParts.push(`🛡️ ${item.def >= 0 ? '+' : ''}${item.def} DEF`);
     if (item.hp) statsParts.push(`❤️ +${item.hp} HP`);
-    const statsStr = statsParts.length > 0 ? statsParts.join(' · ') : 'No stats';
+    const statsStr = statsParts.length > 0 ? statsParts.join(' · ') : 'Sin stats';
 
-    const slotLabel = item.slot === 'weapon' ? '⚔️ Weapon Slot' : '🛡️ Armor Slot';
+    const slotLabel = item.slot === 'weapon' ? '⚔️ Ranura de Arma' : '🛡️ Ranura de Armadura';
 
     overlay.innerHTML = `
         <div class="item-drop-box">
             <div class="item-drop-icon">${item.slot === 'weapon' ? '🗡️' : '🛡️'}</div>
             <div class="item-drop-name" style="color:${color}">${esc(item.name)}</div>
-            <div class="item-drop-rarity" style="color:${color}">${item.rarity} · ${slotLabel}</div>
+            <div class="item-drop-rarity" style="color:${color}">${rarityEs(item.rarity)} · ${slotLabel}</div>
             <div class="item-drop-stats">${statsStr}</div>
             <div class="item-drop-btns">
-                <button class="btn-equip" id="btnEquipItem">⚡ Equip</button>
-                <button class="btn-skip" id="btnSkipItem">Skip</button>
+                <button class="btn-equip" id="btnEquipItem">⚡ Equipar</button>
+                <button class="btn-skip" id="btnSkipItem">Omitir</button>
             </div>
         </div>
     `;
@@ -1989,7 +2055,7 @@ export function renderRunComplete(runName, hero, weapon, armor, onContinue) {
 
     const itemsHtml = items.length > 0
         ? items.map(i => `<span class="rri">${i}</span>`).join('')
-        : '<span class="rri" style="color:#888;">No items</span>';
+        : '<span class="rri" style="color:#888;">Sin objetos</span>';
 
     const gold = 100;
     const xp = 50;
@@ -1997,12 +2063,12 @@ export function renderRunComplete(runName, hero, weapon, armor, onContinue) {
     overlay.innerHTML = `
         <div class="run-result-box victory">
             <div class="run-result-icon">👑</div>
-            <div class="run-result-title win">🏆 Run Complete!</div>
-            <div class="run-result-desc">${esc(runName)} conquered!</div>
-            <div class="run-result-stats">❤️ ${Math.max(0, hero.hp)} / ${hero.maxHp} HP remaining</div>
+            <div class="run-result-title win">🏆 ¡Run Completada!</div>
+            <div class="run-result-desc">¡${esc(runName)} conquistada!</div>
+            <div class="run-result-stats">❤️ ${Math.max(0, hero.hp)} / ${hero.maxHp} HP restante</div>
             <div class="run-result-stats">💰 Gold: +${gold} · ⭐ XP: +${xp}</div>
             <div class="run-result-items">${itemsHtml}</div>
-            <button class="run-result-btn btn-continue" id="btnRunContinue">Continue</button>
+            <button class="run-result-btn btn-continue" id="btnRunContinue">Continuar</button>
         </div>
     `;
 
@@ -2022,11 +2088,11 @@ export function renderRunGameOver(hero, runName, onRetry, onQuit) {
     overlay.innerHTML = `
         <div class="run-result-box defeat">
             <div class="run-result-icon">💀</div>
-            <div class="run-result-title lose">Run Failed</div>
-            <div class="run-result-desc">${esc(hero.name)} fell in ${esc(runName)}</div>
-            <div class="run-result-stats" style="margin-bottom:14px;">Reached node ${Math.max(0, hero._runNodeReached || 0)}/${hero._runTotalNodes || 6}</div>
-            <button class="run-result-btn btn-retry" id="btnRunRetry">🔄 Try Again</button>
-            <button class="run-result-btn btn-quit" id="btnRunQuit">Quit</button>
+            <div class="run-result-title lose">Run Fallida</div>
+            <div class="run-result-desc">${esc(hero.name)} cayó en ${esc(runName)}</div>
+            <div class="run-result-stats" style="margin-bottom:14px;">Llegó al nodo ${Math.max(0, hero._runNodeReached || 0)}/${hero._runTotalNodes || 6}</div>
+            <button class="run-result-btn btn-retry" id="btnRunRetry">🔄 Reintentar</button>
+            <button class="run-result-btn btn-quit" id="btnRunQuit">Salir</button>
         </div>
     `;
 

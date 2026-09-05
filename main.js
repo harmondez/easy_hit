@@ -1,6 +1,6 @@
-import * as UI from './ui.js?v=20260906a';
-import * as Engine from './engine.js?v=20260906a';
-import * as Narrator from './narrator.js?v=20260906a';
+import * as UI from './ui.js?v=20260907a';
+import * as Engine from './engine.js?v=20260907a';
+import * as Narrator from './narrator.js?v=20260907a';
 
 // Expose for debugging / browser tests
 window.Engine = Engine;
@@ -514,10 +514,14 @@ function initEvents() {
         processColiseumTurn();
     });
 
-    // --- 🔍 BIBLIOTECA: BUSCADOR ---
+    // --- 🔍 BIBLIOTECA: BUSCADOR + ORDEN DEL ÁLBUM ---
     safeListener('librarySearch', 'input', (e) => {
         const term = e.target.value ? e.target.value.toLowerCase() : '';
         UI.displayCards(term);
+    });
+
+    safeListener('librarySortSelect', 'change', (e) => {
+        UI.displayCards(undefined, e.target.value);
     });
 
     // --- 📤 EXPORTAR / IMPORTAR ---
@@ -684,7 +688,7 @@ function initEvents() {
             const winner = f1.hp > 0 ? f1 : f2;
             const loser = f1.hp <= 0 ? f1 : f2;
 
-            UI.addTournamentLog(`🏆 ${winner.name} defeats ${loser.name}!`, 'victory');
+            UI.addTournamentLog(`🏆 ¡${winner.name} derrota a ${loser.name}!`, 'victory');
 
             Engine.advanceBracket(t.bracket, t.currentRound, t.currentMatch, winner);
             UI.renderTournamentBracket(t.bracket);
@@ -721,7 +725,7 @@ function initEvents() {
         const loser = t.matchF1;
         const winner = t.matchF2;
 
-        UI.logConsole(`🚩 ${winner.name} wins by forfeit!`, 'victory', null, 'tournamentLogContentMatch');
+        UI.logConsole(`🚩 ¡${winner.name} gana por rendición!`, 'victory', null, 'tournamentLogContentMatch');
         UI.addTournamentLog(`🚩 ${winner.name} advances (forfeit)`, 'system');
 
         Engine.advanceBracket(t.bracket, t.currentRound, t.currentMatch, winner);
@@ -930,7 +934,7 @@ function initEvents() {
         UI.clearPvETurnHighlights();
         Narrator.setLogContainer('pveLogContent');
 
-        const actionLabel = action === 'ultimate' ? 'ULTIMATE' : 'attacks';
+        const actionLabel = action === 'ultimate' ? 'usa su ULTIMATE contra' : 'ataca a';
         UI.pveLogConsole(`🎯 ${hero.name} ${actionLabel} ${enemy.name}!`, 'round-header', ac.turnNumber);
 
         const result = Engine.resolveAdventureRound(hero, enemy, action);
@@ -947,7 +951,7 @@ function initEvents() {
                 if (ult) UI.playUltimateAnimation(hero.name, ult.name);
             }
             const bh = Engine.applyRunPassivesOnHit(hero, adv.runPassives, r.hpDamage);
-            if (bh.healed > 0) UI.pveLogConsole(`🩸 Bloodthirst heals ${bh.healed} HP!`, 'system');
+            if (bh.healed > 0) UI.pveLogConsole(`🩸 ¡Bloodthirst cura ${bh.healed} HP!`, 'system');
         }
 
         if (result.enemyResult) {
@@ -962,7 +966,7 @@ function initEvents() {
             if (r.hpDamage > 0) {
                 const reflect = Engine.applyRunPassivesOnDamaged(hero, adv.runPassives, r.hpDamage, enemy);
                 if (reflect.reflected > 0 && enemy.hp > 0) {
-                    UI.pveLogConsole(`🌵 Thornmail reflects ${reflect.reflected} damage!`, 'system');
+                    UI.pveLogConsole(`🌵 ¡Thornmail refleja ${reflect.reflected} de daño!`, 'system');
                 }
             }
         }
@@ -981,14 +985,14 @@ function initEvents() {
 
         // Precision double strike (héroe únicamente, tras la ronda)
         if (action !== 'ultimate' && Engine.checkPrecisionDoubleStrike(adv.runPassives) && enemy.hp > 0) {
-            UI.pveLogConsole(`🎯 Precision! ${hero.name} strikes again!`, 'system');
+            UI.pveLogConsole(`🎯 ¡Precision! ${hero.name} golpea de nuevo!`, 'system');
             const result2 = Engine.executeNormalAttack(hero, enemy, hero.name, enemy.name);
             if (result2.hpDamage > 0) UI.spawnDmgFloat(enemySel, 'hp', result2.hpDamage);
             if (result2.defDamage > 0) UI.spawnDmgFloat(enemySel, 'def', result2.defDamage);
             if (result2.hpDamage > 0 || result2.defDamage > 0) UI.animatePvEHit(heroSel, enemySel);
             if (result2.targetKilled) UI.playDeathAnimation(enemySel);
             const bh2 = Engine.applyRunPassivesOnHit(hero, adv.runPassives, result2.hpDamage);
-            if (bh2.healed > 0) UI.pveLogConsole(`🩸 Bloodthirst heals ${bh2.healed} HP!`, 'system');
+            if (bh2.healed > 0) UI.pveLogConsole(`🩸 ¡Bloodthirst cura ${bh2.healed} HP!`, 'system');
             UI.updateSingleHeroArena(hero, enemy);
             const v2 = Engine.verifyPartyVictory(ac.party, ac.squad);
             if (v2.victory || v2.defeat) {
@@ -1016,7 +1020,7 @@ function initEvents() {
             gameState.adventureCombat = null;
             UI.removeSingleHeroActions();
 
-            UI.pveLogConsole(`🏆 ${adv.hero.name} defeats ${enemy ? enemy.name : 'the enemy'}!`, 'victory');
+            UI.pveLogConsole(`🏆 ¡${adv.hero.name} derrota a ${enemy ? enemy.name : 'el enemigo'}!`, 'victory');
 
             // XP and gold reward
             const xpReward = isBoss ? 50 : 30;
@@ -1048,7 +1052,7 @@ function initEvents() {
 
             // Check Second Wind
             if (Engine.applyRunPassivesOnDeath(adv.hero, adv.runPassives)) {
-                UI.pveLogConsole(`🔄 Second Wind! ${adv.hero.name} revives with 25% HP!`, 'system');
+                UI.pveLogConsole(`🔄 ¡Second Wind! ${adv.hero.name} revive con 25% HP!`, 'system');
                 const enemy = ac ? ac.squad[0] : null;
                 if (enemy && enemy.hp > 0) {
                     adv.inCombat = true;
@@ -1102,12 +1106,12 @@ function initEvents() {
             adv.armor = result.armor;
             gameState.inventory.push(itemDef);
             _savePlayerData();
-            UI.pveLogConsole(`⚡ Equipped ${itemDef.name}!`, 'system');
+            UI.pveLogConsole(`⚡ ¡${itemDef.name} equipado!`, 'system');
             if (onEquip) onEquip();
         }, () => {
             gameState.inventory.push(itemDef);
             _savePlayerData();
-            UI.pveLogConsole(`📦 ${itemDef.name} stored in inventory.`, 'system');
+            UI.pveLogConsole(`📦 ${itemDef.name} guardado en el inventario.`, 'system');
             if (onSkip) onSkip();
         });
     }
@@ -1146,11 +1150,11 @@ function initEvents() {
             const chosen = choices[idx];
             if (chosen) {
                 adv.runPassives = Engine.applyUpgrade(adv.hero, chosen, adv.runPassives);
-                UI.pveLogConsole(`⭐ Upgraded: ${chosen.name}!`, 'system');
+                UI.pveLogConsole(`⭐ ¡Mejora: ${chosen.name}!`, 'system');
 
                 // If full restore, animate
                 if (chosen.id === 'full_restore') {
-                    UI.pveLogConsole(`💚 ${adv.hero.name} fully restored!`, 'system');
+                    UI.pveLogConsole(`💚 ¡${adv.hero.name} restaurado por completo!`, 'system');
                 }
             }
             adv.currentNode++;

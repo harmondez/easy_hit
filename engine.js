@@ -1,4 +1,4 @@
-import * as narrate from './narrator.js?v=20260906a';
+import * as narrate from './narrator.js?v=20260907a';
 
 // =============================================
 // ⚙️ CONSTANTES DEL SISTEMA
