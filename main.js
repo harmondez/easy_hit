@@ -80,8 +80,12 @@ function safeGsap(callback) {
 // 🔀 TRANSITION STATE MACHINE
 // =============================================
 const SECTION_WHITELIST = ['library', 'creator', 'coliseo', 'adventure', 'gallery', 'tournament', 'inventory', 'shop'];
-const ACTIVE_SECTIONS = ['library', 'creator', 'coliseo', 'adventure', 'gallery', 'tournament', 'inventory'];
-const LOCKED_SECTIONS = ['shop'];
+const ACTIVE_SECTIONS = ['library', 'coliseo', 'tournament'];
+const LOCKED_SECTIONS = [];
+// 'creator', 'gallery', 'adventure', 'inventory' y 'shop' siguen en SECTION_WHITELIST
+// (el código y las secciones no se tocan, nada se borra) pero se quitaron de ACTIVE_SECTIONS
+// y sus tabs están ocultos en index.html. Solo quedan visibles Library, Duelos (coliseo) y
+// Torneo (tournament) — Library absorbió el rol de mostrar el roster de 32 campeones jugables.
 
 const onSectionEnter = {
     library: () => { UI.displayCards(); },
@@ -152,7 +156,7 @@ const onSectionExit = {
 // 🚀 INIT (después de todas las declaraciones const)
 // =============================================
 initEvents();
-transitionState('creator');
+transitionState('library');
 UI.updateRemainingPoints();
 
 function transitionState(target) {
@@ -297,7 +301,7 @@ function initEvents() {
     });
 
     // --- ✍️ CREADOR: FEEDBACK EN TIEMPO REAL ---
-    const creatorInputs = ['cardName', 'cardElement', 'cardClass', 'inputHP', 'inputDEF', 'inputATQ', 'inputVEL', 'cardPassive', 'cardUltimate'];
+    const creatorInputs = ['cardName', 'cardElement', 'cardClass', 'inputHP', 'inputDEF', 'inputATQ', 'cardPassive', 'cardUltimate'];
     creatorInputs.forEach(id => {
         safeListener(id, 'input', () => {
             UI.updateRemainingPoints();
@@ -337,7 +341,6 @@ function initEvents() {
             hp: parseInt(document.getElementById('inputHP')?.value) || 1,
             def: parseInt(document.getElementById('inputDEF')?.value) || 1,
             atq: parseInt(document.getElementById('inputATQ')?.value) || 1,
-            vel: parseInt(document.getElementById('inputVEL')?.value) || 100,
             maxHp: parseInt(document.getElementById('inputHP')?.value) || 1,
             passiveId: document.getElementById('cardPassive')?.value || '',
             ultimateId: document.getElementById('cardUltimate')?.value || '',
@@ -391,10 +394,7 @@ function initEvents() {
         gameState.fighter1 = f1;
         gameState.fighter2 = f2;
 
-        const turnQueue = Engine.buildTurnOrder([f1], [f2]);
         gameState.coliseumCombat = {
-            turnQueue,
-            currentIndex: 0,
             turnNumber: 0,
             activeF1: f1,
             activeF2: f2
@@ -402,12 +402,10 @@ function initEvents() {
         gameState.round = 0;
 
         UI.resetTurnGroups('logContent');
-        UI.logConsole(`🔥 ¡QUE COMIENCE EL COMBATE POR INICIATIVA! 🔥`, 'system');
-        UI.logConsole(`📋 Orden: ${turnQueue.map(e => e.actor.name + (e.isAlly ? ' (Tú)' : ' (Enemy)')).join(' → ')}`, 'system');
+        UI.logConsole(`🔥 ¡QUE COMIENCE EL COMBATE! ${f1.name} vs ${f2.name} 🔥`, 'system');
 
         UI.refreshFighterStats(f1, 1);
         UI.refreshFighterStats(f2, 2);
-        UI.renderTurnBar(turnQueue, 0, 'coliseumTurnBar');
 
         const btnInit = document.getElementById('btnInitCombat');
         const btnNext = document.getElementById('btnNextRound');
@@ -429,58 +427,36 @@ function initEvents() {
         const cc = gameState.coliseumCombat;
         if (!cc) return;
 
-        if (cc.turnQueue.length === 0) return;
-
-        const entry = cc.turnQueue[cc.currentIndex];
-
-        if (!entry.actor || entry.actor.hp <= 0) {
-            cc.turnQueue.splice(cc.currentIndex, 1);
-            if (cc.currentIndex >= cc.turnQueue.length) cc.currentIndex = 0;
-            UI.refreshFighterStats(cc.activeF1, 1);
-            UI.refreshFighterStats(cc.activeF2, 2);
-            UI.renderTurnBar(cc.turnQueue, cc.currentIndex);
-            const v = Engine.verifyVictory(cc.activeF1, cc.activeF2);
-            if (!v.victory) processColiseumTurn();
-            return;
-        }
-
-        const isF1 = entry.isAlly;
         cc.turnNumber++;
+        UI.logConsole(`⚔️ RONDA ${cc.turnNumber}`, 'round-header', cc.turnNumber);
 
-        UI.setActiveHighlight(true, entry.isAlly, entry.slotIndex);
-        UI.renderTurnBar(cc.turnQueue, cc.currentIndex);
-        UI.logConsole(`🎯 Turno de ${entry.actor.name}`, 'round-header', cc.turnNumber);
+        const result = Engine.resolveSimultaneousRound(cc.activeF1, cc.activeF2);
 
-        const result = Engine.resolveCombatTurn(entry, cc.turnQueue);
-
-        // Damage floats
-        const targetNum = result.target === cc.activeF1 ? '1' : '2';
-        const targetSelector = `#boxF${targetNum}`;
-        if (result.hpDamage > 0) UI.spawnDmgFloat(targetSelector, 'hp', result.hpDamage);
-        if (result.defDamage > 0) UI.spawnDmgFloat(targetSelector, 'def', result.defDamage);
-
-        // Ultimate animation
-        if (result.ultimateUsed) {
-            const ult = Engine.ULTIMATE_DB[entry.actor.ultimateId];
-            if (ult) UI.playUltimateAnimation(entry.actor.name, ult.name);
+        if (result.f1Result) {
+            if (result.f1Result.hpDamage > 0) UI.spawnDmgFloat('#boxF2', 'hp', result.f1Result.hpDamage);
+            if (result.f1Result.defDamage > 0) UI.spawnDmgFloat('#boxF2', 'def', result.f1Result.defDamage);
+            if (result.f1Result.ultimateUsed) {
+                const ult = Engine.ULTIMATE_DB[cc.activeF1.ultimateId];
+                if (ult) UI.playUltimateAnimation(cc.activeF1.name, ult.name);
+            }
+        }
+        if (result.f2Result) {
+            if (result.f2Result.hpDamage > 0) UI.spawnDmgFloat('#boxF1', 'hp', result.f2Result.hpDamage);
+            if (result.f2Result.defDamage > 0) UI.spawnDmgFloat('#boxF1', 'def', result.f2Result.defDamage);
+            if (result.f2Result.ultimateUsed) {
+                const ult = Engine.ULTIMATE_DB[cc.activeF2.ultimateId];
+                if (ult) UI.playUltimateAnimation(cc.activeF2.name, ult.name);
+            }
         }
 
-        // Death animation
-        if (result.targetKilled && result.target) {
-            UI.playDeathAnimation(`#boxF${targetNum}`);
-        }
-
-        UI.animateCombatHit(isF1);
-        setTimeout(() => UI.animateCombatHit(!isF1), 120);
+        UI.animateCombatHit(true);
+        setTimeout(() => UI.animateCombatHit(false), 120);
 
         UI.refreshFighterStats(cc.activeF1, 1);
         UI.refreshFighterStats(cc.activeF2, 2);
 
-        cc.currentIndex++;
-        if (cc.currentIndex >= cc.turnQueue.length) cc.currentIndex = 0;
-
-        UI.clearActiveHighlight();
-        UI.renderTurnBar(cc.turnQueue, cc.currentIndex);
+        if (cc.activeF1.hp <= 0) UI.playDeathAnimation('#boxF1');
+        if (cc.activeF2.hp <= 0) UI.playDeathAnimation('#boxF2');
 
         const v = Engine.verifyVictory(cc.activeF1, cc.activeF2);
         if (v.victory) {
@@ -582,54 +558,33 @@ function initEvents() {
         const tc = t.tournamentCombat;
         if (!tc) return;
 
-        if (tc.turnQueue.length === 0) return;
-
-        const entry = tc.turnQueue[tc.currentIndex];
-
-        if (!entry.actor || entry.actor.hp <= 0) {
-            tc.turnQueue.splice(tc.currentIndex, 1);
-            if (tc.currentIndex >= tc.turnQueue.length) tc.currentIndex = 0;
-            UI.updateTournamentMatchUI(t.matchF1, t.matchF2);
-            const v = Engine.verifyVictory(t.matchF1, t.matchF2);
-            if (!v.victory) _processTournamentTurn();
-            return;
-        }
-
         tc.turnNumber++;
         Narrator.setLogContainer('tournamentLogContentMatch');
-        UI.setActiveHighlight(true, entry.isAlly, entry.slotIndex);
-        UI.renderTurnBar(tc.turnQueue, tc.currentIndex, 'tournamentTurnBar');
-        UI.logConsole(`🎯 Turno de ${entry.actor.name}`, 'round-header', tc.turnNumber, 'tournamentLogContentMatch');
+        UI.logConsole(`⚔️ RONDA ${tc.turnNumber}`, 'round-header', tc.turnNumber, 'tournamentLogContentMatch');
 
-        const result = Engine.resolveCombatTurn(entry, tc.turnQueue);
+        const result = Engine.resolveSimultaneousRound(t.matchF1, t.matchF2);
 
-        // Damage floats
-        const isF1 = entry.isAlly;
-        const dmgTargetSel = result.target === t.matchF1 ? '#tBox-1' : '#tBox-2';
-        if (result.hpDamage > 0) UI.spawnDmgFloat(dmgTargetSel, 'hp', result.hpDamage);
-        if (result.defDamage > 0) UI.spawnDmgFloat(dmgTargetSel, 'def', result.defDamage);
-
-        if (result.ultimateUsed) {
-            const ult = Engine.ULTIMATE_DB[entry.actor.ultimateId];
-            if (ult) UI.playUltimateAnimation(entry.actor.name, ult.name);
+        if (result.f1Result) {
+            if (result.f1Result.hpDamage > 0) UI.spawnDmgFloat('#tBox-2', 'hp', result.f1Result.hpDamage);
+            if (result.f1Result.defDamage > 0) UI.spawnDmgFloat('#tBox-2', 'def', result.f1Result.defDamage);
+            if (result.f1Result.ultimateUsed) {
+                const ult = Engine.ULTIMATE_DB[t.matchF1.ultimateId];
+                if (ult) UI.playUltimateAnimation(t.matchF1.name, ult.name);
+            }
         }
-
-        if (result.targetKilled && result.target) {
-            UI.playDeathAnimation(dmgTargetSel);
+        if (result.f2Result) {
+            if (result.f2Result.hpDamage > 0) UI.spawnDmgFloat('#tBox-1', 'hp', result.f2Result.hpDamage);
+            if (result.f2Result.defDamage > 0) UI.spawnDmgFloat('#tBox-1', 'def', result.f2Result.defDamage);
+            if (result.f2Result.ultimateUsed) {
+                const ult = Engine.ULTIMATE_DB[t.matchF2.ultimateId];
+                if (ult) UI.playUltimateAnimation(t.matchF2.name, ult.name);
+            }
         }
 
         UI.updateTournamentMatchUI(t.matchF1, t.matchF2);
 
-        tc.currentIndex++;
-        if (tc.currentIndex >= tc.turnQueue.length) tc.currentIndex = 0;
-
-        UI.clearActiveHighlight();
-        UI.renderTurnBar(tc.turnQueue, tc.currentIndex, 'tournamentTurnBar');
-
-        const v = Engine.verifyVictory(t.matchF1, t.matchF2);
-        if (!v.victory) {
-            return;
-        }
+        if (t.matchF1.hp <= 0) UI.playDeathAnimation('#tBox-1');
+        if (t.matchF2.hp <= 0) UI.playDeathAnimation('#tBox-2');
     }
 
     safeListener('btnStartDraw', 'click', () => {
@@ -682,10 +637,7 @@ function initEvents() {
         t.matchF1 = f1;
         t.matchF2 = f2;
 
-        const turnQueue = Engine.buildTurnOrder([f1], [f2]);
         t.tournamentCombat = {
-            turnQueue,
-            currentIndex: 0,
             turnNumber: 0,
             activeF1: f1,
             activeF2: f2
@@ -694,7 +646,6 @@ function initEvents() {
 
         UI.toggleTournamentView('tournamentMatchView');
         UI.renderTournamentMatch(f1, f2, next.round, next.match);
-        UI.renderTurnBar(turnQueue, 0, 'tournamentTurnBar');
         UI.addTournamentLog(`⚔️ Match ${next.match+1} Round ${next.round+1}: ${f1.name} vs ${f2.name}`, 'system');
     });
 
@@ -874,10 +825,7 @@ function initEvents() {
             hero.hp = Math.min(hero.maxHp, hero.hp + regen);
         }
 
-        const turnQueue = Engine.buildTurnOrder([hero], [enemy]);
         gameState.adventureCombat = {
-            turnQueue,
-            currentIndex: 0,
             turnNumber: 0,
             party: [hero],
             squad: [enemy],
@@ -891,9 +839,24 @@ function initEvents() {
         UI.renderPotionBar(adv.healPotions, adv.fervorPotions);
         Narrator.setLogContainer('pveLogContent');
         UI.pveLogConsole(`🔥 ${hero.name} vs ${enemy.name}! 🔥`, 'system');
-        UI.pveLogConsole(`📋 Order: ${turnQueue.map(e => e.actor.name).join(' → ')}`, 'system');
 
-        setTimeout(() => _runAdvanceTurn(), 300);
+        setTimeout(() => _runShowHeroActions(), 300);
+    }
+
+    function _runShowHeroActions() {
+        const ac = gameState.adventureCombat;
+        const adv = gameState.adventure;
+        if (!ac || !adv || !adv.inCombat) return;
+        const hero = adv.hero;
+        const enemy = ac.squad[0];
+        if (!hero || hero.hp <= 0 || !enemy || enemy.hp <= 0) return;
+
+        UI.clearPvETurnHighlights();
+        UI.updateSingleHeroArena(hero, enemy);
+        UI.showSingleHeroActions(hero,
+            () => { _runPvEAttack('attack'); },
+            () => { _runPvEAttack('ultimate'); }
+        );
     }
 
     function _useHealPotion() {
@@ -922,112 +885,6 @@ function initEvents() {
         UI.showSingleHeroActions(hero, () => _runPvEAttack('attack'), () => _runPvEAttack('ultimate'));
     }
 
-    function _runAdvanceTurn() {
-        if (_runProcessing) return;
-        _runProcessing = true;
-
-        const ac = gameState.adventureCombat;
-        const adv = gameState.adventure;
-        if (!ac || !adv || !adv.inCombat) { _runProcessing = false; return; }
-        if (adv.turnCount >= 200) { _runProcessing = false; return; }
-
-        // Skip dead entries
-        while (ac.turnQueue.length > 0) {
-            const e = ac.turnQueue[0];
-            if (e && e.actor && e.actor.hp > 0) break;
-            ac.turnQueue.splice(0, 1);
-        }
-
-        if (ac.turnQueue.length === 0) {
-            ac.turnQueue = Engine.buildTurnOrder(ac.party, ac.squad);
-            if (ac.turnQueue.length === 0) {
-                adv.inCombat = false;
-                gameState.adventureCombat = null;
-                _runProcessing = false;
-                return;
-            }
-        }
-
-        // Check victory/defeat
-        const v = Engine.verifyPartyVictory(ac.party, ac.squad);
-        if (_handleRunOutcome(v)) { _runProcessing = false; return; }
-
-        const entry = ac.turnQueue[0];
-
-        if (entry.isAlly) {
-            UI.clearPvETurnHighlights();
-            UI.updateSingleHeroArena(adv.hero, ac.squad[0]);
-            UI.showSingleHeroActions(entry.actor,
-                () => { _runPvEAttack('attack'); },
-                () => { _runPvEAttack('ultimate'); }
-            );
-            _runProcessing = false;
-            return;
-        }
-
-        // Enemy turn — auto-resolve
-        adv.turnCount++;
-        ac.turnNumber++;
-
-        UI.clearPvETurnHighlights();
-        UI.pveLogConsole(`🎯 ${entry.actor.name}'s turn`, 'round-header', ac.turnNumber);
-        Narrator.setLogContainer('pveLogContent');
-
-        const allTargets = [{ actor: adv.hero, isAlly: true, slotIndex: 0, vel: adv.hero.vel || 100 }];
-        const result = Engine.resolveEnemyTurn(entry, allTargets);
-
-        // Apply run passives: thornmail (reflect)
-        if (result.hpDamage > 0 && result.target) {
-            const reflect = Engine.applyRunPassivesOnDamaged(result.target, adv.runPassives, result.hpDamage, entry.actor);
-            if (reflect.reflected > 0 && entry.actor.hp > 0) {
-                UI.pveLogConsole(`🌵 Thornmail reflects ${reflect.reflected} damage!`, 'system');
-            }
-        }
-
-        // Check if reflect killed enemy
-        const vMid = Engine.verifyPartyVictory(ac.party, ac.squad);
-        if (vMid.victory || vMid.defeat) {
-            UI.updateSingleHeroArena(adv.hero, ac.squad[0]);
-            if (result.hpDamage > 0) UI.spawnDmgFloat('#singleArena .enemy-card', 'hp', result.hpDamage);
-            if (result.defDamage > 0) UI.spawnDmgFloat('#singleArena .enemy-card', 'def', result.defDamage);
-            if (result.acted) UI.animatePvEHit('#singleArena .enemy-card', '#singleArena .hero-card');
-            if (result.ultimateUsed) {
-                const ult = Engine.ULTIMATE_DB[entry.actor.ultimateId];
-                if (ult) UI.playUltimateAnimation(entry.actor.name, ult.name);
-            }
-            ac.turnQueue.splice(0, 1);
-            _handleRunOutcome(vMid);
-            _runProcessing = false;
-            return;
-        }
-
-        // Damage float & animation
-        if (result.hpDamage > 0) UI.spawnDmgFloat('#singleArena .hero-card', 'hp', result.hpDamage);
-        if (result.defDamage > 0) UI.spawnDmgFloat('#singleArena .hero-card', 'def', result.defDamage);
-
-        if (result.acted) {
-            UI.animatePvEHit('#singleArena .enemy-card', '#singleArena .hero-card');
-        }
-
-        if (result.ultimateUsed) {
-            const ult = Engine.ULTIMATE_DB[entry.actor.ultimateId];
-            if (ult) UI.playUltimateAnimation(entry.actor.name, ult.name);
-        }
-
-        if (result.targetKilled) {
-            UI.playDeathAnimation('#singleArena .hero-card');
-        }
-
-        ac.turnQueue.splice(0, 1);
-        UI.updateSingleHeroArena(adv.hero, ac.squad[0]);
-
-        const v2 = Engine.verifyPartyVictory(ac.party, ac.squad);
-        if (_handleRunOutcome(v2)) { _runProcessing = false; return; }
-
-        _runProcessing = false;
-        setTimeout(() => _runAdvanceTurn(), 400);
-    }
-
     function _runPvEAttack(action) {
         if (_runProcessing) return;
         _runProcessing = true;
@@ -1036,12 +893,13 @@ function initEvents() {
         const adv = gameState.adventure;
         if (!ac || !adv || !adv.inCombat) { _runProcessing = false; return; }
 
-        const entry = ac.turnQueue[0];
-        if (!entry || !entry.isAlly) { _runProcessing = false; return; }
-
-        const hero = entry.actor;
-        const target = ac.squad[0];
-        if (!target || target.hp <= 0) { _runProcessing = false; return; }
+        const hero = adv.hero;
+        const enemy = ac.squad[0];
+        if (!hero || hero.hp <= 0 || !enemy || enemy.hp <= 0) { _runProcessing = false; return; }
+        if (action === 'ultimate' && (hero.fervor < Engine.MAX_FERVOR || hero.ultimateCooldown > 0)) {
+            _runProcessing = false;
+            return;
+        }
 
         adv.turnCount++;
         ac.turnNumber++;
@@ -1050,53 +908,48 @@ function initEvents() {
         UI.clearPvETurnHighlights();
         Narrator.setLogContainer('pveLogContent');
 
-        let result;
-        let doubleStrike = false;
-
-        if (action === 'ultimate') {
-            result = Engine.executeUltimateAttack(hero, target, hero.name, target.name);
-            if (!result) {
-                _runProcessing = false;
-                setTimeout(() => _runAdvanceTurn(), 100);
-                return;
-            }
-        } else {
-            result = Engine.executeNormalAttack(hero, target, hero.name, target.name);
-            // Check for Precision double strike
-            if (Engine.checkPrecisionDoubleStrike(adv.runPassives) && target.hp > 0) {
-                doubleStrike = true;
-            }
-        }
-
         const actionLabel = action === 'ultimate' ? 'ULTIMATE' : 'attacks';
-        UI.pveLogConsole(`🎯 ${hero.name} ${actionLabel} ${target.name}!`, 'round-header', ac.turnNumber);
+        UI.pveLogConsole(`🎯 ${hero.name} ${actionLabel} ${enemy.name}!`, 'round-header', ac.turnNumber);
 
-        // Apply passives: Bloodthirst (heal on hit)
-        const bh = Engine.applyRunPassivesOnHit(hero, adv.runPassives, result.hpDamage);
-        if (bh.healed > 0) {
-            UI.pveLogConsole(`🩸 Bloodthirst heals ${bh.healed} HP!`, 'system');
+        const result = Engine.resolveAdventureRound(hero, enemy, action);
+        const heroSel = '#singleArena .hero-card';
+        const enemySel = '#singleArena .enemy-card';
+
+        if (result.heroResult) {
+            const r = result.heroResult;
+            if (r.hpDamage > 0) UI.spawnDmgFloat(enemySel, 'hp', r.hpDamage);
+            if (r.defDamage > 0) UI.spawnDmgFloat(enemySel, 'def', r.defDamage);
+            UI.animatePvEHit(heroSel, enemySel);
+            if (r.ultimateUsed) {
+                const ult = Engine.ULTIMATE_DB[hero.ultimateId];
+                if (ult) UI.playUltimateAnimation(hero.name, ult.name);
+            }
+            const bh = Engine.applyRunPassivesOnHit(hero, adv.runPassives, r.hpDamage);
+            if (bh.healed > 0) UI.pveLogConsole(`🩸 Bloodthirst heals ${bh.healed} HP!`, 'system');
         }
 
-        // Damage float & animation
-        const tSel = '#singleArena .enemy-card';
-        const aSel = '#singleArena .hero-card';
-        if (result.hpDamage > 0) UI.spawnDmgFloat(tSel, 'hp', result.hpDamage);
-        if (result.defDamage > 0) UI.spawnDmgFloat(tSel, 'def', result.defDamage);
-        UI.animatePvEHit(aSel, tSel);
-
-        if (result.ultimateUsed) {
-            const ult = Engine.ULTIMATE_DB[hero.ultimateId];
-            if (ult) UI.playUltimateAnimation(hero.name, ult.name);
+        if (result.enemyResult) {
+            const r = result.enemyResult;
+            if (r.hpDamage > 0) UI.spawnDmgFloat(heroSel, 'hp', r.hpDamage);
+            if (r.defDamage > 0) UI.spawnDmgFloat(heroSel, 'def', r.defDamage);
+            if (r.hpDamage > 0 || r.defDamage > 0) UI.animatePvEHit(enemySel, heroSel);
+            if (r.ultimateUsed) {
+                const ult = Engine.ULTIMATE_DB[enemy.ultimateId];
+                if (ult) UI.playUltimateAnimation(enemy.name, ult.name);
+            }
+            if (r.hpDamage > 0) {
+                const reflect = Engine.applyRunPassivesOnDamaged(hero, adv.runPassives, r.hpDamage, enemy);
+                if (reflect.reflected > 0 && enemy.hp > 0) {
+                    UI.pveLogConsole(`🌵 Thornmail reflects ${reflect.reflected} damage!`, 'system');
+                }
+            }
         }
 
-        if (result.targetKilled) {
-            UI.playDeathAnimation(tSel);
-        }
+        if (enemy.hp <= 0) UI.playDeathAnimation(enemySel);
+        if (hero.hp <= 0) UI.playDeathAnimation(heroSel);
 
-        ac.turnQueue.splice(0, 1);
-        UI.updateSingleHeroArena(hero, target);
+        UI.updateSingleHeroArena(hero, enemy);
 
-        // Check if enemy died
         const v = Engine.verifyPartyVictory(ac.party, ac.squad);
         if (v.victory || v.defeat) {
             _handleRunOutcome(v);
@@ -1104,22 +957,17 @@ function initEvents() {
             return;
         }
 
-        // Double strike from Precision
-        if (doubleStrike && target.hp > 0) {
+        // Precision double strike (héroe únicamente, tras la ronda)
+        if (action !== 'ultimate' && Engine.checkPrecisionDoubleStrike(adv.runPassives) && enemy.hp > 0) {
             UI.pveLogConsole(`🎯 Precision! ${hero.name} strikes again!`, 'system');
-            const result2 = Engine.executeNormalAttack(hero, target, hero.name, target.name);
-            if (result2.hpDamage > 0) UI.spawnDmgFloat(tSel, 'hp', result2.hpDamage);
-            if (result2.defDamage > 0) UI.spawnDmgFloat(tSel, 'def', result2.defDamage);
-            if (result2.hpDamage > 0 || result2.defDamage > 0) {
-                UI.animatePvEHit(aSel, tSel);
-            }
-            if (result2.targetKilled) {
-                UI.playDeathAnimation(tSel);
-            }
+            const result2 = Engine.executeNormalAttack(hero, enemy, hero.name, enemy.name);
+            if (result2.hpDamage > 0) UI.spawnDmgFloat(enemySel, 'hp', result2.hpDamage);
+            if (result2.defDamage > 0) UI.spawnDmgFloat(enemySel, 'def', result2.defDamage);
+            if (result2.hpDamage > 0 || result2.defDamage > 0) UI.animatePvEHit(heroSel, enemySel);
+            if (result2.targetKilled) UI.playDeathAnimation(enemySel);
             const bh2 = Engine.applyRunPassivesOnHit(hero, adv.runPassives, result2.hpDamage);
-            if (bh2.healed > 0) {
-                UI.pveLogConsole(`🩸 Bloodthirst heals ${bh2.healed} HP!`, 'system');
-            }
+            if (bh2.healed > 0) UI.pveLogConsole(`🩸 Bloodthirst heals ${bh2.healed} HP!`, 'system');
+            UI.updateSingleHeroArena(hero, enemy);
             const v2 = Engine.verifyPartyVictory(ac.party, ac.squad);
             if (v2.victory || v2.defeat) {
                 _handleRunOutcome(v2);
@@ -1128,10 +976,8 @@ function initEvents() {
             }
         }
 
-        UI.updateSingleHeroArena(hero, target);
-
         _runProcessing = false;
-        setTimeout(() => _runAdvanceTurn(), 500);
+        setTimeout(() => _runShowHeroActions(), 400);
     }
 
     function _handleRunOutcome(result) {
@@ -1184,14 +1030,13 @@ function initEvents() {
                 const enemy = ac ? ac.squad[0] : null;
                 if (enemy && enemy.hp > 0) {
                     adv.inCombat = true;
-                    const turnQueue = Engine.buildTurnOrder([adv.hero], [enemy]);
                     gameState.adventureCombat = {
-                        turnQueue, currentIndex: 0, turnNumber: 0,
+                        turnNumber: 0,
                         party: [adv.hero], squad: [enemy],
                         isRunCombat: true, nodeEnemyId: ac.nodeEnemyId, nodeIsBoss: ac.nodeIsBoss
                     };
                     UI.updateSingleHeroArena(adv.hero, enemy);
-                    setTimeout(() => _runAdvanceTurn(), 300);
+                    setTimeout(() => _runShowHeroActions(), 300);
                     return true;
                 }
             }

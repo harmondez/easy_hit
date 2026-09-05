@@ -41,7 +41,7 @@ Easy Hit vive en GitHub Pages: servidor estático gratuito con reglas duras auto
 
 | # | Fase | Estado |
 |---|------|--------|
-| 01 | Core Engine — VEL/Fervor/Ultimates/Pasivas | ✅ Hecho |
+| 01 | Core Engine — Combate simultáneo/Fervor/Ultimates/Pasivas | ✅ Hecho |
 | 02 | Visual Combat UI — turn bar, animaciones, recompensas | ✅ Hecho |
 | 03 | Roguelike de Aventura — nodos, loot, upgrades, ítems | ✅ Hecho (reemplazó el plan original de campaña 5v5 + story panels) |
 | 04 | Torneo (bracket de 16) | ✅ Hecho — no estaba en el plan original, se construyó en paralelo |
@@ -58,7 +58,7 @@ Easy Hit vive en GitHub Pages: servidor estático gratuito con reglas duras auto
 
 ## Fase 01-02: Core Engine + Visual Combat UI ✅
 
-Sin cambios de fondo respecto a lo documentado antes: turnos por VEL descendente, Fervor (0-10, +1 turno/+1 ataque/+1 al ser golpeado), 7 Ultimates (`ULTIMATE_DB`), 22 pasivas de carta, turn bar, fervor bars, floating damage numbers, reward modal. Ver `CLAUDE.md` para la lista exacta actual de IDs (cambió un poco desde entonces: los ultimates ya no son los 6 originales, son 7 con nombres distintos).
+Combate simultáneo 1v1 (sin VEL, sin cola de turnos — se quitó VEL del juego completo tras la Fase 03), Fervor (0-10, +1 ronda/+1 ataque/+1 al ser golpeado), 7 Ultimates (`ULTIMATE_DB`), 22 pasivas de carta, fervor bars, floating damage numbers, reward modal. Ver `CLAUDE.md` para la lista exacta actual de IDs (cambió un poco desde entonces: los ultimates ya no son los 6 originales, son 7 con nombres distintos).
 
 ## Fase 03: Roguelike de Aventura ✅ (reemplaza el plan de campaña 5v5)
 
@@ -74,6 +74,9 @@ El plan original proponía una campaña de equipo 5v5 con mapa de nodos 1-1 a 1-
 - `Engine.getRunNode`/`getRunProgress` están escritos y testeados (`tests/run-sim.mjs`) pero no consumidos por la UI — candidatos para un indicador "nodo X de Y" en `renderOrganigrama`.
 - Solo hay un run definido (`run-1`). Añadir más runs es solo agregar entradas a `RUN_TEMPLATES` + enemigos a `RUN_ENEMIES_1V1`.
 - No hay progresión persistente entre runs más allá del héroe elegido y el oro/XP acumulado — al terminar o morir, no está claro qué se conserva de un run al siguiente (revisar `_handleRunOutcome`/`renderRunComplete`/`renderRunGameOver` si se quiere definir esto).
+
+### Adenda: se quitó VEL de todo el juego (post-Fase 03)
+El stat VEL y el sistema de turnos por iniciativa se retiraron por completo — Coliseo, Torneo y cada nodo de combate de Aventura son ahora 1v1 simultáneo (ambos golpean la misma ronda), recuperando el diseño original de Easy Hit de antes de que VEL existiera, pero conservando Fervor y Ultimates. Ver `CLAUDE.md` → "Historia reciente" para el detalle técnico.
 
 ## Fase 04: Torneo ✅ (no estaba en el plan original)
 
@@ -95,7 +98,7 @@ Pestaña bloqueada hoy (`LOCKED_SECTIONS` en `main.js`). Sin trabajo iniciado.
 
 ## Fase 08: PvP Hotseat ⬜
 
-Sin trabajo iniciado. El Coliseo 1v1 ya tiene toda la lógica de combate necesaria (`buildTurnOrder`/`resolveCombatTurn`); falta la UI de "dos jugadores en el mismo navegador" (ocultar mano del rival, timer por turno).
+Sin trabajo iniciado. El Coliseo 1v1 ya tiene toda la lógica de combate necesaria (`Engine.resolveSimultaneousRound`); falta la UI de "dos jugadores en el mismo navegador" (ocultar mano del rival, timer por ronda).
 
 ## Fase 09: Pulido UX, Sonido & Performance Budget ⬜
 

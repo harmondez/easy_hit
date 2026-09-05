@@ -8,9 +8,6 @@ export const FERVOR_PER_TURN = 1;
 export const FERVOR_PER_ATTACK = 1;
 export const FERVOR_PER_HIT = 1;
 export const STAT_LIMIT = 7400;
-export const VEL_WEIGHT = 2;
-export const VEL_MIN = 50;
-export const VEL_MAX = 500;
 
 // =============================================
 // 🔥 ULTIMATE DATABASE
@@ -324,36 +321,10 @@ export function initializeCard(card) {
 }
 
 // =============================================
-// 📋 CONSTRUIR ORDEN DE TURNO
+// 🔄 TICK DE INICIO DE RONDA (compartido)
 // =============================================
-export function buildTurnOrder(party, squad) {
-    const entries = [];
-
-    (party || []).forEach((actor, i) => {
-        if (actor && actor.hp > 0) {
-            entries.push({ actor, isAlly: true, slotIndex: i, vel: actor.vel || 100 });
-        }
-    });
-
-    (squad || []).forEach((actor, i) => {
-        if (actor && actor.hp > 0) {
-            entries.push({ actor, isAlly: false, slotIndex: i, vel: actor.vel || 80 });
-        }
-    });
-
-    entries.sort((a, b) => b.vel - a.vel || (a.isAlly === b.isAlly ? a.slotIndex - b.slotIndex : a.isAlly ? -1 : 1));
-    return entries;
-}
-
-// =============================================
-// 🔄 RESOLVER UN TURNO INDIVIDUAL
-// =============================================
-export function resolveCombatTurn(turnEntry, allEntries) {
-    if (!turnEntry || !turnEntry.actor || turnEntry.actor.hp <= 0) {
-        return { acted: false, targetKilled: false, ultimateUsed: false, actor: null };
-    }
-
-    const actor = turnEntry.actor;
+function tickRoundStart(actor) {
+    if (!actor || actor.hp <= 0) return { died: false };
 
     if (actor.ultimateCooldown > 0) actor.ultimateCooldown--;
 
@@ -364,9 +335,7 @@ export function resolveCombatTurn(turnEntry, allEntries) {
         actor.hp = Math.max(0, actor.hp - poisonDmg);
         narrate.narratePoisonDamage(actor.name, poisonDmg);
         actor._poisonApplied--;
-        if (actor.hp <= 0) {
-            return { acted: false, targetKilled: false, ultimateUsed: false, actor };
-        }
+        if (actor.hp <= 0) return { died: true };
     }
 
     if (actor._wasHit) {
@@ -374,35 +343,30 @@ export function resolveCombatTurn(turnEntry, allEntries) {
         actor._wasHit = false;
     }
 
-    const target = findTarget(turnEntry, allEntries);
-    if (!target) return { acted: false, targetKilled: false, ultimateUsed: false, actor };
-
-    const actLabel = turnEntry.isAlly ? `[${actor.name}]` : `[Enemy] ${actor.name}`;
-    const defLabel = target.isAlly ? `[${target.actor.name}]` : `[Enemy] ${target.actor.name}`;
-
-    const result = procesarAtaque(actor, target.actor, actLabel, defLabel);
-
-    if (target.actor && target.actor.hp <= 0) {
-        narrate.narrateDeath(target.actor.name);
-        return { acted: true, targetKilled: true, ultimateUsed: result.ultimateUsed, actor, target: target.actor, hpDamage: result.hpDamage, defDamage: result.defDamage };
-    }
-
-    return { acted: true, targetKilled: false, ultimateUsed: result.ultimateUsed, actor, target: target.actor, hpDamage: result.hpDamage, defDamage: result.defDamage };
+    return { died: false };
 }
 
-function findTarget(turnEntry, allEntries) {
-    const enemies = allEntries.filter(e =>
-        e.actor && e.actor.hp > 0 && e.isAlly !== turnEntry.isAlly
-    );
-    if (enemies.length === 0) return null;
-
-    const bossUltraAggro = turnEntry.actor.passiveId === 'orc_warlord';
-    if (bossUltraAggro) {
-        const lowestHp = enemies.reduce((min, e) => e.actor.hp < min.actor.hp ? e : min, enemies[0]);
-        return lowestHp;
+// =============================================
+// ⚔️ RONDA SIMULTÁNEA 1v1 (Coliseo y Torneo)
+// =============================================
+export function resolveSimultaneousRound(f1, f2) {
+    if (!f1 || !f2 || f1.hp <= 0 || f2.hp <= 0) {
+        return { acted: false, f1Result: null, f2Result: null };
     }
 
-    return enemies[Math.floor(Math.random() * enemies.length)];
+    const t1 = tickRoundStart(f1);
+    const t2 = tickRoundStart(f2);
+    if (t1.died || t2.died) {
+        return { acted: true, f1Result: null, f2Result: null, poisonKill: true };
+    }
+
+    const f1Result = procesarAtaque(f1, f2);
+    const f2Result = (f2.hp > 0) ? procesarAtaque(f2, f1) : null;
+
+    if (f2.hp <= 0) narrate.narrateDeath(f2.name);
+    if (f1.hp <= 0) narrate.narrateDeath(f1.name);
+
+    return { acted: true, f1Result, f2Result };
 }
 
 // =============================================
@@ -441,70 +405,33 @@ export function executeUltimateAttack(actor, target, actLabel, defLabel) {
 }
 
 // =============================================
-// 🤖 IA ENEMIGA (turno automático)
+// 🗺️ RONDA SIMULTÁNEA — Aventura (héroe vs 1 enemigo)
 // =============================================
-export function resolveEnemyTurn(turnEntry, allEntries) {
-    if (!turnEntry || !turnEntry.actor || turnEntry.actor.hp <= 0) {
-        return { acted: false, targetKilled: false, ultimateUsed: false, actor: null };
-    }
-    const actor = turnEntry.actor;
-
-    if (actor.ultimateCooldown > 0) actor.ultimateCooldown--;
-
-    gainFervor(actor, FERVOR_PER_TURN);
-
-    if (actor._poisonApplied > 0) {
-        const poisonDmg = Math.floor(actor.maxHp * 0.05);
-        actor.hp = Math.max(0, actor.hp - poisonDmg);
-        narrate.narratePoisonDamage(actor.name, poisonDmg);
-        actor._poisonApplied--;
-        if (actor.hp <= 0) {
-            return { acted: false, targetKilled: false, ultimateUsed: false, actor };
-        }
+export function resolveAdventureRound(hero, enemy, heroAction) {
+    if (!hero || !enemy || hero.hp <= 0 || enemy.hp <= 0) {
+        return { acted: false, heroResult: null, enemyResult: null };
     }
 
-    if (actor._wasHit) {
-        gainFervor(actor, FERVOR_PER_HIT);
-        actor._wasHit = false;
+    const tHero = tickRoundStart(hero);
+    const tEnemy = tickRoundStart(enemy);
+    if (tHero.died || tEnemy.died) {
+        return { acted: true, heroResult: null, enemyResult: null, poisonKill: true };
     }
 
-    const target = findTarget(turnEntry, allEntries);
-    if (!target) return { acted: false, targetKilled: false, ultimateUsed: false, actor };
+    const heroForceNormal = heroAction !== 'ultimate';
+    const heroResult = procesarAtaque(hero, enemy, hero.name, enemy.name, false, { forceNormal: heroForceNormal });
 
-    const actLabel = `[Enemy] ${actor.name}`;
-    const defLabel = target.isAlly ? `[${target.actor.name}]` : `[Enemy] ${target.actor.name}`;
-
-    const ult = getUltimateForCard(actor);
-    const shouldUlt = actor.fervor >= MAX_FERVOR && !actor.ultimateCooldown && ult;
-
-    let result;
-    if (shouldUlt) {
-        const ultResult = procesarAtaque(actor, target.actor, actLabel, defLabel, false, { forceNormal: false });
-        result = {
-            acted: true,
-            targetKilled: target.actor.hp <= 0,
-            ultimateUsed: ultResult.ultimateUsed,
-            actor, target: target.actor,
-            hpDamage: ultResult.hpDamage,
-            defDamage: ultResult.defDamage
-        };
-    } else {
-        const normalResult = procesarAtaque(actor, target.actor, actLabel, defLabel, false, { forceNormal: true });
-        result = {
-            acted: true,
-            targetKilled: target.actor.hp <= 0,
-            ultimateUsed: false,
-            actor, target: target.actor,
-            hpDamage: normalResult.hpDamage,
-            defDamage: normalResult.defDamage
-        };
+    let enemyResult = null;
+    if (enemy.hp > 0) {
+        const ult = getUltimateForCard(enemy);
+        const shouldUlt = enemy.fervor >= MAX_FERVOR && !enemy.ultimateCooldown && ult;
+        enemyResult = procesarAtaque(enemy, hero, `[Enemy] ${enemy.name}`, hero.name, false, { forceNormal: !shouldUlt });
     }
 
-    if (target.actor && target.actor.hp <= 0) {
-        narrate.narrateDeath(target.actor.name);
-    }
+    if (enemy.hp <= 0) narrate.narrateDeath(enemy.name);
+    if (hero.hp <= 0) narrate.narrateDeath(hero.name);
 
-    return result;
+    return { acted: true, heroResult, enemyResult };
 }
 
 // =============================================
@@ -684,7 +611,7 @@ loadLibrary();
 
 export function validateCardStats(card) {
     if (!card) return false;
-    const total = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * VEL_WEIGHT);
+    const total = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
     return total <= STAT_LIMIT;
 }
 
@@ -698,15 +625,13 @@ export function saveCard(card) {
         return false;
     }
 
-    const clampedVel = Math.max(VEL_MIN, Math.min(VEL_MAX, card.vel || 100));
     card.ultimateLevel = card.ultimateLevel || 1;
 
-    if (!validateCardStats({ ...card, vel: clampedVel })) {
-        const total = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + (clampedVel * VEL_WEIGHT);
+    if (!validateCardStats(card)) {
+        const total = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
         console.error(`Carta '${card.name}' excede el límite de ${STAT_LIMIT} puntos (${total}).`);
         return false;
     }
-    card.vel = clampedVel;
 
     const index = cards.findIndex(c => c.id === card.id);
     if (index !== -1) {
@@ -759,7 +684,7 @@ export const OFFICIAL_CARDS = [
         name: 'Ignis',
         element: 'Fuego',
         cardClass: 'Viking',
-        hp: 2000, def: 1200, atq: 1800, vel: 100,
+        hp: 2000, def: 1200, atq: 1800,
         maxHp: 2000,
         passiveId: 'fen_berserker',
         ultimateId: 'cataclysm_nova',
@@ -773,7 +698,7 @@ export const OFFICIAL_CARDS = [
         name: 'Maren',
         element: 'Agua',
         cardClass: 'Human',
-        hp: 2500, def: 1600, atq: 1100, vel: 80,
+        hp: 2500, def: 1600, atq: 1100,
         maxHp: 2500,
         passiveId: 'shield_recharge',
         ultimateId: 'tidal_reckoning',
@@ -787,7 +712,7 @@ export const OFFICIAL_CARDS = [
         name: 'Zephyros',
         element: 'Rayo',
         cardClass: 'Spectre',
-        hp: 1700, def: 900, atq: 1900, vel: 200,
+        hp: 1700, def: 900, atq: 1900,
         maxHp: 1700,
         passiveId: 'double_strike',
         ultimateId: 'storm_judgment',
@@ -801,7 +726,7 @@ export const OFFICIAL_CARDS = [
         name: 'Sylva',
         element: 'Naturaleza',
         cardClass: 'Beast',
-        hp: 2300, def: 1400, atq: 1300, vel: 120,
+        hp: 2300, def: 1400, atq: 1300,
         maxHp: 2300,
         passiveId: 'prog_venom',
         ultimateId: 'verdant_wrath',
@@ -815,7 +740,7 @@ export const OFFICIAL_CARDS = [
         name: 'Vorath',
         element: 'Oscuridad',
         cardClass: 'Dragon',
-        hp: 1800, def: 1300, atq: 1600, vel: 150,
+        hp: 1800, def: 1300, atq: 1600,
         maxHp: 1800,
         passiveId: 'gen_steal_stats',
         ultimateId: 'void_rend',
@@ -829,7 +754,7 @@ export const OFFICIAL_CARDS = [
         name: 'Cinder',
         element: 'Fuego',
         cardClass: 'Pirate',
-        hp: 2200, def: 1300, atq: 1500, vel: 110,
+        hp: 2200, def: 1300, atq: 1500,
         maxHp: 2200,
         passiveId: 'gen_block_heal',
         ultimateId: 'radiance_purge',
@@ -843,7 +768,7 @@ export const OFFICIAL_CARDS = [
         name: 'Tsunami',
         element: 'Agua',
         cardClass: 'Alien',
-        hp: 2000, def: 1400, atq: 1500, vel: 120,
+        hp: 2000, def: 1400, atq: 1500,
         maxHp: 2000,
         passiveId: 'nem_element_ward',
         ultimateId: 'storm_judgment',
@@ -857,7 +782,7 @@ export const OFFICIAL_CARDS = [
         name: 'Volt',
         element: 'Rayo',
         cardClass: 'Robot',
-        hp: 1800, def: 1600, atq: 1500, vel: 130,
+        hp: 1800, def: 1600, atq: 1500,
         maxHp: 1800,
         passiveId: 'abs_def_convert',
         ultimateId: 'void_rend',
@@ -871,7 +796,7 @@ export const OFFICIAL_CARDS = [
         name: 'Thorn',
         element: 'Naturaleza',
         cardClass: 'Monster',
-        hp: 1900, def: 1200, atq: 1700, vel: 140,
+        hp: 1900, def: 1200, atq: 1700,
         maxHp: 1900,
         passiveId: 'gen_reflect_full',
         ultimateId: 'verdant_wrath',
@@ -885,7 +810,7 @@ export const OFFICIAL_CARDS = [
         name: 'Shadow',
         element: 'Oscuridad',
         cardClass: 'Spectre',
-        hp: 1600, def: 1000, atq: 2000, vel: 180,
+        hp: 1600, def: 1000, atq: 2000,
         maxHp: 1600,
         passiveId: 'nem_xenophobia',
         ultimateId: 'void_rend',
@@ -899,7 +824,7 @@ export const OFFICIAL_CARDS = [
         name: 'Lumina',
         element: 'Luz',
         cardClass: 'Human',
-        hp: 2400, def: 1500, atq: 1000, vel: 90,
+        hp: 2400, def: 1500, atq: 1000,
         maxHp: 2400,
         passiveId: 'fen_last_stand',
         ultimateId: 'radiance_purge',
@@ -913,7 +838,7 @@ export const OFFICIAL_CARDS = [
         name: 'Titan',
         element: 'Fuego',
         cardClass: 'Robot',
-        hp: 2200, def: 1800, atq: 1200, vel: 70,
+        hp: 2200, def: 1800, atq: 1200,
         maxHp: 2200,
         passiveId: 'abs_hp_convert',
         ultimateId: 'cataclysm_nova',
@@ -927,7 +852,7 @@ export const OFFICIAL_CARDS = [
         name: 'Glacius',
         element: 'Agua',
         cardClass: 'Dragon',
-        hp: 2600, def: 1400, atq: 1100, vel: 100,
+        hp: 2600, def: 1400, atq: 1100,
         maxHp: 2600,
         passiveId: 'prog_drain_def',
         ultimateId: 'tidal_reckoning',
@@ -941,7 +866,7 @@ export const OFFICIAL_CARDS = [
         name: 'Zerker',
         element: 'Rayo',
         cardClass: 'Viking',
-        hp: 1900, def: 1100, atq: 1800, vel: 150,
+        hp: 1900, def: 1100, atq: 1800,
         maxHp: 1900,
         passiveId: 'life_leech',
         ultimateId: 'storm_judgment',
@@ -955,7 +880,7 @@ export const OFFICIAL_CARDS = [
         name: 'Verdant',
         element: 'Naturaleza',
         cardClass: 'Alien',
-        hp: 1800, def: 1200, atq: 1700, vel: 150,
+        hp: 1800, def: 1200, atq: 1700,
         maxHp: 1800,
         passiveId: 'prog_scale_stats',
         ultimateId: 'verdant_wrath',
@@ -969,7 +894,7 @@ export const OFFICIAL_CARDS = [
         name: 'Nyx',
         element: 'Oscuridad',
         cardClass: 'Monster',
-        hp: 1700, def: 1300, atq: 1800, vel: 140,
+        hp: 1700, def: 1300, atq: 1800,
         maxHp: 1700,
         passiveId: 'abs_reflect',
         ultimateId: 'cataclysm_nova',
@@ -983,7 +908,7 @@ export const OFFICIAL_CARDS = [
         name: 'Forge',
         element: 'Fuego',
         cardClass: 'Robot',
-        hp: 1900, def: 1100, atq: 1900, vel: 100,
+        hp: 1900, def: 1100, atq: 1900,
         maxHp: 1900,
         passiveId: 'anti_armor',
         ultimateId: 'void_rend',
@@ -997,7 +922,7 @@ export const OFFICIAL_CARDS = [
         name: 'Shrapnel',
         element: 'Rayo',
         cardClass: 'Spectre',
-        hp: 1800, def: 1200, atq: 1700, vel: 160,
+        hp: 1800, def: 1200, atq: 1700,
         maxHp: 1800,
         passiveId: 'armor_piercing',
         ultimateId: 'storm_judgment',
@@ -1011,7 +936,7 @@ export const OFFICIAL_CARDS = [
         name: 'Siegfried',
         element: 'Luz',
         cardClass: 'Human',
-        hp: 2200, def: 1500, atq: 1600, vel: 90,
+        hp: 2200, def: 1500, atq: 1600,
         maxHp: 2200,
         passiveId: 'nem_dragon_slayer',
         ultimateId: 'cataclysm_nova',
@@ -1019,6 +944,188 @@ export const OFFICIAL_CARDS = [
         image: 'https://via.placeholder.com/300x200?text=Siegfried+☀️',
         _official: true,
         description: 'Legendario cazador de dragones bañado en luz. Sus golpes atraviesan las escamas más duras.'
+    },
+    {
+        id: 'hero_solara',
+        name: 'Solara',
+        element: 'Luz',
+        cardClass: 'Neutral',
+        hp: 2300, def: 1400, atq: 1300,
+        maxHp: 2300,
+        passiveId: 'fen_revive',
+        ultimateId: 'radiance_purge',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Solara+☀️',
+        _official: true,
+        description: 'Ángel caído que se negó a quedarse muerta. Un golpe letal no es más que una pausa para ella.'
+    },
+    {
+        id: 'hero_ashenclaw',
+        name: 'Ashenclaw',
+        element: 'Fuego',
+        cardClass: 'Dragon',
+        hp: 1700, def: 900, atq: 2000,
+        maxHp: 1700,
+        passiveId: 'fen_berserker',
+        ultimateId: 'cataclysm_nova',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Ashenclaw+🔥',
+        _official: true,
+        description: 'Cría de dragón demasiado joven para tener miedo. Cuanto más se hiere, más temeraria se vuelve.'
+    },
+    {
+        id: 'hero_riptide',
+        name: 'Riptide',
+        element: 'Agua',
+        cardClass: 'Pirate',
+        hp: 2000, def: 1200, atq: 1600,
+        maxHp: 2000,
+        passiveId: 'double_strike',
+        ultimateId: 'tidal_reckoning',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Riptide+💧',
+        _official: true,
+        description: 'Capitana fantasma de las profundidades. Sus dos cimitarras nunca golpean por separado.'
+    },
+    {
+        id: 'hero_circuit',
+        name: 'Circuit',
+        element: 'Rayo',
+        cardClass: 'Neutral',
+        hp: 1800, def: 1100, atq: 1900,
+        maxHp: 1800,
+        passiveId: 'armor_piercing',
+        ultimateId: 'storm_judgment',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Circuit+⚡',
+        _official: true,
+        description: 'Dron de combate fugado sin forma fija. Ninguna armadura fue diseñada para detenerlo.'
+    },
+    {
+        id: 'hero_krondor',
+        name: 'Krondor',
+        element: 'Naturaleza',
+        cardClass: 'Neutral',
+        hp: 2400, def: 1600, atq: 900,
+        maxHp: 2400,
+        passiveId: 'prog_scale_stats',
+        ultimateId: 'verdant_wrath',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Krondor+🌿',
+        _official: true,
+        description: 'Gólem de piedra y musgo que lleva creciendo desde antes de que existieran los reinos. Sigue creciendo.'
+    },
+    {
+        id: 'hero_grimfang',
+        name: 'Grimfang',
+        element: 'Oscuridad',
+        cardClass: 'Monster',
+        hp: 1700, def: 1000, atq: 2000,
+        maxHp: 1700,
+        passiveId: 'fen_antimatter',
+        ultimateId: 'void_rend',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Grimfang+🌑',
+        _official: true,
+        description: 'Lobo de sombra que caza incluso después de caer. Su muerte es la última mordida.'
+    },
+    {
+        id: 'hero_halcyon',
+        name: 'Halcyon',
+        element: 'Luz',
+        cardClass: 'Alien',
+        hp: 2500, def: 1300, atq: 1100,
+        maxHp: 2500,
+        passiveId: 'abs_hp_convert',
+        ultimateId: 'radiance_purge',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Halcyon+☀️',
+        _official: true,
+        description: 'Visitante celestial de un cielo que no es el nuestro. Convierte cada herida en luz curativa.'
+    },
+    {
+        id: 'hero_ferrox',
+        name: 'Ferrox',
+        element: 'Fuego',
+        cardClass: 'Beast',
+        hp: 2000, def: 1300, atq: 1700,
+        maxHp: 2000,
+        passiveId: 'anti_armor',
+        ultimateId: 'cataclysm_nova',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Ferrox+🔥',
+        _official: true,
+        description: 'Jabalí acorazado de colmillos incandescentes. Cuanto más blindado el rival, más fuerte el embiste.'
+    },
+    {
+        id: 'hero_nerezza',
+        name: 'Nerezza',
+        element: 'Oscuridad',
+        cardClass: 'Human',
+        hp: 2100, def: 1400, atq: 1500,
+        maxHp: 2100,
+        passiveId: 'gen_reflect_full',
+        ultimateId: 'void_rend',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Nerezza+🌑',
+        _official: true,
+        description: 'Noble maldita de una casa que ya nadie recuerda. El primer golpe que recibe vuelve multiplicado.'
+    },
+    {
+        id: 'hero_skarn',
+        name: 'Skarn',
+        element: 'Rayo',
+        cardClass: 'Viking',
+        hp: 1900, def: 1000, atq: 1900,
+        maxHp: 1900,
+        passiveId: 'life_leech',
+        ultimateId: 'storm_judgment',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Skarn+⚡',
+        _official: true,
+        description: 'Saqueador que adora a la tormenta. Cada golpe eléctrico le devuelve la vida que arrebata.'
+    },
+    {
+        id: 'hero_coralynn',
+        name: 'Coralynn',
+        element: 'Agua',
+        cardClass: 'Beast',
+        hp: 2600, def: 1500, atq: 1000,
+        maxHp: 2600,
+        passiveId: 'nem_element_ward',
+        ultimateId: 'tidal_reckoning',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Coralynn+💧',
+        _official: true,
+        description: 'Leviatán de las fosas abisales. Su piel de coral desvía la electricidad como si nada.'
+    },
+    {
+        id: 'hero_thistle',
+        name: 'Thistle',
+        element: 'Naturaleza',
+        cardClass: 'Pirate',
+        hp: 2100, def: 1500, atq: 1300,
+        maxHp: 2100,
+        passiveId: 'abs_reflect',
+        ultimateId: 'verdant_wrath',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Thistle+🌿',
+        _official: true,
+        description: 'Pirata de zarzas que abordó su propio barco hace tanto que ya es parte del casco. Espinas por toda armadura.'
+    },
+    {
+        id: 'hero_aurelian',
+        name: 'Aurelian',
+        element: 'Luz',
+        cardClass: 'Robot',
+        hp: 2200, def: 1400, atq: 1400,
+        maxHp: 2200,
+        passiveId: 'gen_steal_stats',
+        ultimateId: 'radiance_purge',
+        ultimateLevel: 1,
+        image: 'https://via.placeholder.com/300x200?text=Aurelian+☀️',
+        _official: true,
+        description: 'Centinela forjado por un culto solar extinto. Absorbe el poder de su rival para alimentar su propia luz.'
     }
 ];
 
@@ -1200,16 +1307,16 @@ export function isTournamentOver(bracket) {
 export const RARITY_COLORS = { common: '#888', rare: '#4ade80', epic: '#a855f7' };
 
 export const ITEM_DB = {
-    rusty_sword: { id: 'rusty_sword', name: 'Rusty Sword', slot: 'weapon', rarity: 'common', atq: 50, def: 0, hp: 0, vel: 0 },
-    wooden_shield: { id: 'wooden_shield', name: 'Wooden Shield', slot: 'armor', rarity: 'common', atq: 0, def: 80, hp: 0, vel: 0 },
-    bone_ring: { id: 'bone_ring', name: 'Bone Ring', slot: 'weapon', rarity: 'common', atq: 20, def: 20, hp: 0, vel: 0 },
-    leather_vest: { id: 'leather_vest', name: 'Leather Vest', slot: 'armor', rarity: 'common', atq: 0, def: 50, hp: 100, vel: 0 },
-    iron_claymore: { id: 'iron_claymore', name: 'Iron Claymore', slot: 'weapon', rarity: 'rare', atq: 150, def: 0, hp: 0, vel: 0 },
-    steel_plate: { id: 'steel_plate', name: 'Steel Plate', slot: 'armor', rarity: 'rare', atq: 0, def: 200, hp: 0, vel: 0 },
-    berserker_axe: { id: 'berserker_axe', name: "Berserker's Axe", slot: 'weapon', rarity: 'rare', atq: 200, def: -50, hp: 0, vel: 0 },
-    phoenix_crown: { id: 'phoenix_crown', name: 'Phoenix Crown', slot: 'armor', rarity: 'rare', atq: 0, def: 0, hp: 300, vel: 20 },
-    dragon_fang: { id: 'dragon_fang', name: 'Dragon Fang Blade', slot: 'weapon', rarity: 'epic', atq: 300, def: 0, hp: 0, vel: 30 },
-    phoenix_aegis: { id: 'phoenix_aegis', name: 'Phoenix Aegis', slot: 'armor', rarity: 'epic', atq: 0, def: 250, hp: 200, vel: 0 },
+    rusty_sword: { id: 'rusty_sword', name: 'Rusty Sword', slot: 'weapon', rarity: 'common', atq: 50, def: 0, hp: 0 },
+    wooden_shield: { id: 'wooden_shield', name: 'Wooden Shield', slot: 'armor', rarity: 'common', atq: 0, def: 80, hp: 0 },
+    bone_ring: { id: 'bone_ring', name: 'Bone Ring', slot: 'weapon', rarity: 'common', atq: 20, def: 20, hp: 0 },
+    leather_vest: { id: 'leather_vest', name: 'Leather Vest', slot: 'armor', rarity: 'common', atq: 0, def: 50, hp: 100 },
+    iron_claymore: { id: 'iron_claymore', name: 'Iron Claymore', slot: 'weapon', rarity: 'rare', atq: 150, def: 0, hp: 0 },
+    steel_plate: { id: 'steel_plate', name: 'Steel Plate', slot: 'armor', rarity: 'rare', atq: 0, def: 200, hp: 0 },
+    berserker_axe: { id: 'berserker_axe', name: "Berserker's Axe", slot: 'weapon', rarity: 'rare', atq: 200, def: -50, hp: 0 },
+    phoenix_crown: { id: 'phoenix_crown', name: 'Phoenix Crown', slot: 'armor', rarity: 'rare', atq: 0, def: 0, hp: 300 },
+    dragon_fang: { id: 'dragon_fang', name: 'Dragon Fang Blade', slot: 'weapon', rarity: 'epic', atq: 300, def: 0, hp: 0 },
+    phoenix_aegis: { id: 'phoenix_aegis', name: 'Phoenix Aegis', slot: 'armor', rarity: 'epic', atq: 0, def: 250, hp: 200 },
 };
 
 export function getItemRarityColor(rarity) {
@@ -1222,7 +1329,6 @@ export function applyItemStats(hero, item) {
     hero.def += (item.def || 0);
     hero.hp += (item.hp || 0);
     hero.maxHp += (item.hp || 0);
-    hero.vel += (item.vel || 0);
 }
 
 export function removeItemStats(hero, item) {
@@ -1231,7 +1337,6 @@ export function removeItemStats(hero, item) {
     hero.def -= (item.def || 0);
     hero.hp = Math.max(1, hero.hp - (item.hp || 0));
     hero.maxHp -= (item.hp || 0);
-    hero.vel -= (item.vel || 0);
 }
 
 export const RUN_PASSIVE_DB = {
@@ -1295,7 +1400,6 @@ export const UPGRADE_POOL = [
     { id: 'atk_up', name: 'Power Surge', icon: '⚔️', desc: '+20% ATQ permanente', type: 'stat', apply(hero) { hero.atq = Math.floor(hero.atq * 1.2); } },
     { id: 'def_up', name: 'Iron Will', icon: '🛡️', desc: '+20% DEF permanente', type: 'stat', apply(hero) { hero.def = Math.floor(hero.def * 1.2); } },
     { id: 'hp_up', name: 'Vitality Core', icon: '❤️', desc: '+30% HP Máximo (cura esa cantidad)', type: 'stat', apply(hero) { const bonus = Math.floor(hero.maxHp * 0.3); hero.maxHp += bonus; hero.hp = Math.min(hero.maxHp, hero.hp + bonus); } },
-    { id: 'vel_up', name: 'Haste', icon: '💨', desc: '+60 VEL permanente', type: 'stat', apply(hero) { hero.vel = Math.min(500, (hero.vel || 50) + 60); } },
     { id: 'bloodthirst', name: 'Bloodthirst', icon: '🩸', desc: 'Cura 10% del daño infligido', type: 'passive', passiveId: 'bloodthirst' },
     { id: 'thornmail', name: 'Thornmail', icon: '🌵', desc: 'Reflecta 15% daño recibido', type: 'passive', passiveId: 'thornmail' },
     { id: 'precision', name: 'Precision', icon: '🎯', desc: '20% chance de golpe doble', type: 'passive', passiveId: 'precision' },
@@ -1344,25 +1448,25 @@ export function applyUpgrade(hero, upgrade, runPassives) {
 export const RUN_ENEMIES_1V1 = {
     goblin_scout: {
         id: 'goblin_scout', name: 'Goblin Scout', element: 'Wind',
-        cardClass: 'Goblin', hp: 1500, def: 700, atq: 1200, vel: 130, maxHp: 1500,
+        cardClass: 'Goblin', hp: 1500, def: 700, atq: 1200, maxHp: 1500,
         passiveId: '', ultimateId: 'enemy_smash',
         image: 'https://via.placeholder.com/240x160?text=Scout'
     },
     goblin_piker: {
         id: 'goblin_piker', name: 'Goblin Piker', element: 'Neutral',
-        cardClass: 'Goblin', hp: 1700, def: 800, atq: 1300, vel: 90, maxHp: 1700,
+        cardClass: 'Goblin', hp: 1700, def: 800, atq: 1300, maxHp: 1700,
         passiveId: '', ultimateId: 'enemy_smash',
         image: 'https://via.placeholder.com/240x160?text=Piker'
     },
     goblin_shieldbearer: {
         id: 'goblin_shield', name: 'Goblin Shieldbearer', element: 'Neutral',
-        cardClass: 'Goblin', hp: 2200, def: 1400, atq: 1100, vel: 60, maxHp: 2200,
+        cardClass: 'Goblin', hp: 2200, def: 1400, atq: 1100, maxHp: 2200,
         passiveId: '', ultimateId: 'enemy_smash',
         image: 'https://via.placeholder.com/240x160?text=Shield'
     },
     goblin_shaman_boss: {
         id: 'goblin_shaman', name: 'Goblin Shaman', element: 'Nature',
-        cardClass: 'Goblin', hp: 2500, def: 1500, atq: 1600, vel: 80, maxHp: 2500,
+        cardClass: 'Goblin', hp: 2500, def: 1500, atq: 1600, maxHp: 2500,
         passiveId: 'shield_recharge', ultimateId: 'verdant_wrath',
         image: 'https://via.placeholder.com/240x160?text=Shaman+BOSS',
         isBoss: true

@@ -174,54 +174,6 @@ export function showSection(section) {
     }
 }
 
-// =============================================
-// 📋 2A — TURN ORDER BAR
-// =============================================
-export function renderTurnBar(turnQueue, currentIndex, containerId = 'coliseumTurnBar') {
-    const bar = document.getElementById(containerId);
-    if (!bar || !turnQueue) return;
-
-    if (turnQueue.length === 0) { bar.style.display = 'none'; return; }
-    bar.style.display = 'flex';
-
-    const total = turnQueue.length;
-    const startIdx = currentIndex;
-    const maxShow = 8;
-    const preview = [];
-
-    for (let i = 0; i < Math.min(maxShow, total); i++) {
-        const idx = (startIdx + i) % total;
-        const entry = turnQueue[idx];
-        if (!entry || !entry.actor) continue;
-        preview.push({ ...entry, queueIdx: idx });
-    }
-
-    bar.innerHTML = preview.map((entry, i) => {
-        const isActive = entry.queueIdx === currentIndex && i === 0;
-        const isDead = entry.actor.hp <= 0;
-        const sideClass = entry.isAlly ? 'ally' : 'enemy';
-        const imgSrc = entry.actor.image || '';
-        const imgHtml = imgSrc
-            ? `<img class="tb-portrait" src="${esc(imgSrc)}" alt="">`
-            : `<span class="tb-portrait" style="background:${entry.isAlly ? '#3b82f6' : '#ef4444'};display:inline-flex;align-items:center;justify-content:center;font-size:0.6rem;">${entry.isAlly ? 'A' : 'E'}</span>`;
-
-        const nameDisplay = entry.actor.name.length > 8
-            ? entry.actor.name.slice(0, 7) + '…'
-            : entry.actor.name;
-
-        let html = `<div class="turn-bar-entry ${isActive ? 'active' : ''} ${isDead ? 'dead' : ''} ${sideClass}">`;
-        html += imgHtml;
-        html += `<span class="tb-name">${esc(nameDisplay)}</span>`;
-        html += `<span class="tb-vel">💨${entry.vel}</span>`;
-        html += `</div>`;
-
-        if (i < preview.length - 1) {
-            html += `<span class="turn-bar-arrow">→</span>`;
-        }
-        return html;
-    }).join('');
-}
-
 // --- ⚔️ SECCIÓN DEL COLISEO ---
 
 export function renderSelector() {
@@ -336,9 +288,6 @@ export function resetColiseum() {
         consoleEl.innerHTML = '<div class="empty-state-msg" style="color:#94a3b8;">🏛️ Architect Harmondez Edition — The arena awaits the contenders...</div>';
     }
 
-    const turnBar = document.getElementById('coliseumTurnBar');
-    if (turnBar) turnBar.style.display = 'none';
-
     setColiseumButtonMode('next');
 
     const btnInit = document.getElementById('btnInitCombat');
@@ -403,6 +352,11 @@ export function previewLibraryCard(id) {
 }
 
 window.handleDeleteCard = function(id) {
+    const target = Engine.getAllPlayableCards().find(c => c.id === id);
+    if (target && target._official) {
+        alert("Los campeones oficiales no se pueden eliminar.");
+        return;
+    }
     if (confirm("¿Seguro que quieres borrar este héroe de la historia?")) {
         const library = Engine.cards || [];
         if (library.length <= 1) {
@@ -436,7 +390,7 @@ export function displayCards(searchTerm) {
     const listContainer = document.getElementById('librarySidebarList');
     if (!listContainer) return;
 
-    const library = Engine.cards || [];
+    const library = Engine.getAllPlayableCards() || [];
     let filtered = library;
 
     if (searchTerm && searchTerm.length > 0) {
@@ -467,7 +421,7 @@ export function displayCards(searchTerm) {
             </div>
             <div class="roster-category-list">
                 ${groups[className].map(card => {
-                    const totalPoints = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * Engine.VEL_WEIGHT);
+                    const totalPoints = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
                     const isMythic = totalPoints >= Engine.STAT_LIMIT;
                     const rarityClass = isMythic ? 'rarity-legendary' : totalPoints > 5000 ? 'rarity-epic' : 'rarity-common';
 
@@ -499,7 +453,7 @@ export function renderGallery() {
     const official = Engine.OFFICIAL_CARDS || [];
 
     grid.innerHTML = official.map(card => {
-        const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * Engine.VEL_WEIGHT);
+        const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
         const elCfg = elementConfigs[card.element] || { icon: '❓', color: '#777' };
         const classIcon = classIcons[card.cardClass] || '👤';
         const ultData = Engine.ULTIMATE_DB[card.ultimateId];
@@ -520,7 +474,6 @@ export function renderGallery() {
                 <div class="gallery-stat"><span class="gsl">❤️</span> ${card.hp}</div>
                 <div class="gallery-stat"><span class="gsl">🛡️</span> ${card.def}</div>
                 <div class="gallery-stat"><span class="gsl">⚔️</span> ${card.atq}</div>
-                <div class="gallery-stat"><span class="gsl">💨</span> ${card.vel}</div>
                 <div class="gallery-stat"><span class="gsl">📊</span> ${totalStats}</div>
             </div>
             <div class="gallery-card-detail">
@@ -542,7 +495,7 @@ export function renderCardDetail(card) {
 
     const skillName = passiveNames[card.passiveId] || card.passiveId || 'None';
     const elementColor = elementConfigs[card.element]?.color || '#94a3b8';
-    const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0) + ((card.vel || 0) * Engine.VEL_WEIGHT);
+    const totalStats = (card.hp || 0) + (card.atq || 0) + (card.def || 0);
     const isMythic = totalStats >= Engine.STAT_LIMIT;
 
     detailContainer.innerHTML = `
@@ -627,7 +580,6 @@ export function renderCardDetail(card) {
                 <span style="color: #ef4444; text-shadow: 1px 1px 0 #000;">❤️ ${card.hp}</span>
                 <span style="color: #3b82f6; text-shadow: 1px 1px 0 #000;">🛡️ ${card.def}</span>
                 <span style="color: #f59e0b; text-shadow: 1px 1px 0 #000;">⚔️ ${card.atq}</span>
-                <span style="color: #a78bfa; text-shadow: 1px 1px 0 #000;">💨 ${card.vel || 100}</span>
             </div>
         </div>
 
@@ -641,9 +593,10 @@ export function renderCardDetail(card) {
                 <span style="color: var(--primary); font-weight: bold;">${totalStats}</span> points.
             </p>
 
-            <button onclick="handleDeleteCard('${esc(card.id)}')" class="btn-delete-pro">
-                DISMANTLE HERO
-            </button>
+            ${card._official
+                ? `<div class="official-badge" style="color: var(--text-dim); font-size: 0.8rem; font-style: italic;">🏛️ Official Champion — cannot be dismantled</div>`
+                : `<button onclick="handleDeleteCard('${esc(card.id)}')" class="btn-delete-pro">DISMANTLE HERO</button>`
+            }
         </div>
     `;
 
@@ -672,12 +625,11 @@ export function updatePreview(croppedImg) {
     const hp = parseInt(document.getElementById('inputHP')?.value) || 1;
     const def = parseInt(document.getElementById('inputDEF')?.value) || 1;
     const atq = parseInt(document.getElementById('inputATQ')?.value) || 1;
-    const vel = parseInt(document.getElementById('inputVEL')?.value) || 100;
 
     const skillName = passiveNames[passiveId] || "Passive: Select one";
     const ultName = ultimateId ? (Engine.ULTIMATE_DB[ultimateId]?.name || 'Ultimate') : '';
     const config = elementConfigs[element];
-    const totalStats = hp + def + atq + (vel * Engine.VEL_WEIGHT);
+    const totalStats = hp + def + atq;
     const isMythic = totalStats >= Engine.STAT_LIMIT;
 
     previewContainer.innerHTML = `
@@ -718,7 +670,6 @@ export function updatePreview(croppedImg) {
                 <span style="color: #ef4444; text-shadow: 1px 1px 0 #000;">❤️ ${hp}</span>
                 <span style="color: #3b82f6; text-shadow: 1px 1px 0 #000;">🛡️ ${def}</span>
                 <span style="color: #f59e0b; text-shadow: 1px 1px 0 #000;">⚔️ ${atq}</span>
-                <span id="previewStatVEL" style="color: #a78bfa; text-shadow: 1px 1px 0 #000;">💨 ${vel}</span>
             </div>
         </div>
     `;
@@ -730,14 +681,12 @@ export function updateRemainingPoints() {
     const elHP = document.getElementById('inputHP');
     const elDEF = document.getElementById('inputDEF');
     const elATQ = document.getElementById('inputATQ');
-    const elVEL = document.getElementById('inputVEL');
 
     const hp = elHP ? parseInt(elHP.value) || 0 : 0;
     const def = elDEF ? parseInt(elDEF.value) || 0 : 0;
     const atq = elATQ ? parseInt(elATQ.value) || 0 : 0;
-    const vel = elVEL ? parseInt(elVEL.value) || 0 : 0;
 
-    const total = hp + def + atq + (vel * Engine.VEL_WEIGHT);
+    const total = hp + def + atq;
     const remaining = Engine.STAT_LIMIT - total;
 
     const display = document.getElementById('remainingPts');
@@ -750,7 +699,7 @@ export function updateRemainingPoints() {
         }
     }
 
-    const labels = { 'valHP': hp, 'valDEF': def, 'valATQ': atq, 'valVEL': vel, 'statVEL': vel };
+    const labels = { 'valHP': hp, 'valDEF': def, 'valATQ': atq };
     for (const [id, val] of Object.entries(labels)) {
         const el = document.getElementById(id);
         if (el) el.innerText = val;
@@ -771,7 +720,6 @@ export function resetCropperData() {
     if (document.getElementById('inputHP')) document.getElementById('inputHP').value = 1;
     if (document.getElementById('inputDEF')) document.getElementById('inputDEF').value = 1;
     if (document.getElementById('inputATQ')) document.getElementById('inputATQ').value = 1;
-    if (document.getElementById('inputVEL')) document.getElementById('inputVEL').value = 100;
 
     updateRemainingPoints();
     updatePreview(null);
@@ -868,10 +816,6 @@ export function refreshFighterStats(fighter, num) {
         atqText.innerText = Math.floor(fighter.atq || 0);
     }
 
-    const velText = document.getElementById(`statVEL-${num}`);
-    if (velText) {
-        velText.innerText = fighter.vel || 0;
-    }
 }
 
 /**
@@ -896,33 +840,7 @@ export function animatePassiveTrigger(fighterNum) {
     } catch (e) {}
 }
 
-// =============================================
-// 👁️ 2C — ACTIVE TURN HIGHLIGHT
-// =============================================
-export function setActiveHighlight(isColiseum, isAlly, slotIndex) {
-    if (isColiseum) {
-        [1, 2].forEach(n => {
-            const el = document.getElementById(`boxF${n}`);
-            if (el) el.classList.remove('active-turn');
-        });
-        const num = isAlly ? 1 : 2;
-        const el = document.getElementById(`boxF${num}`);
-        if (el) el.classList.add('active-turn');
-    } else {
-        document.querySelectorAll('.party-member-card.active-turn, .squad-member-card.active-turn').forEach(el => {
-            el.classList.remove('active-turn');
-        });
-        const selector = isAlly
-            ? `.party-member-card[data-index="${slotIndex}"]`
-            : `.squad-member-card[data-enemy-index="${slotIndex}"]`;
-        const el = document.querySelector(selector);
-        if (el) el.classList.add('active-turn');
-    }
-}
-
-export function clearActiveHighlight() {
-    document.querySelectorAll('.active-turn').forEach(el => el.classList.remove('active-turn'));
-}
+let _dimmed = false;
 
 export function clearPvETurnHighlights() {
     document.querySelectorAll('.active-turn, .dimmed, .targetable, .target-selected').forEach(el => {
@@ -1137,12 +1055,10 @@ export function updateFighterPreview(fighter, num) {
         const hpEl = document.getElementById(`statHP-${num}`);
         const atqEl = document.getElementById(`statATQ-${num}`);
         const defEl = document.getElementById(`statDEF-${num}`);
-        const velEl = document.getElementById(`statVEL-${num}`);
         const nameEl = document.getElementById(`statNameF${num}`);
         if (hpEl) hpEl.innerText = fighter.hp || 0;
         if (atqEl) atqEl.innerText = fighter.atq || 0;
         if (defEl) defEl.innerText = fighter.def || 0;
-        if (velEl) velEl.innerText = fighter.vel || 0;
         if (nameEl) nameEl.innerText = fighter.name || '';
 
         if (img && typeof gsap !== 'undefined') {
@@ -1182,7 +1098,7 @@ export function updateFighterPreview(fighter, num) {
 }
 
 window.selectLibraryCard = function(id) {
-    const card = Engine.cards.find(c => c.id === id);
+    const card = Engine.getAllPlayableCards().find(c => c.id === id);
     if (card) {
         renderCardDetail(card);
         document.querySelectorAll('.card-list-item').forEach(el => el.classList.remove('active'));
@@ -1547,7 +1463,7 @@ export function _openTournamentPicker(slotIndex) {
             return `<div class="card-picker-item" data-card-id="${esc(c.id)}" data-target-slot="${slotIndex}">
                 <img class="picker-card-img" src="${esc(c.image || '')}" alt="" onerror="this.src='https://via.placeholder.com/140x60?text=No+Image'">
                 <div class="picker-card-name">${tag}${esc(c.name)}</div>
-                <div class="picker-card-stats">❤️${c.hp} ⚔️${c.atq} 🛡️${c.def} 💨${c.vel || 80}</div>
+                <div class="picker-card-stats">❤️${c.hp} ⚔️${c.atq} 🛡️${c.def}</div>
             </div>`;
         }).join('');
     }
@@ -1650,7 +1566,6 @@ export function renderTournamentMatch(f1, f2, round, matchNum) {
                     <span>❤️${fighter.hp}</span>
                     <span>🛡️${Math.floor(fighter.def)}</span>
                     <span>⚔️${Math.floor(fighter.atq)}</span>
-                    <span>💨${fighter.vel}</span>
                 </div>
             </div>
         `;
@@ -1694,7 +1609,6 @@ export function showTournamentChampion(winner) {
             <div class="tc-stat">❤️ ${winner.hp}</div>
             <div class="tc-stat">🛡️ ${Math.floor(winner.def)}</div>
             <div class="tc-stat">⚔️ ${Math.floor(winner.atq)}</div>
-            <div class="tc-stat">💨 ${winner.vel}</div>
         </div>
         <div class="tc-msg">The champion of the arena!</div>
         <button id="btnChampionClose" class="btn-forge" style="margin-top:20px;" onclick="var el=document.getElementById('tournamentChampionOverlay');if(el)el.style.display='none'">🏆 CHAMPION</button>
@@ -1765,7 +1679,6 @@ export function renderHeroPicker(onSelect) {
                     <span>❤️${c.hp}</span>
                     <span>⚔️${c.atq}</span>
                     <span>🛡️${c.def}</span>
-                    <span>💨${c.vel || 80}</span>
                 </div>
             </div>
         `;
@@ -1896,7 +1809,6 @@ export function renderSingleHeroArena(hero, enemy, turnCount) {
                 <div class="sac-stats">
                     <span class="s">⚔️ ATQ</span><span class="v">${entity.atq}</span>
                     <span class="s">🛡️ DEF</span><span class="v">${entity.def}</span>
-                    <span class="s">💨 VEL</span><span class="v">${entity.vel || 50}</span>
                 </div>
                 <div class="single-arena-fervor">🔥 Fervor: ${entity.fervor || 0}/10</div>
             </div>
@@ -2037,7 +1949,6 @@ export function renderItemDrop(item, onEquip, onSkip) {
     if (item.atq) statsParts.push(`⚔️ +${item.atq} ATQ`);
     if (item.def) statsParts.push(`🛡️ ${item.def >= 0 ? '+' : ''}${item.def} DEF`);
     if (item.hp) statsParts.push(`❤️ +${item.hp} HP`);
-    if (item.vel) statsParts.push(`💨 +${item.vel} VEL`);
     const statsStr = statsParts.length > 0 ? statsParts.join(' · ') : 'No stats';
 
     const slotLabel = item.slot === 'weapon' ? '⚔️ Weapon Slot' : '🛡️ Armor Slot';

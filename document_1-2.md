@@ -278,3 +278,17 @@ Al retomar el proyecto con Claude Code se hizo una auditoría completa y, con co
 - Se corrigieron los tests que ejercitaban el flujo muerto (`story.test.mjs` se eliminó, `uifixes.test.mjs` se reescribió sobre el flujo real del hero picker) y de paso se encontró y arregló un bug real: el botón de cerrar del picker de Torneo no tenía listener.
 - Se limpiaron artefactos de herramientas anteriores (`.opencode/`, `.continue/`, `AGENTS.md` → ideas reformuladas en `ideas-agents.md`).
 - `CLAUDE.md` y `Plan_12_fases.md` se reescribieron para reflejar el estado real del código en vez de un diseño abandonado.
+
+---
+
+## ⚔️ Se quita VEL — vuelta al combate simultáneo 1v1
+
+Petición directa del usuario: quitar el stat VEL de todo el juego. Al investigar el alcance real (Coliseo, Torneo y Aventura comparten `buildTurnOrder`/turnos), el usuario aclaró la intención completa: los tres modos son 1v1 en el fondo, así que los tres vuelven al diseño **original** de Easy Hit — combate simultáneo, ambos bandos golpeando la misma ronda — pero conservando Fervor y Ultimates (que en el diseño original de 2026-05 no existían; llegaron junto con VEL en el mismo commit que lo introdujo).
+
+Se recuperó del historial de git (`git show 3779a84:engine.js`) la implementación exacta del combate simultáneo previo a VEL, como referencia — pero la implementación final reutiliza el motor de pasivas/Fervor/Ultimates actual (`procesarAtaque`, `applyRoundStartPassives`) en vez de resucitar el código de 2026-05 literal, ya que ese código no conocía Fervor ni la mitad de las pasivas de hoy.
+
+- Nuevas funciones en `engine.js`: `resolveSimultaneousRound(f1, f2)` (Coliseo/Torneo) y `resolveAdventureRound(hero, enemy, heroAction)` (Aventura), ambas sobre un helper interno `tickRoundStart`.
+- Eliminadas: `buildTurnOrder`, `resolveCombatTurn`, `resolveEnemyTurn`, `findTarget`, `VEL_WEIGHT`/`VEL_MIN`/`VEL_MAX`, el campo `vel` en toda la data de cartas/ítems/enemigos, el upgrade `vel_up` del roguelike (pool de 10 → 9).
+- `ui.js`/`index.html`/`style.css`: se retiró toda la UI de VEL (slider del Creator, stats en tarjetas, tooltips de ítems) y la barra de orden de turno (`renderTurnBar`, `setActiveHighlight`/`clearActiveHighlight`), que dependía de la cola de turnos ya eliminada.
+- Bug real encontrado de paso: `clearPvETurnHighlights` (función viva, usada en cada ronda de Aventura) leía una variable `_dimmed` que se había borrado por error en la limpieza de código muerto anterior — lanzaba `ReferenceError` en cada combate de Aventura. Se restauró la declaración.
+- Suite de tests: `story.test.mjs` y `pve-sim.mjs` se eliminaron (probaban exclusivamente máquinaria de cola/5v5 ya retirada); `engine.unit.mjs`, `run-sim.mjs`, `tournament-sim.mjs`, `browser.test.mjs`, `uifixes.test.mjs` se actualizaron para ejercitar `resolveSimultaneousRound`/`resolveAdventureRound` reales en vez de la cola vieja.

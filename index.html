@@ -40,25 +40,25 @@
             <button type="button" class="tab-item" id="tab-library">
                 <span class="icon">📜</span> Library
             </button>
-            <button type="button" class="tab-item" id="tab-creator">
+            <button type="button" class="tab-item" id="tab-creator" style="display:none;" hidden>
                 <span class="icon">⚒️</span> Creator
             </button>
             <button type="button" class="tab-item" id="tab-coliseo">
-                <span class="icon">⚔️</span> Coliseum
+                <span class="icon">⚔️</span> Duelos
             </button>
-            <button type="button" class="tab-item" id="tab-adventure">
+            <button type="button" class="tab-item" id="tab-adventure" style="display:none;" hidden>
                 <span class="icon">🗺️</span> Adventure
             </button>
-            <button type="button" class="tab-item" id="tab-gallery">
+            <button type="button" class="tab-item" id="tab-gallery" style="display:none;" hidden>
                 <span class="icon">🖼️</span> Gallery
             </button>
             <button type="button" class="tab-item" id="tab-tournament">
-                <span class="icon">🏆</span> Tournament
+                <span class="icon">🏆</span> Torneo
             </button>
-            <button type="button" class="tab-item" id="tab-inventory">
+            <button type="button" class="tab-item" id="tab-inventory" style="display:none;" hidden>
                 <span class="icon">🎒</span> Inventory
             </button>
-            <button type="button" class="tab-item locked" id="tab-shop">
+            <button type="button" class="tab-item locked" id="tab-shop" style="display:none;" hidden>
                 <span class="icon">🏪</span> Shop
             </button>
         </div>
@@ -172,13 +172,6 @@
                         </div>
                         <input type="range" id="inputATQ" min="1" max="7398" value="2500" class="range-slider">
                     </div>
-                    <div class="stat-control">
-                        <div class="stat-info">
-                            <span>Speed (VEL)</span>
-                            <b id="valVEL" class="stat-number">100</b>
-                        </div>
-                        <input type="range" id="inputVEL" min="50" max="500" value="100" class="range-slider">
-                    </div>
                     <div class="budget-card">
                         <span id="budgetMessage">Available points</span>
                         <div class="remaining-points"><span id="remainingPts">7400</span></div>
@@ -263,7 +256,6 @@
                                 <div class="stat-box">⚔️ <b id="statATQ">2500</b></div>
                                 <div class="stat-box">🛡️ <b id="statDEF">2500</b></div>
                                 <div class="stat-box">❤️ <b id="statHP">2400</b></div>
-                                <div class="stat-box">💨 <b id="statVEL">100</b></div>
                             </div>
                             <p class="passive-desc" id="previewPassive">Passive: Select one</p>
                         </div>
@@ -280,7 +272,6 @@
             </div>
             <div class="combat-layout">
                 <div class="combat-main">
-                    <div id="coliseumTurnBar" class="turn-bar" style="display:none;"></div>
                     <div class="arena-setup">
                         <div class="fighter-select" id="boxF1">
                             <label class="input-label">CHALLENGER 1</label>
@@ -297,7 +288,6 @@
                                     <span class="stat-hp">❤️ <b id="statHP-1">0</b></span>
                                     <span class="stat-atq">⚔️ <b id="statATQ-1">0</b></span>
                                     <span class="stat-def">🛡️ <b id="statDEF-1">0</b></span>
-                                    <span class="stat-vel">💨 <b id="statVEL-1">0</b></span>
                                 </div>
                                 <div class="arena-fervor-bar" id="fervorBar-1">
                                     <div class="fervor-fill" id="fervorFill-1" style="width:0%"></div>
@@ -323,7 +313,6 @@
                                     <span class="stat-hp">❤️ <b id="statHP-2">0</b></span>
                                     <span class="stat-atq">⚔️ <b id="statATQ-2">0</b></span>
                                     <span class="stat-def">🛡️ <b id="statDEF-2">0</b></span>
-                                    <span class="stat-vel">💨 <b id="statVEL-2">0</b></span>
                                 </div>
                                 <div class="arena-fervor-bar" id="fervorBar-2">
                                     <div class="fervor-fill" id="fervorFill-2" style="width:0%"></div>
@@ -430,7 +419,6 @@
                             <span id="tournamentMatchLabel">Match 1 · Round 1</span>
                             <button id="btnForfeitMatch" class="btn-secondary" style="padding:4px 12px;font-size:0.8rem;">FORFEIT</button>
                         </div>
-                        <div class="tournament-turn-bar" id="tournamentTurnBar" style="display:none;"></div>
                         <div class="tournament-match-arena" id="tournamentMatchArena">
                             <!-- Fighter boxes generados dinámicamente -->
                         </div>
